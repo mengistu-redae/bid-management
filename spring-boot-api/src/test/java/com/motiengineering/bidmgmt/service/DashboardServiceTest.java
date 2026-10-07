@@ -11,6 +11,7 @@ import com.motiengineering.bidmgmt.domain.enums.Outcome;
 import com.motiengineering.bidmgmt.dto.DashboardDto;
 import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.repository.BidRepository;
+import com.motiengineering.bidmgmt.repository.DealRegistrationRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,9 +39,11 @@ class DashboardServiceTest {
         LotAccountOfficerRepository lotAccountOfficerRepository = mock(LotAccountOfficerRepository.class);
         when(lotAccountOfficerRepository.findById_LotId(org.mockito.ArgumentMatchers.any())).thenReturn(List.of());
         AppUserRepository appUserRepository = mock(AppUserRepository.class);
+        DealRegistrationRepository dealRegistrationRepository = mock(DealRegistrationRepository.class);
+        when(dealRegistrationRepository.findAll()).thenReturn(List.of());
         ChecklistService checklistService = mock(ChecklistService.class);
         when(checklistService.progressPercent(org.mockito.ArgumentMatchers.any())).thenReturn(50);
-        service = new DashboardService(bidRepository, lotAccountOfficerRepository, appUserRepository, checklistService);
+        service = new DashboardService(bidRepository, lotAccountOfficerRepository, appUserRepository, dealRegistrationRepository, checklistService);
     }
 
     private Organization org(String name) {

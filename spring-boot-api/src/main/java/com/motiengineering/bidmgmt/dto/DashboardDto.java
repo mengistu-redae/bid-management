@@ -14,5 +14,6 @@ public record DashboardDto(
         List<WinRateRowDto> winRateByOem,
         List<OutstandingBondRowDto> outstandingBonds,
         BigDecimal outstandingBondTotalEtb,
-        BigDecimal outstandingBondTotalUsd) {
+        BigDecimal outstandingBondTotalUsd,
+        List<ExpiringDealRegistrationRowDto> expiringDealRegistrations) {
 }

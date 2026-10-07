@@ -25,6 +25,7 @@ import com.motiengineering.bidmgmt.repository.BidScoutRepository;
 import com.motiengineering.bidmgmt.repository.DivisionRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
 import com.motiengineering.bidmgmt.repository.LotScopeTypeRepository;
+import com.motiengineering.bidmgmt.repository.OpportunityRepository;
 import com.motiengineering.bidmgmt.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -45,6 +46,7 @@ public class BidService {
     private final LotScopeTypeRepository lotScopeTypeRepository;
     private final DivisionRepository divisionRepository;
     private final OrganizationRepository organizationRepository;
+    private final OpportunityRepository opportunityRepository;
     private final OrganizationResolutionService organizationResolutionService;
     private final UserResolutionService userResolutionService;
     private final ChecklistService checklistService;
@@ -119,6 +121,18 @@ public class BidService {
         bid.setBidValidityDays(request.bidValidityDays());
         bid.setNotes(request.notes());
         bid.setCreatedBy(creator);
+        // Set before the first save (not mutated afterward) - mutating an
+        // already-persisted-but-unflushed entity and calling save() a
+        // second time makes Spring Data JPA's isNew() check (ID already
+        // assigned by @UuidGenerator) route through merge() instead of
+        // persist(), which schedules an UPDATE instead of an INSERT - and
+        // @CreationTimestamp only fires for INSERT, so created_at ends up
+        // NULL on that UPDATE and the DB's NOT NULL constraint rejects it.
+        // Found live via OpportunityService.convertToBid - see
+        // OpportunityServiceLiveTest for the regression test.
+        if (request.opportunityId() != null) {
+            opportunityRepository.findById(request.opportunityId()).ifPresent(bid::setOpportunity);
+        }
         bid = bidRepository.save(bid);
 
         if (request.scoutNames() != null) {

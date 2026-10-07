@@ -4,18 +4,22 @@ import com.motiengineering.bidmgmt.domain.AppUser;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
 import com.motiengineering.bidmgmt.domain.ChecklistItem;
+import com.motiengineering.bidmgmt.domain.DealRegistration;
 import com.motiengineering.bidmgmt.domain.LotAccountOfficer;
 import com.motiengineering.bidmgmt.domain.enums.BidStatus;
 import com.motiengineering.bidmgmt.domain.enums.Currency;
+import com.motiengineering.bidmgmt.domain.enums.DealRegistrationStatus;
 import com.motiengineering.bidmgmt.domain.enums.Outcome;
 import com.motiengineering.bidmgmt.dto.ClarificationRowDto;
 import com.motiengineering.bidmgmt.dto.ClosingSoonRowDto;
 import com.motiengineering.bidmgmt.dto.DashboardDto;
+import com.motiengineering.bidmgmt.dto.ExpiringDealRegistrationRowDto;
 import com.motiengineering.bidmgmt.dto.OutstandingBondRowDto;
 import com.motiengineering.bidmgmt.dto.PipelineValueRowDto;
 import com.motiengineering.bidmgmt.dto.WinRateRowDto;
 import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.repository.BidRepository;
+import com.motiengineering.bidmgmt.repository.DealRegistrationRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -50,9 +54,12 @@ public class DashboardService {
     private static final int RED_FLAG_WINDOW_DAYS = 5;
     private static final int BOND_EXPIRING_SOON_DAYS = 14;
 
+    private static final int DEAL_REGISTRATION_EXPIRING_SOON_DAYS = 30;
+
     private final BidRepository bidRepository;
     private final LotAccountOfficerRepository lotAccountOfficerRepository;
     private final AppUserRepository appUserRepository;
+    private final DealRegistrationRepository dealRegistrationRepository;
     private final ChecklistService checklistService;
 
     public DashboardDto build() {
@@ -71,7 +78,23 @@ public class DashboardService {
                 winRateByOem(allBids),
                 outstandingBonds(allBids, today),
                 sumBondsByCurrency(allBids, Currency.ETB),
-                sumBondsByCurrency(allBids, Currency.USD));
+                sumBondsByCurrency(allBids, Currency.USD),
+                expiringDealRegistrations(today));
+    }
+
+    private List<ExpiringDealRegistrationRowDto> expiringDealRegistrations(LocalDate today) {
+        LocalDate cutoff = today.plusDays(DEAL_REGISTRATION_EXPIRING_SOON_DAYS);
+        List<ExpiringDealRegistrationRowDto> rows = new ArrayList<>();
+        for (DealRegistration reg : dealRegistrationRepository.findAll()) {
+            if (reg.getExpiryDate() == null || reg.getStatus() == DealRegistrationStatus.EXPIRED || reg.getStatus() == DealRegistrationStatus.REJECTED) {
+                continue;
+            }
+            if (!reg.getExpiryDate().isBefore(today) && reg.getExpiryDate().isBefore(cutoff)) {
+                rows.add(new ExpiringDealRegistrationRowDto(reg.getId(), reg.getOem().getName(), reg.getOrganization().getName(), reg.getExpiryDate()));
+            }
+        }
+        rows.sort((a, b) -> a.expiryDate().compareTo(b.expiryDate()));
+        return rows;
     }
 
     private List<ClosingSoonRowDto> closingWithin(List<Bid> bids, Instant now, int fromDays, int toDays) {
@@ -301,9 +324,13 @@ public class DashboardService {
         return rows;
     }
 
+    /** Uses the real issue date once it's recorded; otherwise falls back to an estimate off the bid's opening/closing date. */
     private LocalDate estimateBondExpiry(Bid bid, BidLot lot) {
         if (lot.getBidBondValidityDays() == null) {
             return null;
+        }
+        if (lot.getBidBondIssueDate() != null) {
+            return lot.getBidBondIssueDate().plusDays(lot.getBidBondValidityDays());
         }
         Instant base = bid.getOpeningAt() != null ? bid.getOpeningAt() : bid.getClosingAt();
         if (base == null) {

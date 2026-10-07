@@ -98,6 +98,8 @@ public class BidMapper {
                 lot.getBidBondForm() == null ? null : lot.getBidBondForm().name(),
                 lot.isBidBondReturned(),
                 lot.getBidBondReturnedAt(),
+                lot.getBidBondIssuingBank(),
+                lot.getBidBondIssueDate(),
                 lot.getOemBrand(),
                 lot.getStatus() == null ? null : lot.getStatus().name(),
                 lot.getExitReason(),

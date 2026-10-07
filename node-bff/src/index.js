@@ -11,6 +11,8 @@ const { requireSession } = require('./requireSession');
 const buildBidsRouter = require('./routes/pages/bids');
 const buildImportRouter = require('./routes/pages/importPage');
 const buildDashboardRouter = require('./routes/pages/dashboard');
+const buildOpportunitiesRouter = require('./routes/pages/opportunities');
+const buildDealRegistrationsRouter = require('./routes/pages/dealRegistrations');
 
 async function main() {
   const app = express();
@@ -45,6 +47,8 @@ async function main() {
   app.get('/', (req, res) => res.redirect('/dashboard'));
   app.use('/dashboard', buildDashboardRouter());
   app.use('/bids', buildBidsRouter());
+  app.use('/opportunities', buildOpportunitiesRouter());
+  app.use('/deal-registrations', buildDealRegistrationsRouter());
   app.use('/import', buildImportRouter());
 
   app.use((req, res) => res.status(404).render('error', { message: 'Page not found', user: req.session.user }));

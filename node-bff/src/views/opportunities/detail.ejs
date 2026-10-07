@@ -1,0 +1,63 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+
+<div class="toolbar">
+  <div>
+    <h1 style="margin:0;"><%= opportunity.title %></h1>
+    <div class="muted"><%= opportunity.organization ? opportunity.organization.name : '-' %></div>
+  </div>
+  <span class="badge <%= opportunity.stage === 'LOST_CLOSED' ? 'lost' : (opportunity.stage === 'CONVERTED_TO_BID' ? 'won' : '') %>" style="font-size:1rem;"><%= opportunity.stage %></span>
+</div>
+
+<div class="card">
+  <div style="display:flex; flex-wrap:wrap; gap:2rem;">
+    <div><strong>Estimated value</strong><br><%= formatMoney(opportunity.estimatedValue, opportunity.estimatedValueCurrency) %></div>
+    <div><strong>Expected tender date</strong><br><%= formatDate(opportunity.expectedTenderDate) %></div>
+    <div><strong>Division(s)</strong><br><%= opportunity.divisions.map(d => d.name).join(', ') || '-' %></div>
+    <div><strong>OEM(s)/vendor(s)</strong><br><%= opportunity.oems.map(o => o.name).join(', ') || '-' %></div>
+    <div><strong>Owner</strong><br><%= opportunity.owner ? opportunity.owner.fullName : '-' %></div>
+  </div>
+  <% if (opportunity.notes) { %><p style="margin-top:1rem;"><%= opportunity.notes %></p><% } %>
+  <% if (opportunity.convertedBidId) { %>
+    <p style="margin-top:1rem;"><strong>Converted to bid:</strong> <a href="/bids/<%= opportunity.convertedBidId %>">View bid</a></p>
+  <% } %>
+  <% if (opportunity.lostReason) { %><p style="margin-top:1rem;"><strong>Lost reason:</strong> <%= opportunity.lostReason %></p><% } %>
+</div>
+
+<% if (opportunity.canEdit && opportunity.stage !== 'CONVERTED_TO_BID') { %>
+<div class="card">
+  <h2 style="margin-top:0;">Update stage</h2>
+  <form method="post" action="/opportunities/<%= opportunity.id %>/update" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
+    <div style="flex:1; min-width:10rem;">
+      <label>Stage</label>
+      <select name="stage">
+        <% stageOptions.forEach(s => { %><option value="<%= s %>" <%= s === opportunity.stage ? 'selected' : '' %>><%= s %></option><% }) %>
+      </select>
+    </div>
+    <div style="flex:2; min-width:14rem;">
+      <label>Lost reason (if moving to Lost/Closed)</label>
+      <input name="lostReason" placeholder="Why?">
+    </div>
+    <div><button type="submit">Update</button></div>
+  </form>
+
+  <% if (opportunity.stage !== 'LOST_CLOSED') { %>
+    <form method="post" action="/opportunities/<%= opportunity.id %>/convert-to-bid" style="margin-top:1rem;">
+      <button type="submit">Convert to Bid</button>
+    </form>
+  <% } %>
+</div>
+<% } %>
+
+<h2>Activity log</h2>
+<div class="card">
+  <% activity.forEach(entry => { %>
+    <p style="margin:0.4rem 0;"><strong><%= entry.authorName || 'System' %></strong> <span class="muted"><%= formatDateTime(entry.createdAt) %></span><br><%= entry.note %></p>
+  <% }) %>
+  <% if (activity.length === 0) { %><p class="muted">No activity yet.</p><% } %>
+  <form method="post" action="/opportunities/<%= opportunity.id %>/activity" style="display:flex; gap:0.5rem; margin-top:0.75rem;">
+    <input name="note" placeholder="Add a note..." style="flex:1;" required>
+    <button type="submit">Add</button>
+  </form>
+</div>
+
+<%- include('../partials/footer') %>

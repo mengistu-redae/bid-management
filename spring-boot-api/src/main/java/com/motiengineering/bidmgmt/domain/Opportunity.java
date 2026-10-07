@@ -1,9 +1,7 @@
 package com.motiengineering.bidmgmt.domain;
 
-import com.motiengineering.bidmgmt.domain.enums.BidSource;
-import com.motiengineering.bidmgmt.domain.enums.BidStatus;
-import com.motiengineering.bidmgmt.domain.enums.GoNoGo;
-import jakarta.persistence.CascadeType;
+import com.motiengineering.bidmgmt.domain.enums.Currency;
+import com.motiengineering.bidmgmt.domain.enums.OpportunityStage;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -11,7 +9,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -20,17 +17,17 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
+import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
-@Table(name = "bids")
+@Table(name = "opportunities")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Bid {
+public class Opportunity {
 
     @Id
     @UuidGenerator
@@ -42,30 +39,25 @@ public class Bid {
 
     private String title;
 
-    private String referenceNumber;
+    private BigDecimal estimatedValue;
 
     @Enumerated(EnumType.STRING)
-    private BidSource source = BidSource.UNKNOWN;
+    private Currency estimatedValueCurrency;
 
-    private java.time.LocalDate scoutedDate;
-
-    private Instant closingAt;
-
-    private Instant openingAt;
-
-    private Instant clarificationDeadline;
-
-    private Integer bidValidityDays;
+    private LocalDate expectedTenderDate;
 
     @Enumerated(EnumType.STRING)
-    private BidStatus status = BidStatus.IDENTIFIED;
+    private OpportunityStage stage = OpportunityStage.LEAD;
 
-    @Enumerated(EnumType.STRING)
-    private GoNoGo goNoGoDecision;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    private AppUser owner;
 
-    private String goNoGoReason;
+    private String lostReason;
 
-    private String exitReason;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "converted_bid_id")
+    private Bid convertedBid;
 
     private String notes;
 
@@ -73,17 +65,9 @@ public class Bid {
     @JoinColumn(name = "created_by")
     private AppUser createdBy;
 
-    /** Set only when this bid was created via an Opportunity's "Convert to Bid" action. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "opportunity_id")
-    private Opportunity opportunity;
-
     @CreationTimestamp
     private Instant createdAt;
 
     @UpdateTimestamp
     private Instant updatedAt;
-
-    @OneToMany(mappedBy = "bid", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<BidLot> lots = new ArrayList<>();
 }

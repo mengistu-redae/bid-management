@@ -90,12 +90,38 @@ also live-verified end to end.
 A minimal bid-bond-returned flag was pulled forward from phase 3's planned
 Deal Registration/Bid Bond entities (see `V3__bid_bond_return_tracking.sql`),
 since the phase-1 dashboard spec explicitly needs "not yet returned" - phase
-3 can still promote this to a dedicated table with issuing bank/issue date.
+3 then finished bid bond tracking in place (issuing bank + issue date added
+directly to `bid_lots` rather than extracting a separate table, since every
+lot has at most one bond and the existing fields were already wired through
+the importer, dashboard and tests).
 
-Not yet built (later phases per the brief): Opportunities (with
-convert-to-bid), Deal Registrations, Bid Bonds as their own entity with
-issuing bank/issue date, email reminders/daily digest, reports, deployment
-packaging beyond the existing Docker Compose setup.
+**Phase 3** - Opportunities (organization, title, value, division(s),
+OEM(s)/vendor(s), stage Lead -> Qualified -> RFI/Proposal -> Expecting
+Tender -> Converted to Bid / Lost-Closed, owner, notes, activity log) with
+a "Convert to Bid" action that creates a linked Bid (carrying the first
+division's value/OEM onto Lot 1; any additional divisions become empty,
+needs-review lots rather than guessing a value split); Deal Registrations
+(OEM, distributor, registration ID, customer, linked opportunity/bid,
+status Draft -> Submitted -> Approved/Rejected/Expired, approval/expiry
+dates, protected discount, conflict detection when another active
+registration already exists for the same customer + OEM) with the same
+intake-form conflict warning pattern as the bid duplicate check; a shared
+OEM reference list seeded with the brief's named vendors; and the
+dashboard's "deal registrations expiring in 30 days" tile, deferred from
+phase 2 since the entity didn't exist yet.
+
+A real bug was caught here via a live-database integration test
+(`OpportunityServiceLiveTest`) before it ever reached the browser: mutating
+a just-created Bid's `opportunity` field and calling `.save()` a second
+time made Spring Data route through `merge()` instead of `persist()` (since
+the UUID primary key was already assigned), which Hibernate executed as an
+UPDATE - and `@CreationTimestamp` only ever fires for INSERT, so
+`created_at` landed NULL and the DB's own NOT NULL constraint caught it.
+Fixed by setting the opportunity link before the first save instead of
+mutating an already-persisted-but-unflushed entity afterward.
+
+Not yet built (later phases per the brief): email reminders/daily digest,
+reports, deployment packaging beyond the existing Docker Compose setup.
 
 ## Tests
 
@@ -105,9 +131,14 @@ cd spring-boot-api && mvn test
 
 Covers the importer's parsing rules (`ParsingUtilsTest`, against real values
 from the sample spreadsheets), the status-lifecycle transition rules
-(`BidStatusServiceTest`), the per-role permission rules (`BidAccessServiceTest`),
-the organization name-matching/merge logic (`OrganizationResolutionServiceTest`),
-and a full live import of both real sample files against a real Postgres
-(`ImportServiceLiveFilesTest`) - the last one needs a reachable Postgres (the
-`docker compose` one works; it uses a separate `bidmgmt_test` database so it
-never touches real/seeded data).
+(`BidStatusServiceTest`), the per-role permission rules (`BidAccessServiceTest`,
+including opportunity and deal-registration editing), the organization
+name-matching/merge logic (`OrganizationResolutionServiceTest`), the
+dashboard's currency-separation/win-rate/red-flag rules (`DashboardServiceTest`),
+the deal-registration conflict check (`DealRegistrationServiceTest`), and two
+tests against a real Postgres: a full live import of both real sample files
+(`ImportServiceLiveFilesTest`) and opportunity-to-bid conversion
+(`OpportunityServiceLiveTest`, which caught a real Hibernate flush-timing bug
+no mocked test could have). Both live tests need a reachable Postgres (the
+`docker compose` one works; they use a separate `bidmgmt_test` database so
+they never touch real/seeded data).

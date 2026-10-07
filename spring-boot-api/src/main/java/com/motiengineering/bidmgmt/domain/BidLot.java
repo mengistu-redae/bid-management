@@ -69,6 +69,10 @@ public class BidLot {
 
     private java.time.LocalDate bidBondReturnedAt;
 
+    private String bidBondIssuingBank;
+
+    private java.time.LocalDate bidBondIssueDate;
+
     private String oemBrand;
 
     @Enumerated(EnumType.STRING)

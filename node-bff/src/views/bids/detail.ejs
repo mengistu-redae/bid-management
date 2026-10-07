@@ -57,6 +57,7 @@
       <div>
         <strong>Bid bond</strong><br><%= formatMoney(lot.bidBondAmount, lot.bidBondCurrency) %> <% if (lot.bidBondValidityDays) { %>(<%= lot.bidBondValidityDays %> days)<% } %>
         <% if (lot.bidBondAmount) { %>
+          <% if (lot.bidBondIssuingBank) { %><div class="muted"><%= lot.bidBondIssuingBank %><% if (lot.bidBondIssueDate) { %>, issued <%= formatDate(lot.bidBondIssueDate) %><% } %></div><% } %>
           <% if (lot.bidBondReturned) { %>
             <div class="muted">Returned <%= formatDate(lot.bidBondReturnedAt) %></div>
           <% } else if (bid.canEdit) { %>
@@ -64,6 +65,17 @@
               <input type="hidden" name="bidId" value="<%= bid.id %>">
               <button type="submit" class="secondary" style="padding:0.1rem 0.5rem; font-size:0.78rem;">Mark bond returned</button>
             </form>
+          <% } %>
+          <% if (bid.canEdit) { %>
+            <details style="margin-top:0.3rem;">
+              <summary class="muted" style="font-size:0.78rem;">Issuing bank / issue date</summary>
+              <form method="post" action="/bids/lots/<%= lot.id %>/bond-details" style="display:flex; gap:0.4rem; margin-top:0.3rem;">
+                <input type="hidden" name="bidId" value="<%= bid.id %>">
+                <input name="issuingBank" placeholder="Bank" value="<%= lot.bidBondIssuingBank || '' %>" style="width:auto;">
+                <input type="date" name="issueDate" value="<%= lot.bidBondIssueDate || '' %>" style="width:auto;">
+                <button type="submit" class="secondary" style="padding:0.1rem 0.5rem; font-size:0.78rem;">Save</button>
+              </form>
+            </details>
           <% } %>
         <% } %>
       </div>
@@ -135,6 +147,19 @@
     <% } %>
   </div>
 <% }) %>
+
+<h2>Deal registrations</h2>
+<div class="card">
+  <% dealRegistrations.forEach(r => { %>
+    <div class="checklist-item">
+      <a href="/deal-registrations/<%= r.id %>"><%= r.oem.name %></a>
+      <span class="badge <%= r.status === 'REJECTED' || r.status === 'EXPIRED' ? 'lost' : (r.status === 'APPROVED' ? 'won' : '') %>"><%= r.status %></span>
+      <% if (r.conflictCount > 0) { %><span class="badge review"><%= r.conflictCount %> conflict<%= r.conflictCount > 1 ? 's' : '' %></span><% } %>
+    </div>
+  <% }) %>
+  <% if (dealRegistrations.length === 0) { %><p class="muted">No deal registrations linked to this bid.</p><% } %>
+  <a class="btn secondary" style="margin-top:0.5rem;" href="/deal-registrations/new">+ New deal registration</a>
+</div>
 
 <h2>Activity log</h2>
 <div class="card">

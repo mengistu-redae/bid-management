@@ -112,7 +112,18 @@
       <% if (data.outstandingBonds.length === 0) { %><tr><td colspan="5" class="muted">No outstanding bid bonds.</td></tr><% } %>
     </tbody>
   </table>
-  <p class="muted">Estimated expiry = opening date + bid bond validity days (no issue date is tracked yet, so this is an estimate).</p>
+  <p class="muted">Estimated expiry uses the bond's recorded issue date when there is one, otherwise the bid's opening date, plus the bond's validity days.</p>
+</div>
+
+<h2>Deal registrations expiring soon</h2>
+<div class="card">
+  <% data.expiringDealRegistrations.forEach(row => { %>
+    <div class="checklist-item">
+      <a href="/deal-registrations/<%= row.id %>"><%= row.oemName %></a> - <%= row.organizationName %>
+      <span class="badge review"><%= formatDate(row.expiryDate) %></span>
+    </div>
+  <% }) %>
+  <% if (data.expiringDealRegistrations.length === 0) { %><p class="muted">None expiring in the next 30 days.</p><% } %>
 </div>
 
 <%- include('partials/footer') %>

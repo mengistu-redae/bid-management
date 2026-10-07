@@ -1,0 +1,27 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<div class="toolbar">
+  <h1 style="margin:0;">Opportunities</h1>
+  <a class="btn" href="/opportunities/new">+ New Opportunity</a>
+</div>
+
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr><th>Organization</th><th>Title</th><th>Stage</th><th>Value</th><th>Expected tender date</th><th>Owner</th></tr>
+  </thead>
+  <tbody>
+    <% opportunities.forEach(o => { %>
+      <tr onclick="window.location='/opportunities/<%= o.id %>'" style="cursor:pointer;">
+        <td><%= o.organization ? o.organization.name : '-' %></td>
+        <td><%= o.title %></td>
+        <td><span class="badge <%= o.stage === 'LOST_CLOSED' ? 'lost' : (o.stage === 'CONVERTED_TO_BID' ? 'won' : '') %>"><%= o.stage %></span></td>
+        <td><%= formatMoney(o.estimatedValue, o.estimatedValueCurrency) %></td>
+        <td><%= formatDate(o.expectedTenderDate) %></td>
+        <td><%= o.owner ? o.owner.fullName : '-' %></td>
+      </tr>
+    <% }) %>
+    <% if (opportunities.length === 0) { %><tr><td colspan="6" class="muted">No opportunities yet.</td></tr><% } %>
+  </tbody>
+</table>
+</div>
+<%- include('../partials/footer') %>

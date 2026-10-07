@@ -1,0 +1,76 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<h1>New deal registration</h1>
+
+<% if (conflicts && conflicts.length > 0) { %>
+  <div class="warning-box">
+    <strong>Possible conflict.</strong> <%= conflicts.length %> other active registration(s) already exist for this customer and OEM:
+    <ul>
+      <% conflicts.forEach(c => { %><li><a href="/deal-registrations/<%= c.id %>"><%= c.oem.name %> - <%= c.organization.name %> (<%= c.status %>)</a></li><% }) %>
+    </ul>
+  </div>
+<% } %>
+
+<form class="card" method="post" action="/deal-registrations">
+  <input type="hidden" name="confirmConflict" value="<%= (conflicts && conflicts.length > 0) ? 'true' : 'false' %>">
+
+  <label>OEM</label>
+  <select name="oemId">
+    <option value="">- pick or type a new one below -</option>
+    <% oems.forEach(o => { %><option value="<%= o.id %>" <%= form.oemId === o.id ? 'selected' : '' %>><%= o.name %></option><% }) %>
+  </select>
+  <input name="oemName" placeholder="Or type a new OEM name" value="<%= form.oemName || '' %>" style="margin-top:0.4rem;">
+
+  <label>Distributor</label>
+  <input name="distributor" value="<%= form.distributor || '' %>">
+
+  <label>Registration ID (from the OEM/distributor portal)</label>
+  <input name="registrationId" value="<%= form.registrationId || '' %>">
+
+  <label>Customer (organization name)</label>
+  <input name="organizationName" value="<%= form.organizationName || '' %>" required>
+
+  <label>Sector</label>
+  <select name="sector">
+    <% ['BANK','GOVERNMENT','UTILITY','ENTERPRISE','OTHER'].forEach(s => { %><option value="<%= s %>"><%= s %></option><% }) %>
+  </select>
+
+  <label>Status</label>
+  <select name="status">
+    <% statusOptions.forEach(s => { %><option value="<%= s %>" <%= form.status === s ? 'selected' : '' %>><%= s %></option><% }) %>
+  </select>
+
+  <div style="display:flex; gap:1rem;">
+    <div style="flex:1;">
+      <label>Submitted date</label>
+      <input type="date" name="submittedDate" value="<%= form.submittedDate || '' %>">
+    </div>
+    <div style="flex:1;">
+      <label>Approval date</label>
+      <input type="date" name="approvalDate" value="<%= form.approvalDate || '' %>">
+    </div>
+    <div style="flex:1;">
+      <label>Expiry date</label>
+      <input type="date" name="expiryDate" value="<%= form.expiryDate || '' %>">
+    </div>
+  </div>
+
+  <div style="display:flex; gap:1rem;">
+    <div style="flex:1;">
+      <label>Protected discount %</label>
+      <input type="number" step="0.01" name="protectedDiscountPercent" value="<%= form.protectedDiscountPercent || '' %>">
+    </div>
+    <div style="flex:2;">
+      <label>Special price reference</label>
+      <input name="specialPriceReference" value="<%= form.specialPriceReference || '' %>">
+    </div>
+  </div>
+
+  <label>Notes</label>
+  <textarea name="notes"><%= form.notes || '' %></textarea>
+
+  <div style="margin-top:1.5rem;">
+    <button type="submit"><%= (conflicts && conflicts.length > 0) ? 'Create anyway' : 'Create registration' %></button>
+    <a class="btn secondary" href="/deal-registrations">Cancel</a>
+  </div>
+</form>
+<%- include('../partials/footer') %>

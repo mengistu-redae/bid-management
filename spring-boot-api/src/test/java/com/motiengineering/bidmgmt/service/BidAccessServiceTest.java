@@ -3,11 +3,16 @@ package com.motiengineering.bidmgmt.service;
 import com.motiengineering.bidmgmt.domain.AppUser;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
+import com.motiengineering.bidmgmt.domain.DealRegistration;
 import com.motiengineering.bidmgmt.domain.Division;
 import com.motiengineering.bidmgmt.domain.LotAccountOfficer;
 import com.motiengineering.bidmgmt.domain.LotAccountOfficerId;
+import com.motiengineering.bidmgmt.domain.Opportunity;
+import com.motiengineering.bidmgmt.domain.OpportunityDivision;
+import com.motiengineering.bidmgmt.domain.OpportunityDivisionId;
 import com.motiengineering.bidmgmt.domain.enums.Role;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
+import com.motiengineering.bidmgmt.repository.OpportunityDivisionRepository;
 import com.motiengineering.bidmgmt.security.CurrentUserContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -31,7 +36,8 @@ import static org.mockito.Mockito.when;
 class BidAccessServiceTest {
 
     private final LotAccountOfficerRepository lotAccountOfficerRepository = mock(LotAccountOfficerRepository.class);
-    private final BidAccessService service = new BidAccessService(lotAccountOfficerRepository);
+    private final OpportunityDivisionRepository opportunityDivisionRepository = mock(OpportunityDivisionRepository.class);
+    private final BidAccessService service = new BidAccessService(lotAccountOfficerRepository, opportunityDivisionRepository);
 
     @AfterEach
     void clearContext() {
@@ -109,5 +115,54 @@ class BidAccessServiceTest {
         assertThat(service.canView(bid)).isFalse();
         assertThat(service.canEdit(bid)).isFalse();
         assertThat(service.canCreate()).isFalse();
+    }
+
+    private Opportunity opportunityWithId() {
+        Opportunity opportunity = new Opportunity();
+        opportunity.setId(UUID.randomUUID());
+        return opportunity;
+    }
+
+    @Test
+    void divisionManagerCanEditOnlyOpportunitiesLinkedToTheirDivision() {
+        UUID myDivision = UUID.randomUUID();
+        UUID otherDivision = UUID.randomUUID();
+        CurrentUserContext.set(userWithRole(Role.DIVISION_MANAGER), Set.of(myDivision), Map.of(myDivision, true));
+
+        Opportunity linked = opportunityWithId();
+        when(opportunityDivisionRepository.findById_OpportunityId(linked.getId()))
+                .thenReturn(List.of(new OpportunityDivision(new OpportunityDivisionId(linked.getId(), myDivision))));
+        Opportunity notLinked = opportunityWithId();
+        when(opportunityDivisionRepository.findById_OpportunityId(notLinked.getId()))
+                .thenReturn(List.of(new OpportunityDivision(new OpportunityDivisionId(notLinked.getId(), otherDivision))));
+
+        assertThat(service.canEditOpportunity(linked)).isTrue();
+        assertThat(service.canEditOpportunity(notLinked)).isFalse();
+    }
+
+    @Test
+    void accountOfficerCanEditOnlyOpportunitiesTheyOwn() {
+        AppUser officer = userWithRole(Role.ACCOUNT_OFFICER);
+        CurrentUserContext.set(officer, Set.of(), Map.of());
+
+        Opportunity owned = opportunityWithId();
+        owned.setOwner(officer);
+        Opportunity notOwned = opportunityWithId();
+        notOwned.setOwner(userWithRole(Role.ACCOUNT_OFFICER));
+
+        assertThat(service.canEditOpportunity(owned)).isTrue();
+        assertThat(service.canEditOpportunity(notOwned)).isFalse();
+    }
+
+    @Test
+    void scoutCanNeverEditADealRegistrationButEveryoneElseCan() {
+        DealRegistration registration = new DealRegistration();
+        registration.setId(UUID.randomUUID());
+
+        CurrentUserContext.set(userWithRole(Role.SCOUT), Set.of(), Map.of());
+        assertThat(service.canEditDealRegistration(registration)).isFalse();
+
+        CurrentUserContext.set(userWithRole(Role.ACCOUNT_OFFICER), Set.of(), Map.of());
+        assertThat(service.canEditDealRegistration(registration)).isTrue();
     }
 }

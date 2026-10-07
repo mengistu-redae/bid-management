@@ -153,13 +153,15 @@ function buildBidsRouter() {
 
   router.get('/:id', async (req, res, next) => {
     try {
-      const [bid, history, activity] = await Promise.all([
+      const [bid, history, activity, allDealRegistrations] = await Promise.all([
         req.api.get(`/api/bids/${req.params.id}`),
         req.api.get(`/api/bids/${req.params.id}/status-history`),
         req.api.get(`/api/bids/${req.params.id}/activity`),
+        req.api.get('/api/deal-registrations'),
       ]);
+      const dealRegistrations = allDealRegistrations.filter((r) => r.bidId === bid.id);
       res.render('bids/detail', {
-        title: bid.title, user: req.session.user, bid, history, activity, statusOptions: STATUS_OPTIONS,
+        title: bid.title, user: req.session.user, bid, history, activity, dealRegistrations, statusOptions: STATUS_OPTIONS,
       });
     } catch (err) {
       next(err);
@@ -210,6 +212,18 @@ function buildBidsRouter() {
   router.post('/lots/:lotId/bond-returned', async (req, res, next) => {
     try {
       await req.api.post(`/api/lots/${req.params.lotId}/bond-returned`, { returned: true, returnedAt: null });
+      res.redirect(`/bids/${req.body.bidId}`);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/lots/:lotId/bond-details', async (req, res, next) => {
+    try {
+      await req.api.post(`/api/lots/${req.params.lotId}/bond-details`, {
+        issuingBank: req.body.issuingBank || null,
+        issueDate: req.body.issueDate || null,
+      });
       res.redirect(`/bids/${req.body.bidId}`);
     } catch (err) {
       next(err);

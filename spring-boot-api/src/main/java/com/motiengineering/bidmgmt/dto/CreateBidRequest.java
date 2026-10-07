@@ -21,5 +21,6 @@ public record CreateBidRequest(
         Instant clarificationDeadline,
         Integer bidValidityDays,
         String notes,
+        UUID opportunityId,
         CreateLotRequest firstLot) {
 }
