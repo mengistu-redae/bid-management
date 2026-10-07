@@ -14,6 +14,7 @@ node-bff/npm-debug.log*
 .idea/
 *.iml
 .vscode/
+.claude/
 
 ## OS
 .DS_Store

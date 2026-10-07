@@ -1,0 +1,44 @@
+<%- include('partials/header', { title: title, user: user }) %>
+<h1>Reports</h1>
+
+<form method="get" action="/reports" class="card toolbar" style="margin-bottom:1rem;">
+  <label>Year <input type="number" name="year" value="<%= year %>" style="width:6rem;"></label>
+  <label>Month <input type="number" name="month" min="1" max="12" value="<%= month %>" style="width:4rem;"></label>
+  <button type="submit">Show</button>
+  <a class="btn secondary" href="/reports/export?year=<%= year %>&month=<%= month %>">Export to Excel</a>
+</form>
+
+<h2 style="margin-top:0.5rem;">Monthly summary - <%= summary.year %>-<%= String(summary.month).padStart(2, '0') %></h2>
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Division</th>
+        <th>Identified</th>
+        <th>Submitted</th>
+        <th>Won</th>
+        <th>Lost</th>
+        <th>Dropped</th>
+        <th>Won value (ETB)</th>
+        <th>Won value (USD)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% summary.rows.forEach(row => { %>
+        <tr>
+          <td><%= row.divisionLabel %></td>
+          <td><%= row.identified %></td>
+          <td><%= row.submitted %></td>
+          <td><%= row.won %></td>
+          <td><%= row.lost %></td>
+          <td><%= row.dropped %></td>
+          <td><%= formatMoney(row.wonValueEtb) %></td>
+          <td><%= formatMoney(row.wonValueUsd) %></td>
+        </tr>
+      <% }) %>
+      <% if (summary.rows.length === 0) { %><tr><td colspan="8" class="muted">No activity in this month.</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('partials/footer') %>

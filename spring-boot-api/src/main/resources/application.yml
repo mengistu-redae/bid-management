@@ -25,6 +25,21 @@ spring:
       max-request-size: 25MB
   jackson:
     time-zone: Africa/Addis_Ababa
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:false}
+      # Mailpit (local dev) and many on-prem relays don't speak TLS at all -
+      # without this, Spring's default auto-config still tries STARTTLS
+      # opportunistically against a plaintext server and the connection hangs.
+      mail.smtp.ssl.trust: ${MAIL_SMTP_SSL_TRUST:}
 
 bidmgmt:
   uploads-root: ${BIDMGMT_UPLOADS_ROOT:./uploads}
@@ -33,6 +48,14 @@ bidmgmt:
     enabled: ${BIDMGMT_SEED_ENABLED:true}
     upcoming-file: "${BIDMGMT_SEED_UPCOMING:../docs/Upcoming Bid Oct 07.xlsx}"
     tracker-file: "${BIDMGMT_SEED_TRACKER:../docs/on hand bid.xlsx}"
+  notifications:
+    enabled: ${BIDMGMT_NOTIFICATIONS_ENABLED:true}
+    from-address: ${BIDMGMT_NOTIFICATIONS_FROM:bidmgmt@motiengineering.com}
+    director-email: ${BIDMGMT_DIRECTOR_EMAIL:mengistu.redae@motiengineering.com}
+    app-base-url: ${BIDMGMT_APP_BASE_URL:http://localhost:3002}
+    # Cron is Africa/Addis_Ababa local time regardless of the container's own
+    # timezone - see ReminderSchedulerService.
+    reminder-cron: ${BIDMGMT_REMINDER_CRON:0 0 7 * * *}
   # Internal (container-to-container) issuer used for the JWT decoder's own
   # server-to-server calls (JWK set fetch, issuer validation base), vs the
   # public one the browser's token actually carries in its `iss` claim - see

@@ -35,6 +35,12 @@ services:
       timeout: 5s
       retries: 10
 
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8026:8025"
+      - "1026:1025"
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
     command: start-dev --import-realm
@@ -64,10 +70,23 @@ services:
       # The `iss` claim tokens actually carry - see node-bff/src/auth/oidc.js's
       # comment for the full explanation (Keycloak pins `iss` to whatever host
       # the browser used against the authorize endpoint, not this internal one).
-      KEYCLOAK_ISSUER_PUBLIC_URI: http://localhost:8090/realms/bidmgmt
+      KEYCLOAK_ISSUER_PUBLIC_URI: ${KEYCLOAK_ISSUER_PUBLIC_URI:-http://localhost:8090/realms/bidmgmt}
       BIDMGMT_UPLOADS_ROOT: /app/uploads
       BIDMGMT_SEED_UPCOMING: /app/seed-data/upcoming-bids.xlsx
       BIDMGMT_SEED_TRACKER: /app/seed-data/bids-tracker.xlsx
+      # Defaults point at the local mailpit catcher (see below) - override all
+      # of these in .env for a real deployment to relay through an actual
+      # SMTP server/relay. See DEPLOYMENT.md.
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-false}
+      BIDMGMT_NOTIFICATIONS_ENABLED: ${BIDMGMT_NOTIFICATIONS_ENABLED:-true}
+      BIDMGMT_NOTIFICATIONS_FROM: ${BIDMGMT_NOTIFICATIONS_FROM:-bidmgmt@motiengineering.com}
+      BIDMGMT_DIRECTOR_EMAIL: ${BIDMGMT_DIRECTOR_EMAIL:-mengistu.redae@motiengineering.com}
+      BIDMGMT_APP_BASE_URL: ${BIDMGMT_APP_BASE_URL:-http://localhost:3002}
     volumes:
       - uploads_data:/app/uploads
       - ./docs/Upcoming Bid Oct 07.xlsx:/app/seed-data/upcoming-bids.xlsx:ro
@@ -77,6 +96,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 10s
@@ -91,11 +112,11 @@ services:
       API_BASE_URL: http://spring-boot-api:8081
       REDIS_URL: redis://redis:6379
       KEYCLOAK_ISSUER: http://keycloak:8080/realms/bidmgmt
-      KEYCLOAK_ISSUER_PUBLIC: http://localhost:8090/realms/bidmgmt
+      KEYCLOAK_ISSUER_PUBLIC: ${KEYCLOAK_ISSUER_PUBLIC_URI:-http://localhost:8090/realms/bidmgmt}
       KEYCLOAK_CLIENT_ID: bidmgmt-bff
       KEYCLOAK_CLIENT_SECRET: ${BFF_CLIENT_SECRET:-changeme-in-keycloak-console}
       SESSION_SECRET: ${SESSION_SECRET:-changeme-long-random-string}
-      BFF_BASE_URL: http://localhost:3002
+      BFF_BASE_URL: ${BFF_BASE_URL:-http://localhost:3002}
     ports:
       - "3002:3000"
     depends_on:

@@ -120,8 +120,28 @@ UPDATE - and `@CreationTimestamp` only ever fires for INSERT, so
 Fixed by setting the opportunity link before the first save instead of
 mutating an already-persisted-but-unflushed entity afterward.
 
-Not yet built (later phases per the brief): email reminders/daily digest,
-reports, deployment packaging beyond the existing Docker Compose setup.
+**Phase 4** - email reminders (bid closing at 7/3/1 days out, clarification
+deadline at 2 days, deal registration expiry at 30/7 days, bid bond not
+returned 30 days after opening) and a Director's daily digest (closing this
+week, at-risk red flags, what changed yesterday), all sent through a
+`NotificationChannel` abstraction designed so a Telegram bot channel can be
+added later alongside email (per the brief) without touching the reminder
+logic itself; exact-day-match due-date computation (never "every day from
+N onward") with send-dedup via a `notification_log` table keyed on
+(reminder type, entity, recipient, day), so the daily cron job is safe to
+re-run or restart mid-run. A monthly summary report (bids identified,
+submitted, won, lost, dropped, and won value, by division) with a
+`/reports` page and Excel export. A `mailpit` service for local email
+testing and `DEPLOYMENT.md` for running this on a real on-premise server.
+
+Live-verified end to end: a real email sent through `NotificationService`
+landing in mailpit (`NotificationServiceLiveTest`, read back via mailpit's
+own REST API), the `/reports` page rendering real seeded data in a browser,
+and its Excel export downloading a genuine `.xlsx` file.
+
+Not yet built: an in-app way to create Keycloak users for account
+officers/scouts (the Director currently does this by hand in the Keycloak
+admin console), and TLS (nginx is still HTTP-only - see `DEPLOYMENT.md`).
 
 ## Tests
 
@@ -139,6 +159,19 @@ the deal-registration conflict check (`DealRegistrationServiceTest`), and two
 tests against a real Postgres: a full live import of both real sample files
 (`ImportServiceLiveFilesTest`) and opportunity-to-bid conversion
 (`OpportunityServiceLiveTest`, which caught a real Hibernate flush-timing bug
-no mocked test could have). Both live tests need a reachable Postgres (the
-`docker compose` one works; they use a separate `bidmgmt_test` database so
-they never touch real/seeded data).
+no mocked test could have). The reminder scheduler's exact-day-match rules
+(`ReminderSchedulerServiceTest`) and the monthly report's month-boundary/
+division-grouping rules (`ReportServiceTest`) are covered the same way as
+the dashboard. A third live test (`NotificationServiceLiveTest`) sends a
+real email through `NotificationService` over SMTP and reads it back out of
+mailpit's REST API, confirming the message actually left
+`EmailNotificationChannel` with a deliverable envelope - needs mailpit
+running (`docker compose up -d mailpit`) in addition to Postgres. All three
+live tests use a separate `bidmgmt_test` database so they never touch
+real/seeded data.
+
+## Deployment
+
+See `DEPLOYMENT.md` for running this on a single on-premise Linux server:
+first-time setup, TLS (not yet wired up - read this before exposing the app
+outside a trusted network), email/SMTP config, backups, and updates.
