@@ -10,8 +10,58 @@ function buildBidsRouter() {
 
   router.get('/', async (req, res, next) => {
     try {
+      const [bids, divisions, users, organizations] = await Promise.all([
+        req.api.get(`/api/bids${buildFilterQuery(req.query)}`),
+        req.api.get('/api/divisions'),
+        req.api.get('/api/users'),
+        req.api.get('/api/organizations'),
+      ]);
+      res.render('bids/list', {
+        title: 'Bids', user: req.session.user, bids, divisions, users, organizations,
+        statusOptions: STATUS_OPTIONS, query: req.query,
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/kanban', async (req, res, next) => {
+    try {
+      const bids = await req.api.get(`/api/bids${buildFilterQuery(req.query)}`);
+      const columns = STATUS_OPTIONS.map((status) => ({
+        status,
+        bids: bids.filter((b) => b.status === status),
+      }));
+      res.render('bids/kanban', { title: 'Kanban', user: req.session.user, columns, query: req.query });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/calendar', async (req, res, next) => {
+    try {
+      const today = new Date();
+      const year = req.query.year ? Number(req.query.year) : today.getFullYear();
+      const month = req.query.month ? Number(req.query.month) : today.getMonth() + 1; // 1-12
       const bids = await req.api.get('/api/bids');
-      res.render('bids/list', { title: 'Bids', user: req.session.user, bids });
+      const days = buildCalendarGrid(year, month, bids);
+      res.render('bids/calendar', { title: 'Calendar', user: req.session.user, year, month, days });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/export', async (req, res, next) => {
+    try {
+      const { ensureFreshToken } = require('../../apiClient');
+      const accessToken = await ensureFreshToken(req, req.app.get('oidcGetClient'));
+      const headers = {};
+      if (accessToken) headers.authorization = `Bearer ${accessToken}`;
+      const upstream = await fetch(`${process.env.API_BASE_URL}/api/bids/export${buildFilterQuery(req.query)}`, { headers });
+      res.status(upstream.status);
+      res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/octet-stream');
+      res.setHeader('Content-Disposition', upstream.headers.get('content-disposition') || 'attachment; filename="bids-export.xlsx"');
+      res.send(Buffer.from(await upstream.arrayBuffer()));
     } catch (err) {
       next(err);
     }
@@ -157,6 +207,15 @@ function buildBidsRouter() {
     }
   });
 
+  router.post('/lots/:lotId/bond-returned', async (req, res, next) => {
+    try {
+      await req.api.post(`/api/lots/${req.params.lotId}/bond-returned`, { returned: true, returnedAt: null });
+      res.redirect(`/bids/${req.body.bidId}`);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.post('/checklist/:itemId/toggle', async (req, res, next) => {
     try {
       await req.api.put(`/api/lots/${req.body.lotId}/checklist-items/${req.params.itemId}`, { done: req.body.done === 'true' });
@@ -188,6 +247,53 @@ function toInstant(dateStr, timeStr) {
   const time = timeStr && timeStr.length > 0 ? timeStr : '00:00';
   // Interpreted as Africa/Addis_Ababa local time (UTC+3, no DST) - see the brief's timezone requirement.
   return `${dateStr}T${time}:00+03:00`;
+}
+
+function buildFilterQuery(query) {
+  const params = new URLSearchParams();
+  if (query.divisionId) params.set('divisionId', query.divisionId);
+  if (query.status) params.set('status', query.status);
+  if (query.officerId) params.set('officerId', query.officerId);
+  if (query.organizationId) params.set('organizationId', query.organizationId);
+  if (query.closingFrom) params.set('closingFrom', toInstant(query.closingFrom, null));
+  if (query.closingTo) params.set('closingTo', toInstant(query.closingTo, '23:59'));
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
+/** A 6-week month grid (always 42 cells, Sunday-first) with each bid's closing/opening/clarification events bucketed onto the right day. */
+function buildCalendarGrid(year, month, bids) {
+  const firstOfMonth = new Date(Date.UTC(year, month - 1, 1));
+  const startWeekday = firstOfMonth.getUTCDay(); // 0 = Sunday
+  const gridStart = new Date(firstOfMonth);
+  gridStart.setUTCDate(gridStart.getUTCDate() - startWeekday);
+
+  const eventsByDate = {};
+  const addEvent = (iso, label, bidId, kind) => {
+    if (!iso) return;
+    const key = iso.slice(0, 10);
+    if (!eventsByDate[key]) eventsByDate[key] = [];
+    eventsByDate[key].push({ label, bidId, kind });
+  };
+  for (const bid of bids) {
+    addEvent(bid.closingAt, bid.title, bid.id, 'closing');
+    addEvent(bid.openingAt, bid.title, bid.id, 'opening');
+    addEvent(bid.clarificationDeadline, bid.title, bid.id, 'clarification');
+  }
+
+  const days = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(gridStart);
+    d.setUTCDate(d.getUTCDate() + i);
+    const key = d.toISOString().slice(0, 10);
+    days.push({
+      date: key,
+      day: d.getUTCDate(),
+      inMonth: d.getUTCMonth() === month - 1,
+      events: eventsByDate[key] || [],
+    });
+  }
+  return days;
 }
 
 module.exports = buildBidsRouter;

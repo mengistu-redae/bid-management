@@ -10,6 +10,7 @@ const { attachApiClient } = require('./apiClient');
 const { requireSession } = require('./requireSession');
 const buildBidsRouter = require('./routes/pages/bids');
 const buildImportRouter = require('./routes/pages/importPage');
+const buildDashboardRouter = require('./routes/pages/dashboard');
 
 async function main() {
   const app = express();
@@ -41,7 +42,8 @@ async function main() {
   app.use(requireSession);
   app.use(attachApiClient(getClient));
 
-  app.get('/', (req, res) => res.redirect('/bids'));
+  app.get('/', (req, res) => res.redirect('/dashboard'));
+  app.use('/dashboard', buildDashboardRouter());
   app.use('/bids', buildBidsRouter());
   app.use('/import', buildImportRouter());
 

@@ -54,7 +54,19 @@
 
     <div style="display:flex; flex-wrap:wrap; gap:1.5rem; font-size:0.9rem;">
       <div><strong>Estimated value</strong><br><%= formatMoney(lot.estimatedValue, lot.estimatedValueCurrency) %></div>
-      <div><strong>Bid bond</strong><br><%= formatMoney(lot.bidBondAmount, lot.bidBondCurrency) %> <% if (lot.bidBondValidityDays) { %>(<%= lot.bidBondValidityDays %> days)<% } %></div>
+      <div>
+        <strong>Bid bond</strong><br><%= formatMoney(lot.bidBondAmount, lot.bidBondCurrency) %> <% if (lot.bidBondValidityDays) { %>(<%= lot.bidBondValidityDays %> days)<% } %>
+        <% if (lot.bidBondAmount) { %>
+          <% if (lot.bidBondReturned) { %>
+            <div class="muted">Returned <%= formatDate(lot.bidBondReturnedAt) %></div>
+          <% } else if (bid.canEdit) { %>
+            <form method="post" action="/bids/lots/<%= lot.id %>/bond-returned" class="inline">
+              <input type="hidden" name="bidId" value="<%= bid.id %>">
+              <button type="submit" class="secondary" style="padding:0.1rem 0.5rem; font-size:0.78rem;">Mark bond returned</button>
+            </form>
+          <% } %>
+        <% } %>
+      </div>
       <div><strong>OEM/brand</strong><br><%= lot.oemBrand || '-' %></div>
       <div><strong>Scope</strong><br><%= lot.scopeTypes.join(', ') || '-' %></div>
       <div><strong>Officers</strong><br><%= lot.accountOfficers.map(o => o.fullName).join(', ') || '-' %></div>

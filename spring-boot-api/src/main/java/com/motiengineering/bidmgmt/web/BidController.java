@@ -60,10 +60,35 @@ public class BidController {
     private final BidStatusService bidStatusService;
     private final ActivityLogService activityLogService;
     private final BidStatusHistoryRepository bidStatusHistoryRepository;
+    private final com.motiengineering.bidmgmt.service.BidExportService bidExportService;
 
     @GetMapping
-    public List<BidDto> list() {
-        return bidService.list().stream().map(bidMapper::toDto).toList();
+    public List<BidDto> list(
+            @RequestParam(required = false) UUID divisionId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) UUID officerId,
+            @RequestParam(required = false) UUID organizationId,
+            @RequestParam(required = false) java.time.Instant closingFrom,
+            @RequestParam(required = false) java.time.Instant closingTo) {
+        var filter = new com.motiengineering.bidmgmt.dto.BidFilter(divisionId, status, officerId, organizationId, closingFrom, closingTo);
+        return bidService.list(filter).stream().map(bidMapper::toDto).toList();
+    }
+
+    @GetMapping("/export")
+    public ResponseEntity<org.springframework.core.io.ByteArrayResource> export(
+            @RequestParam(required = false) UUID divisionId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) UUID officerId,
+            @RequestParam(required = false) UUID organizationId,
+            @RequestParam(required = false) java.time.Instant closingFrom,
+            @RequestParam(required = false) java.time.Instant closingTo) {
+        var filter = new com.motiengineering.bidmgmt.dto.BidFilter(divisionId, status, officerId, organizationId, closingFrom, closingTo);
+        List<BidDto> rows = bidService.list(filter).stream().map(bidMapper::toDto).toList();
+        byte[] xlsx = bidExportService.toExcel(rows);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"bids-export.xlsx\"")
+                .contentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(new org.springframework.core.io.ByteArrayResource(xlsx));
     }
 
     @GetMapping("/{id}")

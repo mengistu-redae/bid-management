@@ -65,6 +65,10 @@ public class BidLot {
     @Enumerated(EnumType.STRING)
     private BidBondForm bidBondForm = BidBondForm.UNKNOWN;
 
+    private boolean bidBondReturned;
+
+    private java.time.LocalDate bidBondReturnedAt;
+
     private String oemBrand;
 
     @Enumerated(EnumType.STRING)

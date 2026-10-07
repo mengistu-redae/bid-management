@@ -1,0 +1,118 @@
+<%- include('partials/header', { title: title, user: user }) %>
+<h1>Dashboard</h1>
+
+<div class="toolbar">
+  <a class="btn secondary" href="/bids">Bid list</a>
+  <a class="btn secondary" href="/bids/kanban">Kanban</a>
+  <a class="btn secondary" href="/bids/calendar">Calendar</a>
+</div>
+
+<h2 style="margin-top:0.5rem;">Closing this week</h2>
+<div class="card">
+  <% if (data.closingThisWeek.length === 0) { %><p class="muted">Nothing closing in the next 7 days.</p><% } %>
+  <% data.closingThisWeek.forEach(row => { %>
+    <div class="checklist-item" style="align-items:flex-start;">
+      <div style="flex:1;">
+        <a href="/bids/<%= row.bidId %>"><strong><%= row.title %></strong></a> - <%= row.organizationName %>
+        <div class="muted"><%= formatDateTime(row.closingAt) %> &middot; checklist <%= row.checklistProgressPercent %>%</div>
+      </div>
+      <% if (row.redFlag) { %><span class="badge review"><%= row.redFlagReason %></span><% } %>
+    </div>
+  <% }) %>
+</div>
+
+<h2>Closing next week</h2>
+<div class="card">
+  <% if (data.closingNextWeek.length === 0) { %><p class="muted">Nothing closing 7-14 days out.</p><% } %>
+  <% data.closingNextWeek.forEach(row => { %>
+    <div class="checklist-item" style="align-items:flex-start;">
+      <div style="flex:1;">
+        <a href="/bids/<%= row.bidId %>"><strong><%= row.title %></strong></a> - <%= row.organizationName %>
+        <div class="muted"><%= formatDateTime(row.closingAt) %> &middot; checklist <%= row.checklistProgressPercent %>%</div>
+      </div>
+      <% if (row.redFlag) { %><span class="badge review"><%= row.redFlagReason %></span><% } %>
+    </div>
+  <% }) %>
+</div>
+
+<h2>Upcoming clarification deadlines</h2>
+<div class="card">
+  <% if (data.upcomingClarifications.length === 0) { %><p class="muted">None upcoming.</p><% } %>
+  <% data.upcomingClarifications.forEach(row => { %>
+    <div class="checklist-item">
+      <a href="/bids/<%= row.bidId %>"><%= row.title %></a> - <%= row.organizationName %>
+      <span class="muted"><%= formatDateTime(row.clarificationDeadline) %></span>
+    </div>
+  <% }) %>
+</div>
+
+<h2>Pipeline value</h2>
+<div class="card">
+  <div style="display:flex; gap:2rem; flex-wrap:wrap;">
+    <div style="flex:1; min-width:16rem;">
+      <strong>By division</strong>
+      <table>
+        <thead><tr><th>Division</th><th>ETB</th><th>USD</th><th>Lots</th></tr></thead>
+        <tbody>
+          <% data.pipelineByDivision.forEach(row => { %>
+            <tr><td><%= row.groupLabel %></td><td><%= formatMoney(row.totalEtb) %></td><td><%= formatMoney(row.totalUsd) %></td><td><%= row.lotCount %></td></tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <div style="flex:1; min-width:16rem;">
+      <strong>By status</strong>
+      <table>
+        <thead><tr><th>Status</th><th>ETB</th><th>USD</th><th>Lots</th></tr></thead>
+        <tbody>
+          <% data.pipelineByStatus.forEach(row => { %>
+            <tr><td><%= row.groupLabel %></td><td><%= formatMoney(row.totalEtb) %></td><td><%= formatMoney(row.totalUsd) %></td><td><%= row.lotCount %></td></tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<h2>Win rate</h2>
+<div class="card">
+  <div style="display:flex; gap:2rem; flex-wrap:wrap;">
+    <% [['By division', data.winRateByDivision], ['By officer', data.winRateByOfficer], ['By OEM', data.winRateByOem]].forEach(([label, rows]) => { %>
+      <div style="flex:1; min-width:16rem;">
+        <strong><%= label %></strong>
+        <table>
+          <thead><tr><th></th><th>Won</th><th>Lost</th><th>Rate</th></tr></thead>
+          <tbody>
+            <% rows.forEach(row => { %>
+              <tr><td><%= row.groupLabel %></td><td><%= row.wonCount %></td><td><%= row.lostCount %></td><td><%= row.winRatePercent %>%</td></tr>
+            <% }) %>
+            <% if (rows.length === 0) { %><tr><td colspan="4" class="muted">No decided bids yet.</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+    <% }) %>
+  </div>
+</div>
+
+<h2>Bid bonds outstanding</h2>
+<div class="card">
+  <p><strong>Total outstanding:</strong> <%= formatMoney(data.outstandingBondTotalEtb, 'ETB') %> &middot; <%= formatMoney(data.outstandingBondTotalUsd, 'USD') %></p>
+  <table>
+    <thead><tr><th>Bid</th><th>Lot</th><th>Amount</th><th>Closed</th><th>Est. expiry</th></tr></thead>
+    <tbody>
+      <% data.outstandingBonds.forEach(row => { %>
+        <tr>
+          <td><a href="/bids/<%= row.bidId %>"><%= row.bidTitle %></a> - <%= row.organizationName %></td>
+          <td><%= row.lotLabel %></td>
+          <td><%= formatMoney(row.amount, row.currency) %></td>
+          <td><%= formatDate(row.bidClosingAt) %></td>
+          <td><% if (row.expiringSoon) { %><span class="badge review"><%= formatDate(row.estimatedExpiry) %></span><% } else { %><%= formatDate(row.estimatedExpiry) %><% } %></td>
+        </tr>
+      <% }) %>
+      <% if (data.outstandingBonds.length === 0) { %><tr><td colspan="5" class="muted">No outstanding bid bonds.</td></tr><% } %>
+    </tbody>
+  </table>
+  <p class="muted">Estimated expiry = opening date + bid bond validity days (no issue date is tracked yet, so this is an estimate).</p>
+</div>
+
+<%- include('partials/footer') %>

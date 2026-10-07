@@ -1,0 +1,36 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<% const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+   const prevMonth = month === 1 ? 12 : month - 1;
+   const prevYear = month === 1 ? year - 1 : year;
+   const nextMonth = month === 12 ? 1 : month + 1;
+   const nextYear = month === 12 ? year + 1 : year;
+%>
+<div class="toolbar">
+  <h1 style="margin:0;"><%= monthNames[month - 1] %> <%= year %></h1>
+  <a class="btn secondary" href="/bids/calendar?year=<%= prevYear %>&month=<%= prevMonth %>">&laquo; Prev</a>
+  <a class="btn secondary" href="/bids/calendar?year=<%= nextYear %>&month=<%= nextMonth %>">Next &raquo;</a>
+  <a class="btn secondary" href="/bids">List view</a>
+  <a class="btn secondary" href="/dashboard">Dashboard</a>
+</div>
+
+<p class="muted">Dots mark closing (blue), opening (green), or clarification deadline (amber) dates.</p>
+
+<div class="table-scroll">
+<div style="display:grid; grid-template-columns:repeat(7, minmax(8rem, 1fr)); gap:1px; background:var(--border); border:1px solid var(--border); min-width:56rem;">
+  <% ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => { %>
+    <div style="background:var(--bg-alt); padding:0.3rem; text-align:center; font-size:0.8rem; font-weight:600;"><%= d %></div>
+  <% }) %>
+  <% days.forEach(cell => { %>
+    <div style="background:var(--bg); min-height:5rem; min-width:0; padding:0.3rem; overflow:hidden; <%= cell.inMonth ? '' : 'opacity:0.4;' %>">
+      <div style="font-size:0.8rem; font-weight:600;"><%= cell.day %></div>
+      <% cell.events.slice(0, 4).forEach(ev => { %>
+        <a href="/bids/<%= ev.bidId %>" style="display:block; font-size:0.72rem; text-decoration:none; color:var(--text); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="<%= ev.label %>">
+          <span style="display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:3px; background:<%= ev.kind === 'closing' ? '#1f5eab' : (ev.kind === 'opening' ? '#176a33' : '#8a5a00') %>;"></span><%= ev.label %>
+        </a>
+      <% }) %>
+      <% if (cell.events.length > 4) { %><div class="muted" style="font-size:0.7rem;">+<%= cell.events.length - 4 %> more</div><% } %>
+    </div>
+  <% }) %>
+</div>
+</div>
+<%- include('../partials/footer') %>

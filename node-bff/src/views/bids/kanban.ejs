@@ -1,0 +1,25 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<div class="toolbar">
+  <h1 style="margin:0;">Kanban</h1>
+  <a class="btn secondary" href="/bids<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">List view</a>
+  <a class="btn secondary" href="/dashboard">Dashboard</a>
+</div>
+
+<div style="display:flex; gap:1rem; overflow-x:auto; padding-bottom:1rem;">
+  <% columns.forEach(col => { %>
+    <div style="min-width:16rem; flex:0 0 16rem;">
+      <h3 style="margin:0 0 0.5rem 0;"><%= col.status %> <span class="muted">(<%= col.bids.length %>)</span></h3>
+      <% col.bids.forEach(bid => { %>
+        <a href="/bids/<%= bid.id %>" style="text-decoration:none; color:inherit;">
+          <div class="card" style="padding:0.6rem; margin-bottom:0.5rem;">
+            <div style="font-weight:600; font-size:0.9rem;"><%= bid.title %></div>
+            <div class="muted" style="font-size:0.8rem;"><%= bid.organization ? bid.organization.name : '-' %></div>
+            <div class="muted" style="font-size:0.8rem;"><%= formatDate(bid.closingAt) %></div>
+          </div>
+        </a>
+      <% }) %>
+      <% if (col.bids.length === 0) { %><p class="muted" style="font-size:0.85rem;">-</p><% } %>
+    </div>
+  <% }) %>
+</div>
+<%- include('../partials/footer') %>

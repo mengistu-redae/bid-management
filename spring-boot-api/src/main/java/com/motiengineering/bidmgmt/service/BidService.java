@@ -15,6 +15,7 @@ import com.motiengineering.bidmgmt.domain.enums.GoNoGo;
 import com.motiengineering.bidmgmt.domain.enums.Role;
 import com.motiengineering.bidmgmt.domain.enums.ScopeType;
 import com.motiengineering.bidmgmt.domain.enums.Sector;
+import com.motiengineering.bidmgmt.dto.BidFilter;
 import com.motiengineering.bidmgmt.dto.CreateBidRequest;
 import com.motiengineering.bidmgmt.dto.CreateLotRequest;
 import com.motiengineering.bidmgmt.dto.UpdateBidRequest;
@@ -55,6 +56,43 @@ public class BidService {
 
     public List<Bid> list() {
         return bidRepository.findAll();
+    }
+
+    /** In-memory filtering (division/status live on lots, not the bid) - see BidFilter's javadoc for why this stays simple at this scale. */
+    public List<Bid> list(BidFilter filter) {
+        List<Bid> all = bidRepository.findAll();
+        if (filter == null || filter.isEmpty()) {
+            return all;
+        }
+        return all.stream().filter(bid -> matches(bid, filter)).toList();
+    }
+
+    private boolean matches(Bid bid, BidFilter filter) {
+        if (filter.organizationId() != null && !bid.getOrganization().getId().equals(filter.organizationId())) {
+            return false;
+        }
+        if (filter.closingFrom() != null && (bid.getClosingAt() == null || bid.getClosingAt().isBefore(filter.closingFrom()))) {
+            return false;
+        }
+        if (filter.closingTo() != null && (bid.getClosingAt() == null || bid.getClosingAt().isAfter(filter.closingTo()))) {
+            return false;
+        }
+        if (filter.status() != null && bid.getLots().stream().noneMatch(lot -> lot.getStatus().name().equalsIgnoreCase(filter.status()))
+                && !bid.getStatus().name().equalsIgnoreCase(filter.status())) {
+            return false;
+        }
+        if (filter.divisionId() != null && bid.getLots().stream().noneMatch(lot -> lot.getDivision() != null && lot.getDivision().getId().equals(filter.divisionId()))) {
+            return false;
+        }
+        if (filter.officerId() != null) {
+            boolean anyLotHasOfficer = bid.getLots().stream().anyMatch(lot ->
+                    lotAccountOfficerRepository.findById_LotId(lot.getId()).stream()
+                            .anyMatch(loa -> loa.getId().getUserId().equals(filter.officerId())));
+            if (!anyLotHasOfficer) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Same organization + same reference number already on file - the intake form's duplicate-detection warning. */

@@ -16,6 +16,8 @@ public record LotDto(
         String bidBondCurrency,
         Integer bidBondValidityDays,
         String bidBondForm,
+        boolean bidBondReturned,
+        java.time.LocalDate bidBondReturnedAt,
         String oemBrand,
         String status,
         String exitReason,

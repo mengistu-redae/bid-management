@@ -96,6 +96,8 @@ public class BidMapper {
                 lot.getBidBondCurrency() == null ? null : lot.getBidBondCurrency().name(),
                 lot.getBidBondValidityDays(),
                 lot.getBidBondForm() == null ? null : lot.getBidBondForm().name(),
+                lot.isBidBondReturned(),
+                lot.getBidBondReturnedAt(),
                 lot.getOemBrand(),
                 lot.getStatus() == null ? null : lot.getStatus().name(),
                 lot.getExitReason(),

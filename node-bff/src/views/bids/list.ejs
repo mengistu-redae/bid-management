@@ -2,7 +2,36 @@
 <div class="toolbar">
   <h1 style="margin:0;">Bids</h1>
   <a class="btn" href="/bids/new">+ New Tender</a>
+  <a class="btn secondary" href="/bids/kanban<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">Kanban</a>
+  <a class="btn secondary" href="/bids/calendar">Calendar</a>
+  <a class="btn secondary" href="/dashboard">Dashboard</a>
+  <a class="btn secondary" href="/bids/export<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">Export to Excel</a>
 </div>
+
+<form method="get" action="/bids" class="card toolbar" style="margin-bottom:1rem;">
+  <select name="divisionId" style="width:auto;">
+    <option value="">All divisions</option>
+    <% divisions.forEach(d => { %><option value="<%= d.id %>" <%= query.divisionId === d.id ? 'selected' : '' %>><%= d.name %></option><% }) %>
+  </select>
+  <select name="status" style="width:auto;">
+    <option value="">All statuses</option>
+    <% statusOptions.forEach(s => { %><option value="<%= s %>" <%= query.status === s ? 'selected' : '' %>><%= s %></option><% }) %>
+  </select>
+  <select name="officerId" style="width:auto;">
+    <option value="">All officers</option>
+    <% users.filter(u => u.role === 'ACCOUNT_OFFICER').forEach(u => { %><option value="<%= u.id %>" <%= query.officerId === u.id ? 'selected' : '' %>><%= u.fullName %></option><% }) %>
+  </select>
+  <select name="organizationId" style="width:auto;">
+    <option value="">All organizations</option>
+    <% organizations.forEach(o => { %><option value="<%= o.id %>" <%= query.organizationId === o.id ? 'selected' : '' %>><%= o.name %></option><% }) %>
+  </select>
+  <label class="muted" style="margin:0;">Closing from</label>
+  <input type="date" name="closingFrom" value="<%= query.closingFrom || '' %>" style="width:auto;">
+  <label class="muted" style="margin:0;">to</label>
+  <input type="date" name="closingTo" value="<%= query.closingTo || '' %>" style="width:auto;">
+  <button type="submit" class="secondary">Filter</button>
+  <a class="btn secondary" href="/bids">Clear</a>
+</form>
 
 <div class="table-scroll">
 <table>
@@ -28,7 +57,7 @@
       </tr>
     <% }) %>
     <% if (bids.length === 0) { %>
-      <tr><td colspan="6" class="muted">No bids yet. Use "New Tender" to log one, or go to Import to load the sample spreadsheets.</td></tr>
+      <tr><td colspan="6" class="muted">No bids match these filters.</td></tr>
     <% } %>
   </tbody>
 </table>

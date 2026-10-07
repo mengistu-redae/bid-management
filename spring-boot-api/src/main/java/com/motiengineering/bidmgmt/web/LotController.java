@@ -57,6 +57,15 @@ public class LotController {
         return bidMapper.toDto(bidLotRepository.save(lot));
     }
 
+    @PostMapping("/{id}/bond-returned")
+    public LotDto setBondReturned(@PathVariable UUID id, @RequestBody com.motiengineering.bidmgmt.dto.BondReturnedRequest request) {
+        BidLot lot = get(id);
+        requireEdit(lot);
+        lot.setBidBondReturned(request.returned());
+        lot.setBidBondReturnedAt(request.returned() ? (request.returnedAt() != null ? request.returnedAt() : java.time.LocalDate.now()) : null);
+        return bidMapper.toDto(bidLotRepository.save(lot));
+    }
+
     private BidLot get(UUID id) {
         return bidLotRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Lot not found: " + id));
     }
