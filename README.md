@@ -79,9 +79,23 @@ status history, and the two-step (preview, then confirm) Excel importer for
 both sample files - live-verified end to end against a real `docker compose`
 stack and a real browser login.
 
-Not yet built (later phases per the brief): dashboard, Kanban/calendar
-views, richer filters, Excel export, Opportunities, Deal Registrations,
-Bid Bonds as their own entity, email reminders/digest, reports.
+**Phase 2** - dashboard (bids closing soon with checklist-progress red flags,
+upcoming clarification deadlines, pipeline value by division/status with
+ETB and USD always kept separate, win rate by division/officer/OEM, bid
+bonds outstanding with an estimated expiry), a read-only Kanban board, a
+month calendar, filters on the bid list (division/status/officer/
+organization/closing date range), and Excel export of the filtered list -
+also live-verified end to end.
+
+A minimal bid-bond-returned flag was pulled forward from phase 3's planned
+Deal Registration/Bid Bond entities (see `V3__bid_bond_return_tracking.sql`),
+since the phase-1 dashboard spec explicitly needs "not yet returned" - phase
+3 can still promote this to a dedicated table with issuing bank/issue date.
+
+Not yet built (later phases per the brief): Opportunities (with
+convert-to-bid), Deal Registrations, Bid Bonds as their own entity with
+issuing bank/issue date, email reminders/daily digest, reports, deployment
+packaging beyond the existing Docker Compose setup.
 
 ## Tests
 
