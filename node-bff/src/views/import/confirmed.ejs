@@ -1,0 +1,12 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<h1>Import complete</h1>
+<div class="card">
+  <p>Total rows: <%= summary.rowsTotal %></p>
+  <p>Created: <%= summary.rowsCreated %></p>
+  <p>Merged into existing bids: <%= summary.rowsMerged %></p>
+  <p>Flagged for review: <%= summary.rowsFlagged %></p>
+  <p>Skipped: <%= summary.rowsSkipped %></p>
+</div>
+<a class="btn" href="/bids">Go to bid list</a>
+<a class="btn secondary" href="/import">Import another file</a>
+<%- include('../partials/footer') %>

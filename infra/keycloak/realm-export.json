@@ -1,0 +1,76 @@
+{
+  "realm": "bidmgmt",
+  "enabled": true,
+  "organizationsEnabled": false,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "sslRequired": "none",
+  "roles": {
+    "realm": [
+      { "name": "director", "description": "Sales Director - full visibility across all divisions" },
+      { "name": "division_manager", "description": "Manages one or more divisions - visibility scoped to those divisions" },
+      { "name": "account_officer", "description": "Owns and edits the bids assigned to them" },
+      { "name": "scout", "description": "Logs new tenders; read-only on everything else" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "bidmgmt-bff",
+      "name": "Bid Management BFF",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:3002/auth/callback"],
+      "webOrigins": ["http://localhost:3002"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3002"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "mengistu.redae",
+      "email": "mengistu.redae@motiengineering.com",
+      "firstName": "Mengistu",
+      "lastName": "Redae",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "ChangeMe123!", "temporary": true }],
+      "realmRoles": ["director"]
+    },
+    {
+      "username": "ermiyas.mesfin",
+      "email": "ermiyas.mesfin@motiengineering.com",
+      "firstName": "Ermiyas",
+      "lastName": "Mesfin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "ChangeMe123!", "temporary": true }],
+      "realmRoles": ["division_manager"]
+    },
+    {
+      "username": "nardos.kibru",
+      "email": "nardos.kibru@motiengineering.com",
+      "firstName": "Nardos",
+      "lastName": "Kibru",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "ChangeMe123!", "temporary": true }],
+      "realmRoles": ["division_manager"]
+    },
+    {
+      "username": "eyerusalem.tariku",
+      "email": "eyerusalem.tariku@motiengineering.com",
+      "firstName": "Eyerusalem",
+      "lastName": "Tariku",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "ChangeMe123!", "temporary": true }],
+      "realmRoles": ["division_manager"]
+    }
+  ]
+}

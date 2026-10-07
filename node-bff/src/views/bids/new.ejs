@@ -1,0 +1,144 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<h1>New tender</h1>
+<p class="muted">Fast intake for scouts - fill in what you know now, the rest can be added later from the bid detail page.</p>
+
+<% if (duplicates && duplicates.length > 0) { %>
+  <div class="warning-box">
+    <strong>Possible duplicate.</strong> <%= duplicates.length %> existing bid(s) already have this reference number for this organization:
+    <ul>
+      <% duplicates.forEach(d => { %><li><a href="/bids/<%= d.id %>"><%= d.title %></a></li><% }) %>
+    </ul>
+  </div>
+<% } %>
+
+<form class="card" method="post" action="/bids">
+  <input type="hidden" name="confirmDuplicate" value="<%= (duplicates && duplicates.length > 0) ? 'true' : 'false' %>">
+
+  <label>Organization name</label>
+  <input name="organizationName" value="<%= form.organizationName || '' %>" placeholder="e.g. Commercial Bank of Ethiopia" required>
+
+  <label>Sector</label>
+  <select name="sector">
+    <% ['BANK','GOVERNMENT','UTILITY','ENTERPRISE','OTHER'].forEach(s => { %>
+      <option value="<%= s %>" <%= form.sector === s ? 'selected' : '' %>><%= s %></option>
+    <% }) %>
+  </select>
+
+  <label>Tender title</label>
+  <input name="title" value="<%= form.title || '' %>" required>
+
+  <label>Reference number</label>
+  <input name="referenceNumber" value="<%= form.referenceNumber || '' %>">
+
+  <label>Source</label>
+  <select name="source">
+    <% ['NEWSPAPER','PORTAL','INVITATION','DIRECT','UNKNOWN'].forEach(s => { %>
+      <option value="<%= s %>" <%= form.source === s ? 'selected' : '' %>><%= s %></option>
+    <% }) %>
+  </select>
+
+  <label>Scouted by (names, separated by / or &amp;)</label>
+  <input name="scoutNames" value="<%= form.scoutNames || '' %>" placeholder="e.g. Nardos">
+
+  <label>Scouted date</label>
+  <input type="date" name="scoutedDate" value="<%= form.scoutedDate || '' %>">
+
+  <div style="display:flex; gap:1rem;">
+    <div style="flex:1;">
+      <label>Closing date</label>
+      <input type="date" name="closingDate" value="<%= form.closingDate || '' %>">
+    </div>
+    <div style="flex:1;">
+      <label>Closing time</label>
+      <input type="time" name="closingTime" value="<%= form.closingTime || '' %>">
+    </div>
+  </div>
+
+  <div style="display:flex; gap:1rem;">
+    <div style="flex:1;">
+      <label>Opening date</label>
+      <input type="date" name="openingDate" value="<%= form.openingDate || '' %>">
+    </div>
+    <div style="flex:1;">
+      <label>Opening time</label>
+      <input type="time" name="openingTime" value="<%= form.openingTime || '' %>">
+    </div>
+  </div>
+
+  <label>Clarification deadline</label>
+  <input type="date" name="clarificationDate" value="<%= form.clarificationDate || '' %>">
+
+  <label>Bid validity (days)</label>
+  <input type="number" name="bidValidityDays" value="<%= form.bidValidityDays || '' %>">
+
+  <h2 style="margin-top:1.5rem;">Lot 1</h2>
+
+  <label>Division</label>
+  <select name="divisionCode">
+    <option value="">- pick a division -</option>
+    <% divisions.forEach(d => { %>
+      <option value="<%= d.code %>" <%= form.divisionCode === d.code ? 'selected' : '' %>><%= d.name %></option>
+    <% }) %>
+  </select>
+
+  <label>Scope</label>
+  <% scopeTypes.forEach(st => { %>
+    <label style="display:inline-block; margin-right:1rem; font-weight:normal;">
+      <input type="checkbox" name="scopeTypes" value="<%= st %>" style="width:auto; display:inline;"> <%= st %>
+    </label>
+  <% }) %>
+
+  <div style="display:flex; gap:1rem;">
+    <div style="flex:1;">
+      <label>Estimated value</label>
+      <input type="number" step="0.01" name="estimatedValue" value="<%= form.estimatedValue || '' %>">
+    </div>
+    <div style="flex:1;">
+      <label>Currency</label>
+      <select name="estimatedValueCurrency">
+        <option value="ETB">ETB</option>
+        <option value="USD">USD</option>
+      </select>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:1rem;">
+    <div style="flex:1;">
+      <label>Bid bond amount</label>
+      <input type="number" step="0.01" name="bidBondAmount" value="<%= form.bidBondAmount || '' %>">
+    </div>
+    <div style="flex:1;">
+      <label>Bid bond currency</label>
+      <select name="bidBondCurrency">
+        <option value="ETB">ETB</option>
+        <option value="USD">USD</option>
+      </select>
+    </div>
+    <div style="flex:1;">
+      <label>Bid bond validity (days)</label>
+      <input type="number" name="bidBondValidityDays" value="<%= form.bidBondValidityDays || '' %>">
+    </div>
+  </div>
+
+  <label>Bid bond form</label>
+  <select name="bidBondForm">
+    <% ['BANK_GUARANTEE','CPO','INSURANCE_BOND','UNKNOWN'].forEach(s => { %>
+      <option value="<%= s %>"><%= s %></option>
+    <% }) %>
+  </select>
+
+  <label>OEM/brand proposed</label>
+  <input name="oemBrand" value="<%= form.oemBrand || '' %>">
+
+  <label>Account officer(s) (names, separated by / or &amp;)</label>
+  <input name="accountOfficerNames" value="<%= form.accountOfficerNames || '' %>">
+
+  <label>Notes</label>
+  <textarea name="notes"><%= form.notes || '' %></textarea>
+
+  <div style="margin-top:1.5rem;">
+    <button type="submit"><%= (duplicates && duplicates.length > 0) ? 'Create anyway' : 'Create tender' %></button>
+    <a class="btn secondary" href="/bids">Cancel</a>
+  </div>
+</form>
+<%- include('../partials/footer') %>

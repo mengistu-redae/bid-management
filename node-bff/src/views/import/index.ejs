@@ -1,0 +1,68 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<h1>Import</h1>
+<p class="muted">Upload one of the two sample spreadsheets. Nothing is saved until you review the preview below and confirm.</p>
+
+<div class="card">
+  <form method="post" action="/import/preview" enctype="multipart/form-data" style="display:flex; gap:1rem; align-items:flex-end;">
+    <div>
+      <label>Which file is this?</label>
+      <select name="kind">
+        <option value="upcoming">Upcoming Bid tracker (tender scouting list)</option>
+        <option value="tracker">Bids tracker (Bids on hand / Submitted / drop / cancelled)</option>
+      </select>
+    </div>
+    <div style="flex:1;">
+      <label>File</label>
+      <input type="file" name="file" accept=".xlsx" required>
+    </div>
+    <div><button type="submit">Preview</button></div>
+  </form>
+</div>
+
+<% if (preview) { %>
+  <% if (kind === 'upcoming') { %>
+    <h2>Preview - <%= preview.sourceFilename %> (<%= preview.data.length %> rows)</h2>
+    <table>
+      <thead><tr><th>Organization</th><th>Title</th><th>Ref</th><th>Closing</th><th>Warnings</th></tr></thead>
+      <tbody>
+        <% preview.data.forEach(row => { %>
+          <tr>
+            <td><%= row.organizationRaw %></td>
+            <td><%= row.cleanTitle %></td>
+            <td><%= row.referenceNumber || '-' %></td>
+            <td><%= row.closingAt || '-' %></td>
+            <td>
+              <% row.warnings.forEach(w => { %><div class="badge review" style="margin-bottom:2px;"><%= w %></div><% }) %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } else { %>
+    <% Object.keys(preview.data).forEach(sheetName => { %>
+      <h2><%= sheetName %> (<%= preview.data[sheetName].length %> rows)</h2>
+      <table>
+        <thead><tr><th>Organization</th><th>Item</th><th>Deal size</th><th>Officer(s)</th><th>Warnings</th></tr></thead>
+        <tbody>
+          <% preview.data[sheetName].forEach(row => { %>
+            <tr>
+              <td><%= row.organizationRaw %></td>
+              <td><%= row.cleanTitle %></td>
+              <td><%= row.dealSize && row.dealSize.amount ? row.dealSize.amount + ' ' + row.dealSize.currency : '-' %></td>
+              <td><%= row.accountOfficerNames.join(', ') %></td>
+              <td><% row.warnings.forEach(w => { %><div class="badge review" style="margin-bottom:2px;"><%= w %></div><% }) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% }) %>
+  <% } %>
+
+  <form method="post" action="/import/confirm" style="margin-top:1rem;">
+    <input type="hidden" name="kind" value="<%= kind %>">
+    <input type="hidden" name="token" value="<%= preview.token %>">
+    <button type="submit">Confirm import</button>
+  </form>
+<% } %>
+
+<%- include('../partials/footer') %>

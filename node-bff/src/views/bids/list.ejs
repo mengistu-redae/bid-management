@@ -1,0 +1,36 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<div class="toolbar">
+  <h1 style="margin:0;">Bids</h1>
+  <a class="btn" href="/bids/new">+ New Tender</a>
+</div>
+
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr>
+      <th>Organization</th>
+      <th>Title</th>
+      <th>Division(s)</th>
+      <th>Closing</th>
+      <th>Status</th>
+      <th>Lots</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% bids.forEach(bid => { %>
+      <tr onclick="window.location='/bids/<%= bid.id %>'" style="cursor:pointer;">
+        <td><%= bid.organization ? bid.organization.name : '-' %></td>
+        <td><%= bid.title %><% if (bid.referenceNumber) { %><div class="muted"><%= bid.referenceNumber %></div><% } %></td>
+        <td><%= bid.lots.map(l => l.division ? l.division.name : '?').join(', ') %></td>
+        <td><%= formatDate(bid.closingAt) %></td>
+        <td><span class="badge <%= statusBadgeClass(bid.status) %>"><%= bid.status %></span></td>
+        <td><%= bid.lots.length %></td>
+      </tr>
+    <% }) %>
+    <% if (bids.length === 0) { %>
+      <tr><td colspan="6" class="muted">No bids yet. Use "New Tender" to log one, or go to Import to load the sample spreadsheets.</td></tr>
+    <% } %>
+  </tbody>
+</table>
+</div>
+<%- include('../partials/footer') %>

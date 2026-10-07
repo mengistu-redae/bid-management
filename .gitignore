@@ -1,0 +1,24 @@
+## Java / Maven
+spring-boot-api/target/
+*.class
+*.jar
+
+## Node
+node-bff/node_modules/
+node-bff/npm-debug.log*
+
+## Env
+.env
+
+## IDE
+.idea/
+*.iml
+.vscode/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Uploads / local data
+uploads/
+docs/_dump_*.txt

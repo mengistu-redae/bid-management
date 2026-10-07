@@ -1,0 +1,25 @@
+{
+  "name": "bidmgmt-bff",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend-for-frontend for the bid/deal-registration/opportunity management system: holds the OIDC session server-side, forwards bearer tokens to the Spring Boot API, and server-renders the UI with HTMX.",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "connect-redis": "^7.1.1",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "express-session": "^1.18.1",
+    "htmx.org": "^1.9.12",
+    "multer": "^2.0.0",
+    "openid-client": "^5.6.5",
+    "redis": "^4.7.0"
+  }
+}

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= typeof title !== 'undefined' ? title + ' - Bid Management' : 'Bid Management' %></title>
+  <link rel="stylesheet" href="/public/css/app.css">
+  <script src="/vendor/htmx/htmx.min.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <div><a href="/bids">Bid Management</a></div>
+  <nav>
+    <a href="/bids">Bids</a>
+    <a href="/bids/new">+ New Tender</a>
+    <a href="/import">Import</a>
+  </nav>
+  <div>
+    <% if (typeof user !== 'undefined' && user) { %>
+      <span class="muted" style="color:#fff;margin-right:0.75rem;"><%= user.name || user.email %></span>
+      <form class="inline" method="post" action="/auth/logout"><button class="secondary" type="submit">Log out</button></form>
+    <% } %>
+  </div>
+</header>
+<main>

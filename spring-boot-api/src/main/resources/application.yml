@@ -1,0 +1,57 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: bidmgmt-api
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5434/bidmgmt}
+    username: ${SPRING_DATASOURCE_USERNAME:bidmgmt}
+    password: ${SPRING_DATASOURCE_PASSWORD:bidmgmt}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+  jackson:
+    time-zone: Africa/Addis_Ababa
+
+bidmgmt:
+  uploads-root: ${BIDMGMT_UPLOADS_ROOT:./uploads}
+  timezone: Africa/Addis_Ababa
+  seed:
+    enabled: ${BIDMGMT_SEED_ENABLED:true}
+    upcoming-file: "${BIDMGMT_SEED_UPCOMING:../docs/Upcoming Bid Oct 07.xlsx}"
+    tracker-file: "${BIDMGMT_SEED_TRACKER:../docs/on hand bid.xlsx}"
+  # Internal (container-to-container) issuer used for the JWT decoder's own
+  # server-to-server calls (JWK set fetch, issuer validation base), vs the
+  # public one the browser's token actually carries in its `iss` claim - see
+  # node-bff/src/auth/oidc.js's comment for why these two differ under
+  # Keycloak's KC_HOSTNAME_STRICT=false. Both point at the same realm.
+  keycloak:
+    issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8090/realms/bidmgmt}
+    issuer-public-uri: ${KEYCLOAK_ISSUER_PUBLIC_URI:http://localhost:8090/realms/bidmgmt}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    com.motiengineering.bidmgmt: INFO
