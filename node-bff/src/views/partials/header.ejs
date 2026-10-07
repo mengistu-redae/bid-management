@@ -16,6 +16,9 @@
     <a href="/opportunities">Opportunities</a>
     <a href="/deal-registrations">Deal Regs</a>
     <a href="/reports">Reports</a>
+    <% if (typeof user !== 'undefined' && user && user.realm_access && user.realm_access.roles && user.realm_access.roles.includes('director')) { %>
+      <a href="/users">Users</a>
+    <% } %>
     <a href="/bids/new">+ New Tender</a>
     <a href="/import">Import</a>
   </nav>

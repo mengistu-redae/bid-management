@@ -1,0 +1,32 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<h1>Add person</h1>
+<p class="muted">Creates a record in the app only - no login yet. Use "Grant login" from the user list once they actually need to sign in.</p>
+
+<form class="card" method="post" action="/users">
+  <label>Full name</label>
+  <input name="fullName" value="<%= form.fullName || '' %>" required>
+
+  <label>Email</label>
+  <input type="email" name="email" value="<%= form.email || '' %>" required>
+
+  <label>Role</label>
+  <select name="role">
+    <% roleOptions.forEach(r => { %>
+      <option value="<%= r %>"><%= r %></option>
+    <% }) %>
+  </select>
+
+  <label>Division(s) - only used for Division Manager</label>
+  <% divisions.forEach(d => { %>
+    <label style="display:inline-block; margin-right:1rem; font-weight:normal;">
+      <input type="checkbox" name="divisionIds" value="<%= d.id %>" style="width:auto; display:inline;"> <%= d.name %>
+    </label>
+  <% }) %>
+
+  <div class="toolbar" style="margin-top:1rem;">
+    <button type="submit">Create</button>
+    <a class="btn secondary" href="/users">Cancel</a>
+  </div>
+</form>
+
+<%- include('../partials/footer') %>

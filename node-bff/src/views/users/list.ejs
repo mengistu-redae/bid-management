@@ -1,0 +1,56 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<h1>Users</h1>
+
+<div class="toolbar">
+  <a class="btn" href="/users/new">+ Add person</a>
+</div>
+
+<% if (justGranted) { %>
+  <div class="card" style="border-color:#1a7f37; background:#f0fff4; margin-top:1rem;">
+    <strong>Login created for <%= justGranted.user.fullName %> (<%= justGranted.user.email %>)</strong>
+    <p>Temporary password (shown once - copy it now, it won't be shown again):</p>
+    <p style="font-family:monospace; font-size:1.1rem; background:#fff; padding:0.5rem; border:1px solid #ccc;"><%= justGranted.temporaryPassword %></p>
+    <p class="muted">The person must set their own password on first login.</p>
+  </div>
+<% } %>
+
+<table style="margin-top:1rem;">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Role</th>
+      <th>Division(s)</th>
+      <th>Login</th>
+      <th>Status</th>
+      <th>Telegram</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <% users.forEach(u => { %>
+      <tr style="<%= u.active ? '' : 'opacity:0.5;' %>">
+        <td><%= u.fullName %></td>
+        <td><%= u.email || '-' %></td>
+        <td><%= u.role %></td>
+        <td><%= u.divisions.map(d => d.name).join(', ') || '-' %></td>
+        <td><%= u.hasLogin ? 'Yes' : 'No' %></td>
+        <td><%= u.active ? 'Active' : 'Deactivated' %></td>
+        <td><%= u.telegramChatId ? 'Linked' : '-' %></td>
+        <td style="white-space:nowrap;">
+          <a href="/users/<%= u.id %>/edit">Edit</a>
+          <% if (!u.hasLogin) { %>
+            &middot; <form class="inline" method="post" action="/users/<%= u.id %>/grant-login"><button class="secondary" type="submit">Grant login</button></form>
+          <% } %>
+          <% if (u.active) { %>
+            &middot; <form class="inline" method="post" action="/users/<%= u.id %>/deactivate"><button class="secondary" type="submit">Deactivate</button></form>
+          <% } else { %>
+            &middot; <form class="inline" method="post" action="/users/<%= u.id %>/reactivate"><button class="secondary" type="submit">Reactivate</button></form>
+          <% } %>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<%- include('../partials/footer') %>

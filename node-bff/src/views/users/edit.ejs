@@ -1,0 +1,37 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<h1>Edit <%= target.fullName %></h1>
+<p class="muted"><%= target.email || 'No email on file' %> &middot; <%= target.hasLogin ? 'Has a login' : 'No login yet' %></p>
+
+<form class="card" method="post" action="/users/<%= target.id %>/update">
+  <label>Full name</label>
+  <input name="fullName" value="<%= target.fullName %>" required>
+
+  <label>Email<%= target.hasLogin ? ' (fixed once they have a login - managed in Keycloak)' : '' %></label>
+  <input type="email" name="email" value="<%= target.email || '' %>" <%= target.hasLogin ? 'disabled' : '' %>>
+  <% if (target.hasLogin) { %><input type="hidden" name="email" value="<%= target.email || '' %>"><% } %>
+
+  <label>Role</label>
+  <select name="role">
+    <% roleOptions.forEach(r => { %>
+      <option value="<%= r %>" <%= target.role === r ? 'selected' : '' %>><%= r %></option>
+    <% }) %>
+  </select>
+
+  <label>Division(s) - only used for Division Manager</label>
+  <% const currentDivisionIds = target.divisions.map(d => d.id); %>
+  <% divisions.forEach(d => { %>
+    <label style="display:inline-block; margin-right:1rem; font-weight:normal;">
+      <input type="checkbox" name="divisionIds" value="<%= d.id %>" style="width:auto; display:inline;" <%= currentDivisionIds.includes(d.id) ? 'checked' : '' %>> <%= d.name %>
+    </label>
+  <% }) %>
+
+  <label>Telegram chat ID (optional - see Telegram setup instructions on the profile page)</label>
+  <input name="telegramChatId" value="<%= target.telegramChatId || '' %>" placeholder="e.g. 123456789">
+
+  <div class="toolbar" style="margin-top:1rem;">
+    <button type="submit">Save</button>
+    <a class="btn secondary" href="/users">Cancel</a>
+  </div>
+</form>
+
+<%- include('../partials/footer') %>

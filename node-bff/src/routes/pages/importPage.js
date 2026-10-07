@@ -10,14 +10,17 @@ function buildImportRouter() {
   const router = express.Router();
 
   router.get('/', (req, res) => {
-    res.render('import/index', { title: 'Import', user: req.session.user, preview: null, kind: null });
+    res.render('import/index', { title: 'Import', user: req.session.user, preview: null, kind: null, divisions: [] });
   });
 
   router.post('/preview', upload.single('file'), async (req, res, next) => {
     try {
       const kind = req.body.kind; // 'upcoming' | 'tracker'
-      const preview = await forwardMultipart(req, `/api/import/${kind}/preview`, req.file);
-      res.render('import/index', { title: 'Import', user: req.session.user, preview, kind });
+      const [preview, divisions] = await Promise.all([
+        forwardMultipart(req, `/api/import/${kind}/preview`, req.file),
+        req.api.get('/api/divisions'),
+      ]);
+      res.render('import/index', { title: 'Import', user: req.session.user, preview, kind, divisions });
     } catch (err) {
       next(err);
     }
@@ -26,7 +29,11 @@ function buildImportRouter() {
   router.post('/confirm', async (req, res, next) => {
     try {
       const kind = req.body.kind;
-      const summary = await req.api.post(`/api/import/${kind}/confirm?token=${encodeURIComponent(req.body.token)}`);
+      const rowEdits = req.body.editsJson ? JSON.parse(req.body.editsJson) : [];
+      const body = kind === 'upcoming'
+        ? { token: req.body.token, edits: rowEdits.map(toUpcomingEdit) }
+        : { token: req.body.token, editsBySheet: groupBySheet(rowEdits) };
+      const summary = await req.api.post(`/api/import/${kind}/confirm`, body);
       res.render('import/confirmed', { title: 'Import complete', user: req.session.user, summary, kind });
     } catch (err) {
       next(err);
@@ -59,6 +66,28 @@ async function forwardMultipart(req, path, file) {
     throw error;
   }
   return data;
+}
+
+/** The client sends {rowIndex, sheet, organizationRaw, cleanTitle, divisionCode, skip} per touched row - see import/index.ejs's inline script. */
+function toUpcomingEdit(row) {
+  return {
+    rowIndex: row.rowIndex,
+    organizationRaw: row.organizationRaw || null,
+    cleanTitle: row.cleanTitle || null,
+    divisionCode: row.divisionCode || null,
+    skip: !!row.skip,
+  };
+}
+
+function groupBySheet(rowEdits) {
+  const bySheet = {};
+  for (const row of rowEdits) {
+    if (!bySheet[row.sheet]) {
+      bySheet[row.sheet] = [];
+    }
+    bySheet[row.sheet].push(toUpcomingEdit(row));
+  }
+  return bySheet;
 }
 
 module.exports = buildImportRouter;

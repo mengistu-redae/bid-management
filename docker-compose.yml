@@ -71,6 +71,12 @@ services:
       # comment for the full explanation (Keycloak pins `iss` to whatever host
       # the browser used against the authorize endpoint, not this internal one).
       KEYCLOAK_ISSUER_PUBLIC_URI: ${KEYCLOAK_ISSUER_PUBLIC_URI:-http://localhost:8090/realms/bidmgmt}
+      # Admin REST API access for UserService's "create login" action -
+      # reuses the same master-realm admin account the keycloak service
+      # itself is seeded with above.
+      KEYCLOAK_ADMIN_BASE_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       BIDMGMT_UPLOADS_ROOT: /app/uploads
       BIDMGMT_SEED_UPCOMING: /app/seed-data/upcoming-bids.xlsx
       BIDMGMT_SEED_TRACKER: /app/seed-data/bids-tracker.xlsx
@@ -87,6 +93,7 @@ services:
       BIDMGMT_NOTIFICATIONS_FROM: ${BIDMGMT_NOTIFICATIONS_FROM:-bidmgmt@motiengineering.com}
       BIDMGMT_DIRECTOR_EMAIL: ${BIDMGMT_DIRECTOR_EMAIL:-mengistu.redae@motiengineering.com}
       BIDMGMT_APP_BASE_URL: ${BIDMGMT_APP_BASE_URL:-http://localhost:3002}
+      BIDMGMT_TELEGRAM_BOT_TOKEN: ${BIDMGMT_TELEGRAM_BOT_TOKEN:-}
     volumes:
       - uploads_data:/app/uploads
       - ./docs/Upcoming Bid Oct 07.xlsx:/app/seed-data/upcoming-bids.xlsx:ro
@@ -97,6 +104,8 @@ services:
       postgres:
         condition: service_healthy
       mailpit:
+        condition: service_started
+      keycloak:
         condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"'"]
@@ -137,8 +146,17 @@ services:
     image: nginx:alpine
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/tls:/etc/nginx/tls:ro
+    # TLS cert/key are generated on the HOST, not in this container - see
+    # infra/nginx/generate-self-signed-cert.sh. An earlier version of this
+    # generated the cert in-container via `apk add openssl` on first start,
+    # but nginx:alpine doesn't ship the openssl CLI by default (only the
+    # library it's linked against) and pulling the package live made first
+    # start unreliably slow on a constrained connection. Run the script once
+    # before `docker compose up` - see README/DEPLOYMENT.md.
     ports:
       - "82:80"
+      - "8443:443"
     depends_on:
       node-bff:
         condition: service_healthy

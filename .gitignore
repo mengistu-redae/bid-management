@@ -16,6 +16,10 @@ node-bff/npm-debug.log*
 .vscode/
 .claude/
 
+## Self-signed dev TLS cert, generated on first `docker compose up` - see
+## docker-compose.yml's nginx service and DEPLOYMENT.md.
+infra/nginx/tls/*.pem
+
 ## OS
 .DS_Store
 Thumbs.db

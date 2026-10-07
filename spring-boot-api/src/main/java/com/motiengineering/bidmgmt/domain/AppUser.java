@@ -37,6 +37,9 @@ public class AppUser {
 
     private boolean active = true;
 
+    /** Set by the user themselves (or an admin) via the user management page - see TelegramNotificationChannel. */
+    private String telegramChatId;
+
     @CreationTimestamp
     private Instant createdAt;
 }

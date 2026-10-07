@@ -11,4 +11,6 @@ public interface UserDivisionRepository extends JpaRepository<UserDivision, User
     List<UserDivision> findById_UserId(UUID userId);
 
     List<UserDivision> findById_DivisionId(UUID divisionId);
+
+    void deleteById_UserId(UUID userId);
 }

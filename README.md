@@ -47,8 +47,8 @@ Then log in at **http://localhost:3002/auth/login**:
 
 Account officers and scouts (Selam, Tezana, Abenezer, Zufan, Kaleab, Endris,
 Berhanu, Betelhem, Eyerus, Betty) exist as reference rows from the imported
-data but have no login yet - the Director can wire one up later by creating
-a matching-email Keycloak user (the app links by email on first login).
+data but have no login yet and no email on file - the Director can add an
+email and grant one a real login from `/users` (see Phase 5 below).
 
 Service URLs:
 
@@ -68,6 +68,12 @@ client secret is auto-generated - fetch it from the admin console
 (`bidmgmt` realm -> Clients -> `bidmgmt-bff` -> Credentials) and put it in
 a `.env` file at the repo root as `BFF_CLIENT_SECRET`, then
 `docker compose up -d --force-recreate node-bff`. See `.env.example`.
+
+**HTTPS note:** nginx also serves HTTPS on `:8443`, but needs a cert first -
+run `infra/nginx/generate-self-signed-cert.sh` once before the first
+`docker compose up` (plain HTTP on `:82` works either way; browsers will
+warn on the self-signed cert - see `DEPLOYMENT.md` for swapping in a real
+one for production).
 
 ## What's built so far
 
@@ -139,9 +145,61 @@ landing in mailpit (`NotificationServiceLiveTest`, read back via mailpit's
 own REST API), the `/reports` page rendering real seeded data in a browser,
 and its Excel export downloading a genuine `.xlsx` file.
 
-Not yet built: an in-app way to create Keycloak users for account
-officers/scouts (the Director currently does this by hand in the Keycloak
-admin console), and TLS (nginx is still HTTP-only - see `DEPLOYMENT.md`).
+**Phase 5** - four independent gaps from phase 4's "not yet built" list,
+all user-driven (no formal phase 5 spec existed, so each piece was scoped
+and confirmed with the user before building):
+
+- **TLS** - nginx now also serves HTTPS on `:8443` with a self-signed cert
+  generated on the host (`infra/nginx/generate-self-signed-cert.sh`, not
+  in-container - see its comment for why an earlier `apk add openssl`
+  in-container approach was abandoned: `nginx:alpine` doesn't ship the
+  `openssl` CLI, and pulling the package live made first start unreliably
+  slow). Plain HTTP on `:82` keeps working unredirected, so existing local
+  workflows aren't broken - see `DEPLOYMENT.md` for going further in
+  production (a real cert, forcing the redirect).
+- **In-app user management** - a Director-only `/users` page to create a
+  person (an `app_users` row only - most account officers/scouts never need
+  a login), separately grant them a real Keycloak login on demand (via
+  Keycloak's Admin REST API, master-realm `admin-cli` password grant,
+  reusing the same `KEYCLOAK_ADMIN`/`KEYCLOAK_ADMIN_PASSWORD` credentials
+  the `keycloak` compose service is seeded with - see the `keycloakadmin`
+  package, adapted from the same pattern in the sibling
+  `clinic-management-saas` project), and edit role/division(s)/email/
+  Telegram chat id. A person's email is only editable before they have a
+  login - once Keycloak has a real account, its own email is the source of
+  truth and the app never talks back to Keycloak to keep them in sync.
+- **Telegram notification channel** - `TelegramNotificationChannel`, the
+  second `NotificationChannel` the Phase 4 design was built to accept, per
+  the brief's "designed so a Telegram bot channel can be added later" note.
+  Messages are sent as plain text (Telegram's Bot API only renders a small
+  HTML subset, nothing like `EmailTemplates`'s markup, so tags are stripped
+  rather than mapped). Not live-verified end to end - the user doesn't have
+  a Telegram bot token yet - but thoroughly unit-tested against a mocked
+  HTTP server (`TelegramNotificationChannelTest`), which caught a real bug
+  before it ever shipped: building the request URI from a `"/bot{token}/..."`
+  template percent-encodes the `:` every real bot token contains, which
+  would have 404'd on every single send.
+- **Import UX improvements** - the Excel import preview table is now
+  editable per row (organization, title, division) with a skip checkbox,
+  replacing the old "confirm persists the cached preview exactly as parsed"
+  behavior (`ImportRowEditor`, a plain function over the cached row lists so
+  it's testable without a cache, a token, or a controller in the way).
+
+A real gap was caught live while testing user management: granting a login
+to an account officer/scout reference row with no email on file (the
+common case for data seeded from the Excel import) tried to create a
+Keycloak user with a null username. Fixed by validating upfront (a clear
+error instead of a confusing upstream failure) and adding an email field to
+the edit page so the Director can add one first.
+
+Live-verified end to end: HTTPS actually terminating TLS at `:8443`
+(confirmed via a real cert-authority browser warning - the expected result
+for a self-signed cert - and via `curl -k`) alongside HTTP still working at
+`:82`; creating a person, granting them a login, and confirming the
+resulting Keycloak user for real via its own Admin REST API; editing
+role/division/email and deactivating/reactivating; and a full import run
+where an edited organization name and division, and a skipped row, both
+landed correctly on the persisted data and in the confirm summary's counts.
 
 ## Tests
 
@@ -170,8 +228,18 @@ running (`docker compose up -d mailpit`) in addition to Postgres. All three
 live tests use a separate `bidmgmt_test` database so they never touch
 real/seeded data.
 
+Phase 5 added `UserServiceTest` (email-uniqueness on create, divisions only
+ever applying to `DIVISION_MANAGER`, the grant-login/blank-email guard),
+`TelegramNotificationChannelTest` (the `supports()` gate and the actual
+HTTP request shape sent to Telegram's Bot API via `MockRestServiceServer` -
+the test that caught the token-encoding bug above), and
+`ImportRowEditorTest` (per-row edit/skip rules, including that a blank edit
+field never clobbers the parsed value).
+
 ## Deployment
 
 See `DEPLOYMENT.md` for running this on a single on-premise Linux server:
-first-time setup, TLS (not yet wired up - read this before exposing the app
-outside a trusted network), email/SMTP config, backups, and updates.
+first-time setup, TLS (self-signed cert included for local HTTPS - read
+this before exposing the app outside a trusted network with it), email/SMTP
+config, the Keycloak Admin API user-provisioning setup, Telegram bot setup,
+backups, and updates.

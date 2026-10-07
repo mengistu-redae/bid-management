@@ -56,6 +56,9 @@ bidmgmt:
     # Cron is Africa/Addis_Ababa local time regardless of the container's own
     # timezone - see ReminderSchedulerService.
     reminder-cron: ${BIDMGMT_REMINDER_CRON:0 0 7 * * *}
+    # Empty by default - TelegramNotificationChannel.supports() returns false
+    # for everyone until a real bot token (from @BotFather) is set here.
+    telegram-bot-token: ${BIDMGMT_TELEGRAM_BOT_TOKEN:}
   # Internal (container-to-container) issuer used for the JWT decoder's own
   # server-to-server calls (JWK set fetch, issuer validation base), vs the
   # public one the browser's token actually carries in its `iss` claim - see
@@ -64,6 +67,17 @@ bidmgmt:
   keycloak:
     issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8090/realms/bidmgmt}
     issuer-public-uri: ${KEYCLOAK_ISSUER_PUBLIC_URI:http://localhost:8090/realms/bidmgmt}
+  # Used only by UserService's "create login" action (Director-only) to
+  # provision a real Keycloak account for an app_users row via the Admin
+  # REST API - the master realm's built-in admin-cli client, Resource Owner
+  # Password Credentials grant, same as the one-off manual flow through the
+  # admin console. NOT the same as bidmgmt.keycloak above - that one includes
+  # /realms/bidmgmt and is used for JWT validation; this is the bare server
+  # URL, and always authenticates against the master realm.
+  keycloak-admin:
+    base-url: ${KEYCLOAK_ADMIN_BASE_URL:http://localhost:8090}
+    admin-username: ${KEYCLOAK_ADMIN:admin}
+    admin-password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
 
 management:
   endpoints:

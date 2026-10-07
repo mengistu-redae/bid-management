@@ -43,11 +43,14 @@ first time). Once `docker compose ps` shows everything healthy:
 3. Log in at `http://<host>:82` (or whatever hostname fronts nginx) with the
    seed users from `infra/keycloak/realm-export.json` - see the main
    README's login table. Everyone has a forced password reset on first
-   login; have the Director reset the four seeded accounts' passwords and
-   wire up the account officers/scouts as real Keycloak users (the app
-   links by email, so a Keycloak user just needs a matching email address
-   to an existing `app_users` row - no app-side user creation flow exists
-   yet).
+   login; have the Director reset the four seeded accounts' passwords.
+4. (Optional) run `infra/nginx/generate-self-signed-cert.sh` to enable
+   HTTPS on `:8443` - see "TLS" below.
+5. Wire up logins for the account officers/scouts seeded as reference rows
+   from the Excel import: Director -> Users -> find the person -> "Grant
+   login" (add an email first via "Edit" if they don't have one on file).
+   This calls Keycloak's Admin REST API directly from the app - no more
+   manual admin-console user creation needed. See "User management" below.
 
 ## Running on a real hostname (not localhost)
 
@@ -71,13 +74,56 @@ up the new env vars.
 
 ## TLS
 
-The bundled nginx (`infra/nginx/nginx.conf`) is **HTTP-only** - fine for a
-quick local demo, not fine for anything carrying real login credentials
-over a network. For a real deployment, put a TLS-terminating reverse proxy
-in front (nginx with a Let's Encrypt cert via certbot, or an existing
-corporate reverse proxy/load balancer) and point it at this stack's nginx
-on its internal `:82`. This isn't wired up yet - treat it as a blocker
-before exposing the app outside a trusted local network.
+nginx serves HTTPS on `:8443` alongside plain HTTP on `:82` (the HTTP
+listener is never redirected, so existing local workflows against `:82`
+keep working unchanged). The cert is **self-signed** - generate it once,
+on the host, before first starting nginx:
+
+```bash
+infra/nginx/generate-self-signed-cert.sh
+```
+
+This writes `infra/nginx/tls/fullchain.pem` and `privkey.pem` (gitignored,
+bind-mounted read-only into the nginx container). It only needs to run
+once; re-running is a no-op unless you delete those files first. Browsers
+will show a certificate warning for a self-signed cert - expected, and not
+something to click through for anything beyond local testing.
+
+For a real deployment, replace those same two files with a real
+certificate (e.g. from Let's Encrypt via certbot, or your corporate CA) at
+the same two paths, and change nginx.conf's plain-HTTP `server` block to
+`return 301 https://$host$request_uri;` instead of proxying - see the
+comments in `infra/nginx/nginx.conf`. Until that's done, treat `:82`
+(HTTP, credentials sent in the clear) as unsuitable for anything beyond a
+trusted local network.
+
+### Why not generate the cert in the nginx container itself?
+
+An earlier version did `apk add --no-cache openssl` inside nginx's startup
+command, since `nginx:alpine` doesn't ship the `openssl` CLI by default
+(only the library it's linked against). That works, but pulling a package
+from Alpine's CDN on every fresh `docker compose up` made first start
+unreliably slow on a constrained connection - generating the cert on the
+host instead has no such dependency.
+
+## User management
+
+The Director-only `/users` page (spring-boot-api's `UserController`/
+`UserService`) creates `app_users` rows directly and, separately, grants a
+real Keycloak login on demand via Keycloak's Admin REST API. That API call
+authenticates as the Keycloak admin using the master realm's built-in
+`admin-cli` client (Resource Owner Password Credentials grant) - the same
+`KEYCLOAK_ADMIN`/`KEYCLOAK_ADMIN_PASSWORD` credentials already set for the
+`keycloak` compose service above, reused automatically (see
+`KEYCLOAK_ADMIN_BASE_URL` in `docker-compose.yml`, pointed at the internal
+`http://keycloak:8080`). No separate credential or Keycloak client setup is
+needed - if you can reach the Keycloak admin console with those
+credentials, "Grant login" works.
+
+A person needs an email on file before they can be granted a login (it
+becomes their Keycloak username). Once granted, their email becomes
+read-only in the app - Keycloak's own record is the source of truth from
+that point on, and the app never writes back to it.
 
 ## Email (Phase 4 reminders and digest)
 
@@ -112,6 +158,29 @@ edit `application.yml` directly and rebuild if it needs to change.
 Every send is deduped against the `notification_log` table (one row per
 reminder type + entity + recipient + day), so the job is safe to run more
 than once in a day or to restart mid-run without double-sending.
+
+## Telegram notifications (optional)
+
+`TelegramNotificationChannel` is a second, additive channel alongside
+email - nothing to configure means it silently sends to no one. To turn it
+on:
+
+1. Create a bot via [@BotFather](https://t.me/BotFather) in Telegram
+   (`/newbot`, follow the prompts) and copy the token it gives you.
+2. Set `BIDMGMT_TELEGRAM_BOT_TOKEN` in `.env` to that token, then
+   `docker compose up -d --force-recreate spring-boot-api`.
+3. Each recipient needs their own Telegram chat id saved on their profile:
+   have them message the bot, then look up their chat id (e.g. via
+   `https://api.telegram.org/bot<token>/getUpdates`, or a helper bot like
+   `@userinfobot`), and enter it on their user management edit page
+   (Director -> Users -> Edit -> "Telegram chat ID").
+
+Messages are plain text, not the HTML `EmailTemplates` builds for email -
+Telegram's Bot API only renders a small HTML subset, so tags are stripped
+rather than translated. This hasn't been live-verified against a real bot
+(none was available while building it) - `TelegramNotificationChannelTest`
+covers the request shape against a mocked HTTP server instead. Verify a
+real send once a bot token is available before relying on it.
 
 ## Backups
 

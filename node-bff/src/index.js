@@ -14,6 +14,7 @@ const buildDashboardRouter = require('./routes/pages/dashboard');
 const buildOpportunitiesRouter = require('./routes/pages/opportunities');
 const buildDealRegistrationsRouter = require('./routes/pages/dealRegistrations');
 const buildReportsRouter = require('./routes/pages/reports');
+const buildUsersRouter = require('./routes/pages/users');
 
 async function main() {
   const app = express();
@@ -51,6 +52,7 @@ async function main() {
   app.use('/opportunities', buildOpportunitiesRouter());
   app.use('/deal-registrations', buildDealRegistrationsRouter());
   app.use('/reports', buildReportsRouter());
+  app.use('/users', buildUsersRouter());
   app.use('/import', buildImportRouter());
 
   app.use((req, res) => res.status(404).render('error', { message: 'Page not found', user: req.session.user }));
