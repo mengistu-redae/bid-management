@@ -16,12 +16,12 @@
     <div><strong>Bid validity</strong><br><%= bid.bidValidityDays ? bid.bidValidityDays + ' days' : '-' %></div>
     <div><strong>Scouted</strong><br><%= formatDate(bid.scoutedDate) %> <% if (bid.scouts.length) { %>(<%= bid.scouts.map(s => s.fullName).join(', ') %>)<% } %></div>
   </div>
-  <% if (bid.notes) { %><p style="margin-top:1rem;"><%= bid.notes %></p><% } %>
+  <% if (bid.notes) { %><p class="mt-2"><%= bid.notes %></p><% } %>
 </div>
 
 <% if (bid.canEdit) { %>
 <div class="card">
-  <h2 style="margin-top:0;">Change status</h2>
+  <h2 class="mt-0">Change status</h2>
   <form method="post" action="/bids/<%= bid.id %>/status" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
     <div style="flex:1; min-width:10rem;">
       <label>New status</label>
@@ -71,8 +71,8 @@
               <summary class="muted" style="font-size:0.78rem;">Issuing bank / issue date</summary>
               <form method="post" action="/bids/lots/<%= lot.id %>/bond-details" style="display:flex; gap:0.4rem; margin-top:0.3rem;">
                 <input type="hidden" name="bidId" value="<%= bid.id %>">
-                <input name="issuingBank" placeholder="Bank" value="<%= lot.bidBondIssuingBank || '' %>" style="width:auto;">
-                <input type="date" name="issueDate" value="<%= lot.bidBondIssueDate || '' %>" style="width:auto;">
+                <input name="issuingBank" placeholder="Bank" value="<%= lot.bidBondIssuingBank || '' %>" class="w-auto">
+                <input type="date" name="issueDate" value="<%= lot.bidBondIssueDate || '' %>" class="w-auto">
                 <button type="submit" class="secondary" style="padding:0.1rem 0.5rem; font-size:0.78rem;">Save</button>
               </form>
             </details>
@@ -89,18 +89,18 @@
     <% } %>
 
     <% if (bid.canEdit && (lot.status === 'UNDER_EVALUATION' || lot.status === 'WON' || lot.status === 'LOST')) { %>
-      <details style="margin-top:0.5rem;">
+      <details class="mt-1">
         <summary class="muted">Record outcome</summary>
         <form method="post" action="/bids/lots/<%= lot.id %>/outcome" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.5rem;">
           <input type="hidden" name="bidId" value="<%= bid.id %>">
-          <select name="outcome" style="width:auto;">
+          <select name="outcome" class="w-auto">
             <option value="">-</option>
             <option value="WON" <%= lot.outcome === 'WON' ? 'selected' : '' %>>Won</option>
             <option value="LOST" <%= lot.outcome === 'LOST' ? 'selected' : '' %>>Lost</option>
           </select>
-          <input name="winnerName" placeholder="Winner" value="<%= lot.winnerName || '' %>" style="width:auto;">
-          <input type="number" step="0.01" name="winningPrice" placeholder="Winning price" value="<%= lot.winningPrice || '' %>" style="width:auto;">
-          <select name="winningPriceCurrency" style="width:auto;">
+          <input name="winnerName" placeholder="Winner" value="<%= lot.winnerName || '' %>" class="w-auto">
+          <input type="number" step="0.01" name="winningPrice" placeholder="Winning price" value="<%= lot.winningPrice || '' %>" class="w-auto">
+          <select name="winningPriceCurrency" class="w-auto">
             <option value="ETB">ETB</option>
             <option value="USD">USD</option>
           </select>
@@ -129,7 +129,7 @@
     <form method="post" action="/bids/lots/<%= lot.id %>/checklist-items" style="display:flex; gap:0.5rem; margin-top:0.5rem;">
       <input type="hidden" name="bidId" value="<%= bid.id %>">
       <input name="title" placeholder="Add checklist item..." style="flex:2;">
-      <input type="date" name="dueDate" style="flex:1;">
+      <input type="date" name="dueDate" class="col">
       <button type="submit" class="secondary">Add</button>
     </form>
 
@@ -137,10 +137,10 @@
       <summary class="muted">Change this lot's status independently</summary>
       <form method="post" action="/bids/lots/<%= lot.id %>/status" style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
         <input type="hidden" name="bidId" value="<%= bid.id %>">
-        <select name="newStatus" style="width:auto;">
+        <select name="newStatus" class="w-auto">
           <% statusOptions.forEach(s => { %><option value="<%= s %>" <%= s === lot.status ? 'selected' : '' %>><%= s %></option><% }) %>
         </select>
-        <input name="reason" placeholder="Reason (if dropping/cancelling)" style="flex:1;">
+        <input name="reason" placeholder="Reason (if dropping/cancelling)" class="col">
         <button type="submit" class="secondary">Update lot status</button>
       </form>
     </details>
@@ -158,7 +158,7 @@
     </div>
   <% }) %>
   <% if (dealRegistrations.length === 0) { %><p class="muted">No deal registrations linked to this bid.</p><% } %>
-  <a class="btn secondary" style="margin-top:0.5rem;" href="/deal-registrations/new">+ New deal registration</a>
+  <a class="btn secondary mt-1" href="/deal-registrations/new">+ New deal registration</a>
 </div>
 
 <h2>Activity log</h2>
@@ -168,7 +168,7 @@
   <% }) %>
   <% if (activity.length === 0) { %><p class="muted">No activity yet.</p><% } %>
   <form method="post" action="/bids/<%= bid.id %>/activity" style="display:flex; gap:0.5rem; margin-top:0.75rem;">
-    <input name="note" placeholder="Add a note..." style="flex:1;" required>
+    <input name="note" placeholder="Add a note..." class="col" required>
     <button type="submit">Add</button>
   </form>
 </div>

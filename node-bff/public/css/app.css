@@ -36,12 +36,30 @@ main { max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; }
 
 .table-scroll { overflow-x: auto; }
 
+/* Layout utilities - the small, repeated set of inline flex/spacing patterns
+   that kept appearing across views, pulled out so templates read as markup
+   instead of ad-hoc CSS. Not a full utility framework - only what's actually
+   used more than once or twice. */
+.row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.row.tight { gap: 0.5rem; }
+.row.top { align-items: flex-start; }
+.row.end { align-items: flex-end; }
+.col { flex: 1; min-width: 0; }
+.stack { display: flex; flex-direction: column; gap: 0.5rem; }
+.w-auto { width: auto; }
+.inline-label { display: inline-flex; align-items: center; gap: 0.3rem; margin-right: 1rem; font-weight: normal; }
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+
 h1 { font-size: 1.5rem; }
 h2 { font-size: 1.15rem; margin-top: 2rem; }
 
 table { width: 100%; border-collapse: collapse; background: var(--bg); }
 th, td { border-bottom: 1px solid var(--border); padding: 0.5rem 0.6rem; text-align: left; font-size: 0.92rem; }
 th { background: var(--bg-alt); font-weight: 600; }
+tr td { transition: background-color 0.1s ease-in-out; }
 tr:hover td { background: #fafbfc; }
 
 .card { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
@@ -51,16 +69,37 @@ form.inline { display: inline; }
 label { display: block; font-size: 0.85rem; color: var(--muted); margin-top: 0.75rem; margin-bottom: 0.2rem; }
 input, select, textarea {
   width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--border); border-radius: 4px; font-size: 0.95rem;
+  background: var(--bg); color: var(--text); font-family: inherit;
 }
 textarea { min-height: 4rem; }
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%235b6370'%3E%3Cpath d='M5.25 7.5L10 12.25 14.75 7.5' stroke='%235b6370' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  padding-right: 1.75rem;
+}
+
+input:focus-visible, select:focus-visible, textarea:focus-visible,
+button:focus-visible, .btn:focus-visible, a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 
 button, .btn {
   display: inline-block;
   background: var(--accent); color: #fff; border: none; border-radius: 4px;
   padding: 0.45rem 0.9rem; font-size: 0.9rem; cursor: pointer; text-decoration: none;
+  transition: background-color 0.1s ease-in-out;
 }
+button:hover, .btn:hover { background: #184a87; }
+button:active, .btn:active { background: #123a6b; }
 button.secondary, .btn.secondary { background: var(--bg-alt); color: var(--text); border: 1px solid var(--border); }
+button.secondary:hover, .btn.secondary:hover { background: #ebedf0; }
 button.danger, .btn.danger { background: var(--danger); }
+button.danger:hover, .btn.danger:hover { background: #821b18; }
+button:disabled, .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.75rem; font-weight: 600; background: var(--bg-alt); border: 1px solid var(--border); }
 .badge.won { background: #e3f3e8; color: var(--ok); border-color: var(--ok); }
@@ -68,6 +107,27 @@ button.danger, .btn.danger { background: var(--danger); }
 .badge.review { background: #fff3da; color: var(--warn); border-color: var(--warn); }
 
 .warning-box { background: #fff3da; border: 1px solid #e3b23c; border-radius: 6px; padding: 0.6rem 0.8rem; margin-bottom: 0.75rem; font-size: 0.88rem; }
+
+.flash { border-radius: 6px; padding: 0.6rem 0.9rem; margin-bottom: 1rem; font-size: 0.9rem; border: 1px solid; }
+.flash.success { background: #e3f3e8; color: var(--ok); border-color: var(--ok); }
+.flash.error { background: #f7e7e6; color: var(--danger); border-color: var(--danger); }
+
+/* Lightweight bar charts - plain CSS, no charting library. Each .bar-row is
+   one labeled value; .bar-fill's inline width (0-100%) is set per-row by the
+   view from each metric's own max, so bars compare within their own chart. */
+.bar-chart { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+.bar-row { display: grid; grid-template-columns: minmax(6rem, 10rem) 1fr auto; gap: 0.6rem; align-items: center; font-size: 0.85rem; }
+.bar-track { background: var(--bg-alt); border-radius: 3px; height: 0.9rem; overflow: hidden; }
+.bar-fill { background: var(--accent); height: 100%; border-radius: 3px 0 0 3px; }
+.bar-fill.won { background: var(--ok); }
+.bar-fill.lost { background: var(--danger); }
+.bar-row .bar-value { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bar-row .bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A stacked won/lost bar in one track - two fills side by side via flex. */
+.bar-track.stacked { display: flex; }
+.bar-track.stacked .bar-fill { border-radius: 0; }
+.bar-track.stacked .bar-fill:first-child { border-radius: 3px 0 0 3px; }
+.bar-track.stacked .bar-fill:last-child { border-radius: 0 3px 3px 0; }
 
 .progress-bar { background: var(--bg-alt); border-radius: 4px; height: 0.6rem; overflow: hidden; }
 .progress-bar > div { background: var(--accent); height: 100%; }
@@ -86,4 +146,5 @@ button.danger, .btn.danger { background: var(--danger); }
   main { margin: 1rem auto; }
   .card { padding: 0.75rem; }
   .row, form[style*="display:flex"], div[style*="display:flex"] { flex-direction: column; }
+  .bar-row { grid-template-columns: 1fr; gap: 0.2rem; }
 }

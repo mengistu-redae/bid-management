@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const { setFlash } = require('../../flash');
 
 const STATUS_OPTIONS = ['IDENTIFIED', 'UNDER_REVIEW', 'PREPARING', 'SUBMITTED', 'OPENED', 'UNDER_EVALUATION', 'WON', 'LOST', 'DROPPED', 'CANCELLED'];
 const SCOPE_TYPES = ['DELIVERY', 'IMPLEMENTATION', 'TRAINING', 'SUPPORT_RENEWAL'];
@@ -145,6 +146,7 @@ function buildBidsRouter() {
       };
 
       const created = await req.api.post('/api/bids', payload);
+      setFlash(req, 'success', 'Bid created.');
       res.redirect(`/bids/${created.id}`);
     } catch (err) {
       next(err);
@@ -171,6 +173,7 @@ function buildBidsRouter() {
   router.post('/:id/status', async (req, res, next) => {
     try {
       await req.api.post(`/api/bids/${req.params.id}/status`, { newStatus: req.body.newStatus, reason: req.body.reason || null });
+      setFlash(req, 'success', `Status changed to ${req.body.newStatus}.`);
       res.redirect(`/bids/${req.params.id}`);
     } catch (err) {
       next(err);
@@ -189,6 +192,7 @@ function buildBidsRouter() {
   router.post('/lots/:lotId/status', async (req, res, next) => {
     try {
       await req.api.post(`/api/lots/${req.params.lotId}/status`, { newStatus: req.body.newStatus, reason: req.body.reason || null });
+      setFlash(req, 'success', `Lot status changed to ${req.body.newStatus}.`);
       res.redirect(`/bids/${req.body.bidId}`);
     } catch (err) {
       next(err);
@@ -203,6 +207,7 @@ function buildBidsRouter() {
         winningPrice: req.body.winningPrice ? Number(req.body.winningPrice) : null,
         winningPriceCurrency: req.body.winningPriceCurrency || null,
       });
+      setFlash(req, 'success', 'Outcome recorded.');
       res.redirect(`/bids/${req.body.bidId}`);
     } catch (err) {
       next(err);
@@ -212,6 +217,7 @@ function buildBidsRouter() {
   router.post('/lots/:lotId/bond-returned', async (req, res, next) => {
     try {
       await req.api.post(`/api/lots/${req.params.lotId}/bond-returned`, { returned: true, returnedAt: null });
+      setFlash(req, 'success', 'Bid bond marked as returned.');
       res.redirect(`/bids/${req.body.bidId}`);
     } catch (err) {
       next(err);
@@ -224,6 +230,7 @@ function buildBidsRouter() {
         issuingBank: req.body.issuingBank || null,
         issueDate: req.body.issueDate || null,
       });
+      setFlash(req, 'success', 'Bid bond details saved.');
       res.redirect(`/bids/${req.body.bidId}`);
     } catch (err) {
       next(err);

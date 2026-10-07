@@ -18,12 +18,12 @@
 
   <label>Division(s) - only used for Division Manager</label>
   <% divisions.forEach(d => { %>
-    <label style="display:inline-block; margin-right:1rem; font-weight:normal;">
-      <input type="checkbox" name="divisionIds" value="<%= d.id %>" style="width:auto; display:inline;"> <%= d.name %>
+    <label class="inline-label">
+      <input type="checkbox" name="divisionIds" value="<%= d.id %>" class="w-auto"> <%= d.name %>
     </label>
   <% }) %>
 
-  <div class="toolbar" style="margin-top:1rem;">
+  <div class="toolbar mt-2">
     <button type="submit">Create</button>
     <a class="btn secondary" href="/users">Cancel</a>
   </div>

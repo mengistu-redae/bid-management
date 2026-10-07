@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const { setFlash } = require('../../flash');
 
 const STATUS_OPTIONS = ['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED', 'EXPIRED'];
 
@@ -62,6 +63,7 @@ function buildDealRegistrationsRouter() {
         notes: body.notes || null,
       };
       const created = await req.api.post('/api/deal-registrations', payload);
+      setFlash(req, 'success', 'Deal registration created.');
       res.redirect(`/deal-registrations/${created.id}`);
     } catch (err) {
       next(err);
@@ -94,6 +96,7 @@ function buildDealRegistrationsRouter() {
         specialPriceReference: body.specialPriceReference || null,
         notes: body.notes || null,
       });
+      setFlash(req, 'success', 'Saved.');
       res.redirect(`/deal-registrations/${req.params.id}`);
     } catch (err) {
       next(err);

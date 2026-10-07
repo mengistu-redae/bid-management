@@ -5,10 +5,27 @@
   <label>Year <input type="number" name="year" value="<%= year %>" style="width:6rem;"></label>
   <label>Month <input type="number" name="month" min="1" max="12" value="<%= month %>" style="width:4rem;"></label>
   <button type="submit">Show</button>
-  <a class="btn secondary" href="/reports/export?year=<%= year %>&month=<%= month %>">Export to Excel</a>
+  <a class="btn secondary" hx-boost="false" href="/reports/export?year=<%= year %>&month=<%= month %>">Export to Excel</a>
 </form>
 
-<h2 style="margin-top:0.5rem;">Monthly summary - <%= summary.year %>-<%= String(summary.month).padStart(2, '0') %></h2>
+<h2 class="mt-1">Monthly summary - <%= summary.year %>-<%= String(summary.month).padStart(2, '0') %></h2>
+
+<div class="row top">
+  <div class="card col">
+    <strong>Identified by division</strong>
+    <%- include('partials/barChart', {
+      rows: summary.rows.map(row => ({ label: row.divisionLabel, value: row.identified, displayValue: row.identified })),
+    }) %>
+  </div>
+  <div class="card col">
+    <strong>Won value by division (ETB)</strong>
+    <%- include('partials/barChart', {
+      rows: summary.rows.map(row => ({ label: row.divisionLabel, value: Number(row.wonValueEtb), displayValue: formatMoney(row.wonValueEtb, 'ETB') })),
+      fillClass: 'won',
+    }) %>
+  </div>
+</div>
+
 <div class="card">
   <table>
     <thead>

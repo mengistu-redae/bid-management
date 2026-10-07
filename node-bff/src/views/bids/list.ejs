@@ -5,30 +5,30 @@
   <a class="btn secondary" href="/bids/kanban<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">Kanban</a>
   <a class="btn secondary" href="/bids/calendar">Calendar</a>
   <a class="btn secondary" href="/dashboard">Dashboard</a>
-  <a class="btn secondary" href="/bids/export<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">Export to Excel</a>
+  <a class="btn secondary" hx-boost="false" href="/bids/export<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">Export to Excel</a>
 </div>
 
 <form method="get" action="/bids" class="card toolbar" style="margin-bottom:1rem;">
-  <select name="divisionId" style="width:auto;">
+  <select name="divisionId" class="w-auto">
     <option value="">All divisions</option>
     <% divisions.forEach(d => { %><option value="<%= d.id %>" <%= query.divisionId === d.id ? 'selected' : '' %>><%= d.name %></option><% }) %>
   </select>
-  <select name="status" style="width:auto;">
+  <select name="status" class="w-auto">
     <option value="">All statuses</option>
     <% statusOptions.forEach(s => { %><option value="<%= s %>" <%= query.status === s ? 'selected' : '' %>><%= s %></option><% }) %>
   </select>
-  <select name="officerId" style="width:auto;">
+  <select name="officerId" class="w-auto">
     <option value="">All officers</option>
     <% users.filter(u => u.role === 'ACCOUNT_OFFICER').forEach(u => { %><option value="<%= u.id %>" <%= query.officerId === u.id ? 'selected' : '' %>><%= u.fullName %></option><% }) %>
   </select>
-  <select name="organizationId" style="width:auto;">
+  <select name="organizationId" class="w-auto">
     <option value="">All organizations</option>
     <% organizations.forEach(o => { %><option value="<%= o.id %>" <%= query.organizationId === o.id ? 'selected' : '' %>><%= o.name %></option><% }) %>
   </select>
   <label class="muted" style="margin:0;">Closing from</label>
-  <input type="date" name="closingFrom" value="<%= query.closingFrom || '' %>" style="width:auto;">
+  <input type="date" name="closingFrom" value="<%= query.closingFrom || '' %>" class="w-auto">
   <label class="muted" style="margin:0;">to</label>
-  <input type="date" name="closingTo" value="<%= query.closingTo || '' %>" style="width:auto;">
+  <input type="date" name="closingTo" value="<%= query.closingTo || '' %>" class="w-auto">
   <button type="submit" class="secondary">Filter</button>
   <a class="btn secondary" href="/bids">Clear</a>
 </form>

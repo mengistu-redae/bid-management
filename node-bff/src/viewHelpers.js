@@ -40,4 +40,10 @@ function statusBadgeClass(status) {
   return '';
 }
 
-module.exports = { formatDate, formatDateTime, formatMoney, statusBadgeClass };
+/** Width (0-100) for a .bar-fill, scaled against the largest value in its own chart - never against a fixed/arbitrary ceiling. */
+function barWidth(value, max) {
+  if (!max || max <= 0 || !value || value <= 0) return 0;
+  return Math.min(100, Math.round((value / max) * 100));
+}
+
+module.exports = { formatDate, formatDateTime, formatMoney, statusBadgeClass, barWidth };

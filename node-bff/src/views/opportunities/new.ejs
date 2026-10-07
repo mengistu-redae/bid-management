@@ -16,19 +16,19 @@
   <label>Title</label>
   <input name="title" value="<%= form.title || '' %>" required>
 
-  <div style="display:flex; gap:1rem;">
-    <div style="flex:1;">
+  <div class="row">
+    <div class="col">
       <label>Estimated value</label>
       <input type="number" step="0.01" name="estimatedValue" value="<%= form.estimatedValue || '' %>">
     </div>
-    <div style="flex:1;">
+    <div class="col">
       <label>Currency</label>
       <select name="estimatedValueCurrency">
         <option value="ETB">ETB</option>
         <option value="USD">USD</option>
       </select>
     </div>
-    <div style="flex:1;">
+    <div class="col">
       <label>Expected tender date</label>
       <input type="date" name="expectedTenderDate" value="<%= form.expectedTenderDate || '' %>">
     </div>
@@ -36,8 +36,8 @@
 
   <label>Division(s)</label>
   <% divisions.forEach(d => { %>
-    <label style="display:inline-block; margin-right:1rem; font-weight:normal;">
-      <input type="checkbox" name="divisionCodes" value="<%= d.code %>" style="width:auto; display:inline;"> <%= d.name %>
+    <label class="inline-label">
+      <input type="checkbox" name="divisionCodes" value="<%= d.code %>" class="w-auto"> <%= d.name %>
     </label>
   <% }) %>
 
@@ -56,7 +56,7 @@
   <label>Notes</label>
   <textarea name="notes"><%= form.notes || '' %></textarea>
 
-  <div style="margin-top:1.5rem;">
+  <div class="mt-3">
     <button type="submit">Create opportunity</button>
     <a class="btn secondary" href="/opportunities">Cancel</a>
   </div>

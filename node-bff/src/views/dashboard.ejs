@@ -7,12 +7,12 @@
   <a class="btn secondary" href="/bids/calendar">Calendar</a>
 </div>
 
-<h2 style="margin-top:0.5rem;">Closing this week</h2>
+<h2 class="mt-1">Closing this week</h2>
 <div class="card">
   <% if (data.closingThisWeek.length === 0) { %><p class="muted">Nothing closing in the next 7 days.</p><% } %>
   <% data.closingThisWeek.forEach(row => { %>
     <div class="checklist-item" style="align-items:flex-start;">
-      <div style="flex:1;">
+      <div class="col">
         <a href="/bids/<%= row.bidId %>"><strong><%= row.title %></strong></a> - <%= row.organizationName %>
         <div class="muted"><%= formatDateTime(row.closingAt) %> &middot; checklist <%= row.checklistProgressPercent %>%</div>
       </div>
@@ -26,7 +26,7 @@
   <% if (data.closingNextWeek.length === 0) { %><p class="muted">Nothing closing 7-14 days out.</p><% } %>
   <% data.closingNextWeek.forEach(row => { %>
     <div class="checklist-item" style="align-items:flex-start;">
-      <div style="flex:1;">
+      <div class="col">
         <a href="/bids/<%= row.bidId %>"><strong><%= row.title %></strong></a> - <%= row.organizationName %>
         <div class="muted"><%= formatDateTime(row.closingAt) %> &middot; checklist <%= row.checklistProgressPercent %>%</div>
       </div>
@@ -48,6 +48,11 @@
 
 <h2>Pipeline value</h2>
 <div class="card">
+  <strong>By division (ETB)</strong>
+  <p class="muted mt-0">At-a-glance only - USD pipeline isn't shown here since the two currencies are never mixed into one bar. See the table for exact ETB and USD figures.</p>
+  <%- include('partials/barChart', {
+    rows: data.pipelineByDivision.map(row => ({ label: row.groupLabel, value: Number(row.totalEtb), displayValue: formatMoney(row.totalEtb, 'ETB') })),
+  }) %>
   <div style="display:flex; gap:2rem; flex-wrap:wrap;">
     <div style="flex:1; min-width:16rem;">
       <strong>By division</strong>
@@ -76,6 +81,21 @@
 
 <h2>Win rate</h2>
 <div class="card">
+  <strong>By division</strong>
+  <div class="bar-chart mt-1">
+    <% if (data.winRateByDivision.length === 0) { %><p class="muted">No decided bids yet.</p><% } %>
+    <% data.winRateByDivision.forEach(row => { %>
+      <% const total = row.wonCount + row.lostCount; %>
+      <div class="bar-row">
+        <span class="bar-label" title="<%= row.groupLabel %>"><%= row.groupLabel %></span>
+        <div class="bar-track stacked">
+          <div class="bar-fill won" style="width: <%= total > 0 ? Math.round((row.wonCount / total) * 100) : 0 %>%;"></div>
+          <div class="bar-fill lost" style="width: <%= total > 0 ? Math.round((row.lostCount / total) * 100) : 0 %>%;"></div>
+        </div>
+        <span class="bar-value"><%= row.winRatePercent %>% (<%= row.wonCount %>W / <%= row.lostCount %>L)</span>
+      </div>
+    <% }) %>
+  </div>
   <div style="display:flex; gap:2rem; flex-wrap:wrap;">
     <% [['By division', data.winRateByDivision], ['By officer', data.winRateByOfficer], ['By OEM', data.winRateByOem]].forEach(([label, rows]) => { %>
       <div style="flex:1; min-width:16rem;">

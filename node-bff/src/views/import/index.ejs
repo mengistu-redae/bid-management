@@ -3,7 +3,7 @@
 <p class="muted">Upload one of the two sample spreadsheets. Nothing is saved until you review the preview below, fix up any rows that need it, and confirm.</p>
 
 <div class="card">
-  <form method="post" action="/import/preview" enctype="multipart/form-data" style="display:flex; gap:1rem; align-items:flex-end;">
+  <form method="post" action="/import/preview" enctype="multipart/form-data" hx-boost="false" style="display:flex; gap:1rem; align-items:flex-end;">
     <div>
       <label>Which file is this?</label>
       <select name="kind">
@@ -11,7 +11,7 @@
         <option value="tracker">Bids tracker (Bids on hand / Submitted / drop / cancelled)</option>
       </select>
     </div>
-    <div style="flex:1;">
+    <div class="col">
       <label>File</label>
       <input type="file" name="file" accept=".xlsx" required>
     </div>
@@ -20,7 +20,7 @@
 </div>
 
 <% if (preview) { %>
-  <p class="muted" style="margin-top:1rem;">Edit any row below before confirming - organization, title and division are the fields most often worth fixing by hand. Check "Skip" to leave a row out entirely.</p>
+  <p class="muted mt-2">Edit any row below before confirming - organization, title and division are the fields most often worth fixing by hand. Check "Skip" to leave a row out entirely.</p>
 
   <% if (kind === 'upcoming') { %>
     <h2>Preview - <%= preview.sourceFilename %> (<%= preview.data.length %> rows)</h2>
@@ -45,7 +45,7 @@
             <td>
               <% row.warnings.forEach(w => { %><div class="badge review" style="margin-bottom:2px;"><%= w %></div><% }) %>
             </td>
-            <td><input type="checkbox" class="edit-skip" style="width:auto;"></td>
+            <td><input type="checkbox" class="edit-skip w-auto"></td>
           </tr>
         <% }) %>
       </tbody>
@@ -73,7 +73,7 @@
               <td><%= row.dealSize && row.dealSize.amount ? row.dealSize.amount + ' ' + row.dealSize.currency : '-' %></td>
               <td><%= row.accountOfficerNames.join(', ') %></td>
               <td><% row.warnings.forEach(w => { %><div class="badge review" style="margin-bottom:2px;"><%= w %></div><% }) %></td>
-              <td><input type="checkbox" class="edit-skip" style="width:auto;"></td>
+              <td><input type="checkbox" class="edit-skip w-auto"></td>
             </tr>
           <% }) %>
         </tbody>
@@ -82,7 +82,7 @@
     <% }) %>
   <% } %>
 
-  <form method="post" action="/import/confirm" id="confirm-form" style="margin-top:1rem;">
+  <form method="post" action="/import/confirm" id="confirm-form" hx-boost="false" class="mt-2">
     <input type="hidden" name="kind" value="<%= kind %>">
     <input type="hidden" name="token" value="<%= preview.token %>">
     <input type="hidden" name="editsJson" id="edits-json">

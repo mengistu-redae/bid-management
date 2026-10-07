@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const { setFlash } = require('../../flash');
 
 const STAGE_OPTIONS = ['LEAD', 'QUALIFIED', 'RFI_PROPOSAL', 'EXPECTING_TENDER', 'CONVERTED_TO_BID', 'LOST_CLOSED'];
 
@@ -48,6 +49,7 @@ function buildOpportunitiesRouter() {
         notes: body.notes || null,
       };
       const created = await req.api.post('/api/opportunities', payload);
+      setFlash(req, 'success', 'Opportunity created.');
       res.redirect(`/opportunities/${created.id}`);
     } catch (err) {
       next(err);
@@ -74,6 +76,7 @@ function buildOpportunitiesRouter() {
         lostReason: body.lostReason || null,
         notes: body.notes || null,
       });
+      setFlash(req, 'success', 'Saved.');
       res.redirect(`/opportunities/${req.params.id}`);
     } catch (err) {
       next(err);
@@ -83,6 +86,7 @@ function buildOpportunitiesRouter() {
   router.post('/:id/convert-to-bid', async (req, res, next) => {
     try {
       const bid = await req.api.post(`/api/opportunities/${req.params.id}/convert-to-bid`);
+      setFlash(req, 'success', 'Converted to a bid.');
       res.redirect(`/bids/${bid.id}`);
     } catch (err) {
       next(err);

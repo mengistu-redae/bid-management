@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const { setFlash } = require('../../flash');
 
 const ROLE_OPTIONS = ['DIRECTOR', 'DIVISION_MANAGER', 'ACCOUNT_OFFICER', 'SCOUT'];
 
@@ -28,12 +29,13 @@ function buildUsersRouter() {
   router.post('/', async (req, res, next) => {
     try {
       const body = req.body;
-      await req.api.post('/api/users/admin', {
+      const created = await req.api.post('/api/users/admin', {
         fullName: body.fullName,
         email: body.email,
         role: body.role,
         divisionIds: toArray(body.divisionIds),
       });
+      setFlash(req, 'success', `Added ${created.fullName}.`);
       res.redirect('/users');
     } catch (err) {
       next(err);
@@ -59,13 +61,14 @@ function buildUsersRouter() {
   router.post('/:id/update', async (req, res, next) => {
     try {
       const body = req.body;
-      await req.api.put(`/api/users/admin/${req.params.id}`, {
+      const updated = await req.api.put(`/api/users/admin/${req.params.id}`, {
         fullName: body.fullName,
         email: body.email || null,
         role: body.role,
         divisionIds: toArray(body.divisionIds),
         telegramChatId: body.telegramChatId || null,
       });
+      setFlash(req, 'success', `Saved ${updated.fullName}.`);
       res.redirect('/users');
     } catch (err) {
       next(err);
@@ -85,6 +88,7 @@ function buildUsersRouter() {
   router.post('/:id/deactivate', async (req, res, next) => {
     try {
       await req.api.post(`/api/users/admin/${req.params.id}/deactivate`);
+      setFlash(req, 'success', 'Deactivated.');
       res.redirect('/users');
     } catch (err) {
       next(err);
@@ -94,6 +98,7 @@ function buildUsersRouter() {
   router.post('/:id/reactivate', async (req, res, next) => {
     try {
       await req.api.post(`/api/users/admin/${req.params.id}/reactivate`);
+      setFlash(req, 'success', 'Reactivated.');
       res.redirect('/users');
     } catch (err) {
       next(err);

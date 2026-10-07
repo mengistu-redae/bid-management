@@ -31,6 +31,13 @@ async function main() {
   app.get('/health', (req, res) => res.send('ok'));
 
   app.use(await buildSessionMiddleware());
+  // One-shot flash banner, available in every view's scope without each
+  // route needing to pass it explicitly - see flash.js's setFlash().
+  app.use((req, res, next) => {
+    res.locals.flash = (req.session && req.session.flash) || null;
+    if (req.session) delete req.session.flash;
+    next();
+  });
 
   let oidcClient;
   const getClient = () => {

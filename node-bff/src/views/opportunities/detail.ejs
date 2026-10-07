@@ -16,16 +16,16 @@
     <div><strong>OEM(s)/vendor(s)</strong><br><%= opportunity.oems.map(o => o.name).join(', ') || '-' %></div>
     <div><strong>Owner</strong><br><%= opportunity.owner ? opportunity.owner.fullName : '-' %></div>
   </div>
-  <% if (opportunity.notes) { %><p style="margin-top:1rem;"><%= opportunity.notes %></p><% } %>
+  <% if (opportunity.notes) { %><p class="mt-2"><%= opportunity.notes %></p><% } %>
   <% if (opportunity.convertedBidId) { %>
-    <p style="margin-top:1rem;"><strong>Converted to bid:</strong> <a href="/bids/<%= opportunity.convertedBidId %>">View bid</a></p>
+    <p class="mt-2"><strong>Converted to bid:</strong> <a href="/bids/<%= opportunity.convertedBidId %>">View bid</a></p>
   <% } %>
-  <% if (opportunity.lostReason) { %><p style="margin-top:1rem;"><strong>Lost reason:</strong> <%= opportunity.lostReason %></p><% } %>
+  <% if (opportunity.lostReason) { %><p class="mt-2"><strong>Lost reason:</strong> <%= opportunity.lostReason %></p><% } %>
 </div>
 
 <% if (opportunity.canEdit && opportunity.stage !== 'CONVERTED_TO_BID') { %>
 <div class="card">
-  <h2 style="margin-top:0;">Update stage</h2>
+  <h2 class="mt-0">Update stage</h2>
   <form method="post" action="/opportunities/<%= opportunity.id %>/update" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
     <div style="flex:1; min-width:10rem;">
       <label>Stage</label>
@@ -41,7 +41,7 @@
   </form>
 
   <% if (opportunity.stage !== 'LOST_CLOSED') { %>
-    <form method="post" action="/opportunities/<%= opportunity.id %>/convert-to-bid" style="margin-top:1rem;">
+    <form method="post" action="/opportunities/<%= opportunity.id %>/convert-to-bid" class="mt-2">
       <button type="submit">Convert to Bid</button>
     </form>
   <% } %>
@@ -55,7 +55,7 @@
   <% }) %>
   <% if (activity.length === 0) { %><p class="muted">No activity yet.</p><% } %>
   <form method="post" action="/opportunities/<%= opportunity.id %>/activity" style="display:flex; gap:0.5rem; margin-top:0.75rem;">
-    <input name="note" placeholder="Add a note..." style="flex:1;" required>
+    <input name="note" placeholder="Add a note..." class="col" required>
     <button type="submit">Add</button>
   </form>
 </div>

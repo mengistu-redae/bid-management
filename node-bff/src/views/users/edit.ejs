@@ -20,15 +20,15 @@
   <label>Division(s) - only used for Division Manager</label>
   <% const currentDivisionIds = target.divisions.map(d => d.id); %>
   <% divisions.forEach(d => { %>
-    <label style="display:inline-block; margin-right:1rem; font-weight:normal;">
-      <input type="checkbox" name="divisionIds" value="<%= d.id %>" style="width:auto; display:inline;" <%= currentDivisionIds.includes(d.id) ? 'checked' : '' %>> <%= d.name %>
+    <label class="inline-label">
+      <input type="checkbox" name="divisionIds" value="<%= d.id %>" class="w-auto" <%= currentDivisionIds.includes(d.id) ? 'checked' : '' %>> <%= d.name %>
     </label>
   <% }) %>
 
   <label>Telegram chat ID (optional - see Telegram setup instructions on the profile page)</label>
   <input name="telegramChatId" value="<%= target.telegramChatId || '' %>" placeholder="e.g. 123456789">
 
-  <div class="toolbar" style="margin-top:1rem;">
+  <div class="toolbar mt-2">
     <button type="submit">Save</button>
     <a class="btn secondary" href="/users">Cancel</a>
   </div>

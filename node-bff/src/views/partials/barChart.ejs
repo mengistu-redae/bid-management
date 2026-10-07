@@ -1,0 +1,25 @@
+<%
+/**
+ * Simple single-series horizontal bar chart - pure CSS, no charting library.
+ * Expects `rows`: an array of { label, value, displayValue }, and an
+ * optional `fillClass` ('won'/'lost', defaults to the accent color).
+ * Scales every bar against the largest value in `rows` itself, so it's only
+ * ever a relative, at-a-glance view - the table/numbers alongside it remain
+ * the source of truth for exact figures.
+ */
+const chartMax = Math.max(0, ...rows.map(r => r.value || 0));
+%>
+<div class="bar-chart">
+  <% if (rows.length === 0) { %>
+    <p class="muted">No data yet.</p>
+  <% } %>
+  <% rows.forEach(row => { %>
+    <div class="bar-row">
+      <span class="bar-label" title="<%= row.label %>"><%= row.label %></span>
+      <div class="bar-track">
+        <div class="bar-fill<%= typeof fillClass !== 'undefined' && fillClass ? ' ' + fillClass : '' %>" style="width: <%= barWidth(row.value, chartMax) %>%;"></div>
+      </div>
+      <span class="bar-value"><%= row.displayValue %></span>
+    </div>
+  <% }) %>
+</div>

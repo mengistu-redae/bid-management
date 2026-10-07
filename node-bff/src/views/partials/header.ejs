@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/public/css/app.css">
   <script src="/vendor/htmx/htmx.min.js"></script>
 </head>
-<body>
+<body hx-boost="true">
 <header class="topbar">
   <div><a href="/dashboard">Bid Management</a></div>
   <nav>
@@ -25,8 +25,11 @@
   <div>
     <% if (typeof user !== 'undefined' && user) { %>
       <span class="muted" style="color:#fff;margin-right:0.75rem;"><%= user.name || user.email %></span>
-      <form class="inline" method="post" action="/auth/logout"><button class="secondary" type="submit">Log out</button></form>
+      <form class="inline" method="post" action="/auth/logout" hx-boost="false"><button class="secondary" type="submit">Log out</button></form>
     <% } %>
   </div>
 </header>
 <main>
+<% if (typeof flash !== 'undefined' && flash) { %>
+  <div class="flash <%= flash.type %>"><%= flash.message %></div>
+<% } %>

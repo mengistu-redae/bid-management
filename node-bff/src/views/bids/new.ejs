@@ -43,23 +43,23 @@
   <label>Scouted date</label>
   <input type="date" name="scoutedDate" value="<%= form.scoutedDate || '' %>">
 
-  <div style="display:flex; gap:1rem;">
-    <div style="flex:1;">
+  <div class="row">
+    <div class="col">
       <label>Closing date</label>
       <input type="date" name="closingDate" value="<%= form.closingDate || '' %>">
     </div>
-    <div style="flex:1;">
+    <div class="col">
       <label>Closing time</label>
       <input type="time" name="closingTime" value="<%= form.closingTime || '' %>">
     </div>
   </div>
 
-  <div style="display:flex; gap:1rem;">
-    <div style="flex:1;">
+  <div class="row">
+    <div class="col">
       <label>Opening date</label>
       <input type="date" name="openingDate" value="<%= form.openingDate || '' %>">
     </div>
-    <div style="flex:1;">
+    <div class="col">
       <label>Opening time</label>
       <input type="time" name="openingTime" value="<%= form.openingTime || '' %>">
     </div>
@@ -71,7 +71,7 @@
   <label>Bid validity (days)</label>
   <input type="number" name="bidValidityDays" value="<%= form.bidValidityDays || '' %>">
 
-  <h2 style="margin-top:1.5rem;">Lot 1</h2>
+  <h2 class="mt-3">Lot 1</h2>
 
   <label>Division</label>
   <select name="divisionCode">
@@ -83,17 +83,17 @@
 
   <label>Scope</label>
   <% scopeTypes.forEach(st => { %>
-    <label style="display:inline-block; margin-right:1rem; font-weight:normal;">
-      <input type="checkbox" name="scopeTypes" value="<%= st %>" style="width:auto; display:inline;"> <%= st %>
+    <label class="inline-label">
+      <input type="checkbox" name="scopeTypes" value="<%= st %>" class="w-auto"> <%= st %>
     </label>
   <% }) %>
 
-  <div style="display:flex; gap:1rem;">
-    <div style="flex:1;">
+  <div class="row">
+    <div class="col">
       <label>Estimated value</label>
       <input type="number" step="0.01" name="estimatedValue" value="<%= form.estimatedValue || '' %>">
     </div>
-    <div style="flex:1;">
+    <div class="col">
       <label>Currency</label>
       <select name="estimatedValueCurrency">
         <option value="ETB">ETB</option>
@@ -102,19 +102,19 @@
     </div>
   </div>
 
-  <div style="display:flex; gap:1rem;">
-    <div style="flex:1;">
+  <div class="row">
+    <div class="col">
       <label>Bid bond amount</label>
       <input type="number" step="0.01" name="bidBondAmount" value="<%= form.bidBondAmount || '' %>">
     </div>
-    <div style="flex:1;">
+    <div class="col">
       <label>Bid bond currency</label>
       <select name="bidBondCurrency">
         <option value="ETB">ETB</option>
         <option value="USD">USD</option>
       </select>
     </div>
-    <div style="flex:1;">
+    <div class="col">
       <label>Bid bond validity (days)</label>
       <input type="number" name="bidBondValidityDays" value="<%= form.bidBondValidityDays || '' %>">
     </div>
@@ -136,7 +136,7 @@
   <label>Notes</label>
   <textarea name="notes"><%= form.notes || '' %></textarea>
 
-  <div style="margin-top:1.5rem;">
+  <div class="mt-3">
     <button type="submit"><%= (duplicates && duplicates.length > 0) ? 'Create anyway' : 'Create tender' %></button>
     <a class="btn secondary" href="/bids">Cancel</a>
   </div>
