@@ -6,11 +6,22 @@
    badges and status coloring can't drift out of sync between the two views. */
 const needsReview = bid.lots.some(l => l.needsReview);
 const rowHidden = typeof hidden !== 'undefined' && hidden;
-const divisionNames = bid.lots.map(l => l.division ? l.division.name : null).filter(Boolean);
-const divisionLabel = divisionNames.length ? [...new Set(divisionNames)].join(', ') : 'No division';
+const divisionNames = [...new Set(bid.lots.map(l => l.division ? l.division.name : null).filter(Boolean))];
+const divisionLabel = divisionNames.length ? divisionNames.join(', ') : 'No division';
+/* Icon reflects the bid's division where that's unambiguous, so a scan down
+   the list reads division at a glance instead of every card looking the
+   same - "box" (storage) is also the sensible default for no/mixed division. */
+function divisionIcon(names) {
+  if (names.length !== 1) return 'box';
+  const name = names[0].toLowerCase();
+  if (name.includes('security')) return 'shield';
+  if (name.includes('network')) return 'network';
+  if (name.includes('datacenter') || name.includes('facility')) return 'building';
+  return 'box';
+}
 %>
 <div class="bid-card"<%= rowHidden ? ' hidden' : '' %> onclick="window.location='/bids/<%= bid.id %>'">
-  <span class="bid-card-icon<%= bid.redFlag ? ' warn' : '' %>"><%- include('icon', { name: 'box', size: 20 }) %></span>
+  <span class="bid-card-icon<%= bid.redFlag ? ' warn' : '' %>"><%- include('icon', { name: divisionIcon(divisionNames), size: 20 }) %></span>
   <div class="bid-card-body">
     <div class="bid-card-title"><a href="/bids/<%= bid.id %>"><%= bid.title %></a></div>
     <div class="bid-card-meta">
