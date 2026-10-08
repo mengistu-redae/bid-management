@@ -5,21 +5,27 @@ const { setFlash } = require('../../flash');
 
 const STATUS_OPTIONS = ['IDENTIFIED', 'UNDER_REVIEW', 'PREPARING', 'SUBMITTED', 'OPENED', 'UNDER_EVALUATION', 'WON', 'LOST', 'DROPPED', 'CANCELLED'];
 const SCOPE_TYPES = ['DELIVERY', 'IMPLEMENTATION', 'TRAINING', 'SUPPORT_RENEWAL'];
+const PAGE_SIZE = 25;
 
 function buildBidsRouter() {
   const router = express.Router();
 
   router.get('/', async (req, res, next) => {
     try {
-      const [bids, divisions, users, organizations] = await Promise.all([
+      const [allBids, divisions, users, organizations] = await Promise.all([
         req.api.get(`/api/bids${buildFilterQuery(req.query)}`),
         req.api.get('/api/divisions'),
         req.api.get('/api/users'),
         req.api.get('/api/organizations'),
       ]);
+      const totalCount = allBids.length;
+      const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+      const page = Math.min(Math.max(1, Number(req.query.page) || 1), totalPages);
+      const bids = allBids.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
       res.render('bids/list', {
         title: 'Bids', user: req.session.user, bids, divisions, users, organizations,
         statusOptions: STATUS_OPTIONS, query: req.query,
+        page, totalPages, totalCount, pageSize: PAGE_SIZE,
       });
     } catch (err) {
       next(err);

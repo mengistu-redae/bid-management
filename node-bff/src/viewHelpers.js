@@ -36,7 +36,9 @@ function statusBadgeClass(status) {
   if (!status) return '';
   const s = status.toLowerCase();
   if (s === 'won') return 'won';
-  if (['lost', 'dropped', 'cancelled'].includes(s)) return s;
+  if (['lost', 'dropped', 'cancelled'].includes(s)) return 'lost';
+  if (s === 'under_review') return 'review';
+  if (['preparing', 'submitted', 'opened', 'under_evaluation'].includes(s)) return 'active';
   return '';
 }
 

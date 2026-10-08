@@ -15,6 +15,7 @@
   --bg: #ffffff;
   --bg-alt: #f6f7f9;
   --accent: #1f5eab;
+  --accent-bg: #e6eef9;
   --danger: #a3231f;
   --warn: #8a5a00;
   --ok: #176a33;
@@ -34,6 +35,7 @@
     --bg: #1b1f24;
     --bg-alt: #23272e;
     --accent: #3d7fd1;
+    --accent-bg: #1c2c40;
     --danger: #e5726f;
     --warn: #e0a84d;
     --ok: #5fc687;
@@ -52,6 +54,7 @@
   --bg: #1b1f24;
   --bg-alt: #23272e;
   --accent: #3d7fd1;
+  --accent-bg: #1c2c40;
   --danger: #e5726f;
   --warn: #e0a84d;
   --ok: #5fc687;
@@ -169,8 +172,9 @@ button:disabled, .btn:disabled { opacity: 0.6; cursor: not-allowed; filter: none
 
 .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.75rem; font-weight: 600; background: var(--bg-alt); border: 1px solid var(--border); }
 .badge.won { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
-.badge.lost, .badge.dropped, .badge.cancelled { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+.badge.lost { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
 .badge.review { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
+.badge.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
 
 .warning-box { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 6px; padding: 0.6rem 0.8rem; margin-bottom: 0.75rem; font-size: 0.88rem; }
 

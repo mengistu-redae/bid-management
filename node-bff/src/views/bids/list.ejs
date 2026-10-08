@@ -1,6 +1,6 @@
 <%- include('../partials/header', { title: title, user: user }) %>
 <div class="toolbar">
-  <h1 style="margin:0;">Bids</h1>
+  <h1 style="margin:0;">Bids <span class="muted" style="font-weight:400; font-size:1rem;">(<%= totalCount %>)</span></h1>
   <a class="btn" href="/bids/new">+ New Tender</a>
   <a class="btn secondary" href="/bids/kanban<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">Kanban</a>
   <a class="btn secondary" href="/bids/calendar">Calendar</a>
@@ -47,9 +47,14 @@
   </thead>
   <tbody>
     <% bids.forEach(bid => { %>
+      <% const needsReview = bid.lots.some(l => l.needsReview); %>
       <tr onclick="window.location='/bids/<%= bid.id %>'" style="cursor:pointer;">
         <td><%= bid.organization ? bid.organization.name : '-' %></td>
-        <td><%= bid.title %><% if (bid.referenceNumber) { %><div class="muted"><%= bid.referenceNumber %></div><% } %></td>
+        <td>
+          <a href="/bids/<%= bid.id %>"><%= bid.title %></a>
+          <% if (needsReview) { %><span class="badge review">needs review</span><% } %>
+          <% if (bid.referenceNumber) { %><div class="muted"><%= bid.referenceNumber %></div><% } %>
+        </td>
         <td><%= bid.lots.map(l => l.division ? l.division.name : '?').join(', ') %></td>
         <td><%= formatDate(bid.closingAt) %></td>
         <td><span class="badge <%= statusBadgeClass(bid.status) %>"><%= bid.status %></span></td>
@@ -62,4 +67,22 @@
   </tbody>
 </table>
 </div>
+
+<% if (totalPages > 1) { %>
+<%
+  function pageLink(p) {
+    const params = new URLSearchParams(query);
+    params.set('page', p);
+    return '/bids?' + params.toString();
+  }
+%>
+<div class="toolbar" style="justify-content:space-between;">
+  <span class="muted">Page <%= page %> of <%= totalPages %> &middot; <%= totalCount %> bids</span>
+  <div class="row" style="gap:0.5rem;">
+    <% if (page > 1) { %><a class="btn secondary" href="<%= pageLink(page - 1) %>">&larr; Previous</a><% } %>
+    <% if (page < totalPages) { %><a class="btn secondary" href="<%= pageLink(page + 1) %>">Next &rarr;</a><% } %>
+  </div>
+</div>
+<% } %>
+
 <%- include('../partials/footer') %>
