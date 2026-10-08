@@ -1,0 +1,22 @@
+<%
+/* One row of a bids table. Usage: include with a local called "bid", and
+   optionally "hidden" (true to render the row with the hidden attribute,
+   used by by-division.ejs to truncate a group's rows).
+   Shared by bids/list.ejs and bids/by-division.ejs so the at-risk/needs-review
+   badges and status coloring can't drift out of sync between the two views. */
+const needsReview = bid.lots.some(l => l.needsReview);
+const rowHidden = typeof hidden !== 'undefined' && hidden;
+%>
+<tr<%= rowHidden ? ' hidden' : '' %> onclick="window.location='/bids/<%= bid.id %>'" style="cursor:pointer;">
+  <td><%= bid.organization ? bid.organization.name : '-' %></td>
+  <td>
+    <a href="/bids/<%= bid.id %>"><%= bid.title %></a>
+    <% if (bid.redFlag) { %><span class="badge review"><%= bid.redFlagReason %></span><% } %>
+    <% if (needsReview) { %><span class="badge review">needs review</span><% } %>
+    <% if (bid.referenceNumber) { %><div class="muted"><%= bid.referenceNumber %></div><% } %>
+  </td>
+  <td><%= bid.lots.map(l => l.division ? l.division.name : '?').join(', ') %></td>
+  <td><%= formatDate(bid.closingAt) %></td>
+  <td><span class="badge <%= statusBadgeClass(bid.status) %>"><%= bid.status %></span></td>
+  <td><%= bid.lots.length %></td>
+</tr>

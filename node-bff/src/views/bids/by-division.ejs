@@ -1,0 +1,51 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<div class="toolbar">
+  <h1 style="margin:0;">Bids by division</h1>
+  <a class="btn secondary" href="/bids<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">List view</a>
+  <a class="btn secondary" href="/dashboard">Dashboard</a>
+</div>
+
+<%- include('../partials/bidFilterForm', { action: '/bids/by-division' }) %>
+
+<% groups.forEach(group => { %>
+  <h2><%= group.label %> <span class="muted">(<%= group.bids.length %>)</span></h2>
+  <% if (group.bids.length === 0) { %>
+    <p class="muted">-</p>
+  <% } else { %>
+    <div class="card">
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Organization</th>
+          <th>Title</th>
+          <th>Division(s)</th>
+          <th>Closing</th>
+          <th>Status</th>
+          <th>Lots</th>
+        </tr>
+      </thead>
+      <tbody id="group-tbody-<%= group.key %>">
+        <% group.bids.forEach((bid, i) => { %>
+          <%- include('../partials/bidRow', { bid, hidden: i >= groupLimit }) %>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+    <% if (group.bids.length > groupLimit) { %>
+      <button type="button" class="secondary w-auto mt-1" data-show-all="group-tbody-<%= group.key %>">Show all <%= group.bids.length %></button>
+    <% } %>
+    </div>
+  <% } %>
+<% }) %>
+
+<script>
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-show-all]');
+    if (!btn) return;
+    document.querySelectorAll('#' + btn.dataset.showAll + ' tr[hidden]').forEach(function (row) { row.hidden = false; });
+    btn.remove();
+  });
+</script>
+
+<%- include('../partials/footer') %>

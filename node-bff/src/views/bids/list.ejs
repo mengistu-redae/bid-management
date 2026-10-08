@@ -4,34 +4,12 @@
   <a class="btn" href="/bids/new">+ New Tender</a>
   <a class="btn secondary" href="/bids/kanban<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">Kanban</a>
   <a class="btn secondary" href="/bids/calendar">Calendar</a>
+  <a class="btn secondary" href="/bids/by-division<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">By Division</a>
   <a class="btn secondary" href="/dashboard">Dashboard</a>
   <a class="btn secondary" hx-boost="false" href="/bids/export<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">Export to Excel</a>
 </div>
 
-<form method="get" action="/bids" class="card toolbar" style="margin-bottom:1rem;">
-  <select name="divisionId" class="w-auto">
-    <option value="">All divisions</option>
-    <% divisions.forEach(d => { %><option value="<%= d.id %>" <%= query.divisionId === d.id ? 'selected' : '' %>><%= d.name %></option><% }) %>
-  </select>
-  <select name="status" class="w-auto">
-    <option value="">All statuses</option>
-    <% statusOptions.forEach(s => { %><option value="<%= s %>" <%= query.status === s ? 'selected' : '' %>><%= s %></option><% }) %>
-  </select>
-  <select name="officerId" class="w-auto">
-    <option value="">All officers</option>
-    <% users.filter(u => u.role === 'ACCOUNT_OFFICER').forEach(u => { %><option value="<%= u.id %>" <%= query.officerId === u.id ? 'selected' : '' %>><%= u.fullName %></option><% }) %>
-  </select>
-  <select name="organizationId" class="w-auto">
-    <option value="">All organizations</option>
-    <% organizations.forEach(o => { %><option value="<%= o.id %>" <%= query.organizationId === o.id ? 'selected' : '' %>><%= o.name %></option><% }) %>
-  </select>
-  <label class="muted" style="margin:0;">Closing from</label>
-  <input type="date" name="closingFrom" value="<%= query.closingFrom || '' %>" class="w-auto">
-  <label class="muted" style="margin:0;">to</label>
-  <input type="date" name="closingTo" value="<%= query.closingTo || '' %>" class="w-auto">
-  <button type="submit" class="secondary">Filter</button>
-  <a class="btn secondary" href="/bids">Clear</a>
-</form>
+<%- include('../partials/bidFilterForm') %>
 
 <div class="table-scroll">
 <table>
@@ -47,20 +25,7 @@
   </thead>
   <tbody>
     <% bids.forEach(bid => { %>
-      <% const needsReview = bid.lots.some(l => l.needsReview); %>
-      <tr onclick="window.location='/bids/<%= bid.id %>'" style="cursor:pointer;">
-        <td><%= bid.organization ? bid.organization.name : '-' %></td>
-        <td>
-          <a href="/bids/<%= bid.id %>"><%= bid.title %></a>
-          <% if (bid.redFlag) { %><span class="badge review"><%= bid.redFlagReason %></span><% } %>
-          <% if (needsReview) { %><span class="badge review">needs review</span><% } %>
-          <% if (bid.referenceNumber) { %><div class="muted"><%= bid.referenceNumber %></div><% } %>
-        </td>
-        <td><%= bid.lots.map(l => l.division ? l.division.name : '?').join(', ') %></td>
-        <td><%= formatDate(bid.closingAt) %></td>
-        <td><span class="badge <%= statusBadgeClass(bid.status) %>"><%= bid.status %></span></td>
-        <td><%= bid.lots.length %></td>
-      </tr>
+      <%- include('../partials/bidRow', { bid }) %>
     <% }) %>
     <% if (bids.length === 0) { %>
       <tr><td colspan="6" class="muted">No bids match these filters.</td></tr>

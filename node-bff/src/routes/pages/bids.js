@@ -7,6 +7,7 @@ const STATUS_OPTIONS = ['IDENTIFIED', 'UNDER_REVIEW', 'PREPARING', 'SUBMITTED', 
 const TERMINAL_STATUSES = ['WON', 'LOST', 'DROPPED', 'CANCELLED'];
 const SCOPE_TYPES = ['DELIVERY', 'IMPLEMENTATION', 'TRAINING', 'SUPPORT_RENEWAL'];
 const PAGE_SIZE = 25;
+const GROUP_LIMIT = 10;
 const HISTORY_LIMIT = 8;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const URGENT_CLOSING_DAYS = 5; // matches the dashboard's own red-flag window
@@ -30,6 +31,38 @@ function buildBidsRouter() {
         title: 'Bids', user: req.session.user, bids, divisions, users, organizations,
         statusOptions: STATUS_OPTIONS, query: req.query,
         page, totalPages, totalCount, pageSize: PAGE_SIZE,
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/by-division', async (req, res, next) => {
+    try {
+      const [bids, divisions, users, organizations] = await Promise.all([
+        req.api.get(`/api/bids${buildFilterQuery(req.query)}`),
+        req.api.get('/api/divisions'),
+        req.api.get('/api/users'),
+        req.api.get('/api/organizations'),
+      ]);
+      const groups = divisions.map((d) => ({ key: d.id, label: d.name, bids: [] }));
+      const multiGroup = { key: 'multiple', label: 'Multiple divisions', bids: [] };
+      const unassignedGroup = { key: 'unassigned', label: 'Unassigned', bids: [] };
+      for (const bid of bids) {
+        const divisionIds = [...new Set(bid.lots.map((l) => l.division && l.division.id).filter(Boolean))];
+        if (divisionIds.length === 0) {
+          unassignedGroup.bids.push(bid);
+        } else if (divisionIds.length === 1) {
+          const group = groups.find((g) => g.key === divisionIds[0]);
+          (group || unassignedGroup).bids.push(bid);
+        } else {
+          multiGroup.bids.push(bid);
+        }
+      }
+      res.render('bids/by-division', {
+        title: 'Bids by division', user: req.session.user, divisions, users, organizations,
+        statusOptions: STATUS_OPTIONS, query: req.query,
+        groups: [...groups, multiGroup, unassignedGroup], groupLimit: GROUP_LIMIT,
       });
     } catch (err) {
       next(err);

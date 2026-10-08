@@ -1,0 +1,30 @@
+<%
+/* The bids filter bar. Usage: include with the locals already available to
+   bids/list.ejs and bids/by-division.ejs - divisions, statusOptions, users,
+   organizations, query - and an optional "action" (defaults to /bids). */
+const formAction = typeof action !== 'undefined' ? action : '/bids';
+%>
+<form method="get" action="<%= formAction %>" class="card toolbar" style="margin-bottom:1rem;">
+  <select name="divisionId" class="w-auto">
+    <option value="">All divisions</option>
+    <% divisions.forEach(d => { %><option value="<%= d.id %>" <%= query.divisionId === d.id ? 'selected' : '' %>><%= d.name %></option><% }) %>
+  </select>
+  <select name="status" class="w-auto">
+    <option value="">All statuses</option>
+    <% statusOptions.forEach(s => { %><option value="<%= s %>" <%= query.status === s ? 'selected' : '' %>><%= s %></option><% }) %>
+  </select>
+  <select name="officerId" class="w-auto">
+    <option value="">All officers</option>
+    <% users.filter(u => u.role === 'ACCOUNT_OFFICER').forEach(u => { %><option value="<%= u.id %>" <%= query.officerId === u.id ? 'selected' : '' %>><%= u.fullName %></option><% }) %>
+  </select>
+  <select name="organizationId" class="w-auto">
+    <option value="">All organizations</option>
+    <% organizations.forEach(o => { %><option value="<%= o.id %>" <%= query.organizationId === o.id ? 'selected' : '' %>><%= o.name %></option><% }) %>
+  </select>
+  <label class="muted" style="margin:0;">Closing from</label>
+  <input type="date" name="closingFrom" value="<%= query.closingFrom || '' %>" class="w-auto">
+  <label class="muted" style="margin:0;">to</label>
+  <input type="date" name="closingTo" value="<%= query.closingTo || '' %>" class="w-auto">
+  <button type="submit" class="secondary">Filter</button>
+  <a class="btn secondary" href="<%= formAction %>">Clear</a>
+</form>
