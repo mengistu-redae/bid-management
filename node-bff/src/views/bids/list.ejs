@@ -1,7 +1,7 @@
 <%- include('../partials/header', { title: title, user: user }) %>
 <div class="toolbar">
   <h1 style="margin:0;">Bids <span class="muted" style="font-weight:400; font-size:1rem;">(<%= totalCount %>)</span></h1>
-  <a class="btn" href="/bids/new">+ New Tender</a>
+  <a class="btn primary" href="/bids/new">+ New Tender</a>
   <a class="btn secondary" href="/bids/kanban<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">Kanban</a>
   <a class="btn secondary" href="/bids/calendar">Calendar</a>
   <a class="btn secondary" href="/bids/by-division<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">By Division</a>

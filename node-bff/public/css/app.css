@@ -219,12 +219,19 @@ button:focus-visible, .btn:focus-visible, a:focus-visible {
   outline-offset: 1px;
 }
 
-button, .btn {
+button, .btn, .btn:visited {
   display: inline-block;
   background: var(--accent); color: #fff; border: none; border-radius: 4px;
   padding: 0.45rem 0.9rem; font-size: 0.9rem; cursor: pointer; text-decoration: none;
   transition: filter 0.1s ease-in-out, background-color 0.1s ease-in-out;
 }
+/* The ".btn:visited" above isn't redundant: a lone class selector (.btn,
+   specificity 0-1-0) loses to the earlier "a:visited { color: ... }" rule
+   (0-1-1 - a pseudo-class counts as a "class" for specificity, but a:visited
+   also carries the "a" type selector, which .btn alone doesn't have). For
+   every .btn link a visitor has already clicked, that rule was winning and
+   painting the text the same color as the body-link accent - invisible
+   against a .btn whose background is that same accent color. */
 /* brightness() rather than a hardcoded darker hex - a fixed darken reads fine
    against the light-mode accent but turns muddy against dark mode's lighter
    one; a relative filter works for both without a second set of tokens. */
