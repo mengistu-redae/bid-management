@@ -1,15 +1,22 @@
 <%- include('../partials/header', { title: title, user: user }) %>
 
+<div class="mt-0"><a href="/bids">&larr; Back to bids</a></div>
+
 <div class="toolbar">
   <div>
     <h1 style="margin:0;"><%= bid.title %></h1>
     <div class="muted"><%= bid.organization ? bid.organization.name : '-' %> <% if (bid.referenceNumber) { %>&middot; Ref: <%= bid.referenceNumber %><% } %></div>
   </div>
+  <% if (daysUntilClosing !== null) { %>
+    <span class="badge <%= closingUrgent ? 'review' : '' %>">
+      <%= daysUntilClosing < 0 ? 'Closed ' + Math.abs(daysUntilClosing) + 'd ago' : (daysUntilClosing === 0 ? 'Closes today' : 'Closes in ' + daysUntilClosing + 'd') %>
+    </span>
+  <% } %>
   <span class="badge <%= statusBadgeClass(bid.status) %>" style="font-size:1rem;"><%= bid.status %></span>
 </div>
 
 <div class="card">
-  <div style="display:flex; flex-wrap:wrap; gap:2rem;">
+  <div class="row">
     <div><strong>Closing</strong><br><%= formatDateTime(bid.closingAt) %></div>
     <div><strong>Opening</strong><br><%= formatDateTime(bid.openingAt) %></div>
     <div><strong>Clarification deadline</strong><br><%= formatDate(bid.clarificationDeadline) %></div>
@@ -22,8 +29,8 @@
 <% if (bid.canEdit) { %>
 <div class="card">
   <h2 class="mt-0">Change status</h2>
-  <form method="post" action="/bids/<%= bid.id %>/status" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
-    <div style="flex:1; min-width:10rem;">
+  <form method="post" action="/bids/<%= bid.id %>/status" class="row end">
+    <div class="col" style="min-width:10rem;">
       <label>New status</label>
       <select name="newStatus">
         <% statusOptions.forEach(s => { %><option value="<%= s %>" <%= s === bid.status ? 'selected' : '' %>><%= s %></option><% }) %>
@@ -38,10 +45,10 @@
 </div>
 <% } %>
 
-<h2>Lots</h2>
+<h2><%- include('../partials/icon', { name: 'box' }) %> Lots</h2>
 <% bid.lots.forEach(lot => { %>
   <div class="card">
-    <div class="toolbar" style="margin-bottom:0.5rem;">
+    <div class="toolbar mt-0">
       <div>
         <strong><%= lot.lotLabel %></strong>
         <span class="muted"><%= lot.division ? lot.division.name : 'no division set' %></span>
@@ -52,7 +59,7 @@
 
     <% if (lot.reviewNote) { %><div class="warning-box"><%= lot.reviewNote %></div><% } %>
 
-    <div style="display:flex; flex-wrap:wrap; gap:1.5rem; font-size:0.9rem;">
+    <div class="row top" style="font-size:0.9rem;">
       <div><strong>Estimated value</strong><br><%= formatMoney(lot.estimatedValue, lot.estimatedValueCurrency) %></div>
       <div>
         <strong>Bid bond</strong><br><%= formatMoney(lot.bidBondAmount, lot.bidBondCurrency) %> <% if (lot.bidBondValidityDays) { %>(<%= lot.bidBondValidityDays %> days)<% } %>
@@ -63,17 +70,17 @@
           <% } else if (bid.canEdit) { %>
             <form method="post" action="/bids/lots/<%= lot.id %>/bond-returned" class="inline">
               <input type="hidden" name="bidId" value="<%= bid.id %>">
-              <button type="submit" class="secondary" style="padding:0.1rem 0.5rem; font-size:0.78rem;">Mark bond returned</button>
+              <button type="submit" class="secondary btn-xs">Mark bond returned</button>
             </form>
           <% } %>
           <% if (bid.canEdit) { %>
-            <details style="margin-top:0.3rem;">
+            <details class="mt-1">
               <summary class="muted" style="font-size:0.78rem;">Issuing bank / issue date</summary>
-              <form method="post" action="/bids/lots/<%= lot.id %>/bond-details" style="display:flex; gap:0.4rem; margin-top:0.3rem;">
+              <form method="post" action="/bids/lots/<%= lot.id %>/bond-details" class="row tight mt-1">
                 <input type="hidden" name="bidId" value="<%= bid.id %>">
                 <input name="issuingBank" placeholder="Bank" value="<%= lot.bidBondIssuingBank || '' %>" class="w-auto">
                 <input type="date" name="issueDate" value="<%= lot.bidBondIssueDate || '' %>" class="w-auto">
-                <button type="submit" class="secondary" style="padding:0.1rem 0.5rem; font-size:0.78rem;">Save</button>
+                <button type="submit" class="secondary btn-xs">Save</button>
               </form>
             </details>
           <% } %>
@@ -85,13 +92,13 @@
     </div>
 
     <% if (lot.outcome) { %>
-      <p style="margin-top:0.75rem;"><strong><%= lot.outcome %></strong><% if (lot.winnerName) { %> - winner: <%= lot.winnerName %><% } %><% if (lot.winningPrice) { %>, price: <%= formatMoney(lot.winningPrice, lot.winningPriceCurrency) %><% } %></p>
+      <p class="mt-2"><strong><%= lot.outcome %></strong><% if (lot.winnerName) { %> - winner: <%= lot.winnerName %><% } %><% if (lot.winningPrice) { %>, price: <%= formatMoney(lot.winningPrice, lot.winningPriceCurrency) %><% } %></p>
     <% } %>
 
     <% if (bid.canEdit && (lot.status === 'UNDER_EVALUATION' || lot.status === 'WON' || lot.status === 'LOST')) { %>
       <details class="mt-1">
         <summary class="muted">Record outcome</summary>
-        <form method="post" action="/bids/lots/<%= lot.id %>/outcome" style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.5rem;">
+        <form method="post" action="/bids/lots/<%= lot.id %>/outcome" class="row mt-1">
           <input type="hidden" name="bidId" value="<%= bid.id %>">
           <select name="outcome" class="w-auto">
             <option value="">-</option>
@@ -117,7 +124,9 @@
           <input type="hidden" name="bidId" value="<%= bid.id %>">
           <input type="hidden" name="lotId" value="<%= lot.id %>">
           <input type="hidden" name="done" value="<%= !item.done %>">
-          <button type="submit" class="secondary" style="padding:0.1rem 0.5rem;"><%= item.done ? '✓' : '□' %></button>
+          <button type="submit" class="secondary btn-xs" aria-label="<%= item.done ? 'Mark not done' : 'Mark done' %>">
+            <%- include('../partials/icon', { name: item.done ? 'check' : 'square', size: 14 }) %>
+          </button>
         </form>
         <span><%= item.title %></span>
         <% if (item.ownerName) { %><span class="muted">(<%= item.ownerName %>)</span><% } %>
@@ -126,16 +135,16 @@
     <% }) %>
 
     <% if (bid.canEdit) { %>
-    <form method="post" action="/bids/lots/<%= lot.id %>/checklist-items" style="display:flex; gap:0.5rem; margin-top:0.5rem;">
-      <input type="hidden" name="bidId" value="<%= bid.id %>">
+    <form method="post" action="/bids/lots/<%= lot.id %>/checklist-items" class="row mt-1">
       <input name="title" placeholder="Add checklist item..." style="flex:2;">
+      <input type="hidden" name="bidId" value="<%= bid.id %>">
       <input type="date" name="dueDate" class="col">
       <button type="submit" class="secondary">Add</button>
     </form>
 
-    <details style="margin-top:0.75rem;">
+    <details class="mt-2">
       <summary class="muted">Change this lot's status independently</summary>
-      <form method="post" action="/bids/lots/<%= lot.id %>/status" style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
+      <form method="post" action="/bids/lots/<%= lot.id %>/status" class="row mt-1">
         <input type="hidden" name="bidId" value="<%= bid.id %>">
         <select name="newStatus" class="w-auto">
           <% statusOptions.forEach(s => { %><option value="<%= s %>" <%= s === lot.status ? 'selected' : '' %>><%= s %></option><% }) %>
@@ -148,7 +157,7 @@
   </div>
 <% }) %>
 
-<h2>Deal registrations</h2>
+<h2><%- include('../partials/icon', { name: 'repeat' }) %> Deal registrations</h2>
 <div class="card">
   <% dealRegistrations.forEach(r => { %>
     <div class="checklist-item">
@@ -161,29 +170,40 @@
   <a class="btn secondary mt-1" href="/deal-registrations/new">+ New deal registration</a>
 </div>
 
-<h2>Activity log</h2>
+<h2><%- include('../partials/icon', { name: 'clock' }) %> Activity log</h2>
 <div class="card">
   <% activity.forEach(entry => { %>
     <p style="margin:0.4rem 0;"><strong><%= entry.authorName || 'Import' %></strong> <span class="muted"><%= formatDateTime(entry.createdAt) %></span><br><%= entry.note %></p>
   <% }) %>
   <% if (activity.length === 0) { %><p class="muted">No activity yet.</p><% } %>
-  <form method="post" action="/bids/<%= bid.id %>/activity" style="display:flex; gap:0.5rem; margin-top:0.75rem;">
+  <form method="post" action="/bids/<%= bid.id %>/activity" class="row mt-2">
     <input name="note" placeholder="Add a note..." class="col" required>
     <button type="submit">Add</button>
   </form>
 </div>
 
-<h2>Status history</h2>
+<h2><%- include('../partials/icon', { name: 'table' }) %> Status history</h2>
+<div class="card">
 <div class="table-scroll">
 <table>
   <thead><tr><th>From</th><th>To</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
-  <tbody>
-    <% history.forEach(h => { %>
-      <tr><td><%= h.fromStatus || '-' %></td><td><%= h.toStatus %></td><td><%= h.reason || '-' %></td><td><%= h.changedByName || 'Import' %></td><td><%= formatDateTime(h.changedAt) %></td></tr>
+  <tbody id="history-tbody">
+    <% history.forEach((h, i) => { %>
+      <tr<%= i >= historyLimit ? ' hidden' : '' %>><td><%= h.fromStatus || '-' %></td><td><%= h.toStatus %></td><td><%= h.reason || '-' %></td><td><%= h.changedByName || 'Import' %></td><td><%= formatDateTime(h.changedAt) %></td></tr>
     <% }) %>
     <% if (history.length === 0) { %><tr><td colspan="5" class="muted">No status changes yet.</td></tr><% } %>
   </tbody>
 </table>
+</div>
+<% if (history.length > historyLimit) { %>
+  <button type="button" class="secondary w-auto mt-1" id="history-show-all">Show all <%= history.length %></button>
+  <script>
+    document.getElementById('history-show-all').addEventListener('click', function () {
+      document.querySelectorAll('#history-tbody tr[hidden]').forEach(function (row) { row.hidden = false; });
+      this.remove();
+    });
+  </script>
+<% } %>
 </div>
 
 <%- include('../partials/footer') %>

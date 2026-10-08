@@ -107,6 +107,7 @@ main { max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; }
 .col { flex: 1; min-width: 0; }
 .stack { display: flex; flex-direction: column; gap: 0.5rem; }
 .w-auto { width: auto; }
+.btn-xs { padding: 0.1rem 0.5rem; font-size: 0.78rem; }
 .inline-label { display: inline-flex; align-items: center; gap: 0.3rem; margin-right: 1rem; font-weight: normal; }
 .mt-0 { margin-top: 0; }
 .mt-1 { margin-top: 0.5rem; }

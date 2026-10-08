@@ -4,8 +4,12 @@ const express = require('express');
 const { setFlash } = require('../../flash');
 
 const STATUS_OPTIONS = ['IDENTIFIED', 'UNDER_REVIEW', 'PREPARING', 'SUBMITTED', 'OPENED', 'UNDER_EVALUATION', 'WON', 'LOST', 'DROPPED', 'CANCELLED'];
+const TERMINAL_STATUSES = ['WON', 'LOST', 'DROPPED', 'CANCELLED'];
 const SCOPE_TYPES = ['DELIVERY', 'IMPLEMENTATION', 'TRAINING', 'SUPPORT_RENEWAL'];
 const PAGE_SIZE = 25;
+const HISTORY_LIMIT = 8;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const URGENT_CLOSING_DAYS = 5; // matches the dashboard's own red-flag window
 
 function buildBidsRouter() {
   const router = express.Router();
@@ -161,15 +165,22 @@ function buildBidsRouter() {
 
   router.get('/:id', async (req, res, next) => {
     try {
-      const [bid, history, activity, allDealRegistrations] = await Promise.all([
+      const [bid, historyAsc, activity, allDealRegistrations] = await Promise.all([
         req.api.get(`/api/bids/${req.params.id}`),
         req.api.get(`/api/bids/${req.params.id}/status-history`),
         req.api.get(`/api/bids/${req.params.id}/activity`),
         req.api.get('/api/deal-registrations'),
       ]);
       const dealRegistrations = allDealRegistrations.filter((r) => r.bidId === bid.id);
+      // Most-recent-first for display - the API returns it oldest-first (insertion order).
+      const history = [...historyAsc].reverse();
+      const daysUntilClosing = bid.closingAt && !TERMINAL_STATUSES.includes(bid.status)
+        ? Math.ceil((new Date(bid.closingAt).getTime() - Date.now()) / DAY_MS)
+        : null;
+      const closingUrgent = daysUntilClosing !== null && daysUntilClosing <= URGENT_CLOSING_DAYS;
       res.render('bids/detail', {
         title: bid.title, user: req.session.user, bid, history, activity, dealRegistrations, statusOptions: STATUS_OPTIONS,
+        daysUntilClosing, closingUrgent, historyLimit: HISTORY_LIMIT,
       });
     } catch (err) {
       next(err);
