@@ -4,6 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= typeof title !== 'undefined' ? title + ' - Bid Management' : 'Bid Management' %></title>
+  <script>
+    // Applied before app.css loads, so there's no flash of the wrong theme
+    // on first paint. No stored preference means "follow the system" -
+    // app.css's prefers-color-scheme block handles that case on its own;
+    // this only ever needs to act when the user has explicitly chosen.
+    (function () {
+      try {
+        var stored = localStorage.getItem('theme');
+        if (stored === 'light' || stored === 'dark') {
+          document.documentElement.setAttribute('data-theme', stored);
+        }
+      } catch (e) { /* localStorage unavailable (private mode etc.) - just follow the system theme */ }
+    })();
+  </script>
   <link rel="stylesheet" href="/public/css/app.css">
   <script src="/vendor/htmx/htmx.min.js"></script>
 </head>
@@ -23,12 +37,41 @@
     <a href="/import">Import</a>
   </nav>
   <div>
+    <button type="button" id="theme-toggle" class="secondary w-auto" style="margin-right:0.75rem;" aria-label="Switch color theme">Theme</button>
     <% if (typeof user !== 'undefined' && user) { %>
       <span class="muted" style="color:#fff;margin-right:0.75rem;"><%= user.name || user.email %></span>
       <form class="inline" method="post" action="/auth/logout" hx-boost="false"><button class="secondary" type="submit">Log out</button></form>
     <% } %>
   </div>
 </header>
+<script>
+  // Cycles light -> dark -> light. "System" (no stored preference) is the
+  // starting state for a new browser, but once someone clicks this they've
+  // made an explicit choice, so it's saved and no longer follows the OS.
+  (function () {
+    var toggle = document.getElementById('theme-toggle');
+    var root = document.documentElement;
+
+    function currentTheme() {
+      var explicit = root.getAttribute('data-theme');
+      if (explicit === 'light' || explicit === 'dark') return explicit;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    function render() {
+      toggle.textContent = currentTheme() === 'dark' ? 'Dark theme' : 'Light theme';
+    }
+
+    toggle.addEventListener('click', function () {
+      var next = currentTheme() === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('theme', next); } catch (e) { /* ignore - falls back to session-only */ }
+      render();
+    });
+
+    render();
+  })();
+</script>
 <main>
 <% if (typeof flash !== 'undefined' && flash) { %>
   <div class="flash <%= flash.type %>"><%= flash.message %></div>

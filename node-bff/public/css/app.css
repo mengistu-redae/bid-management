@@ -1,3 +1,13 @@
+/*
+ * Theme: light is the default palette on bare :root. Dark overrides apply
+ * two ways - automatically via prefers-color-scheme (system default,
+ * guarded so an explicit light choice always wins), and explicitly via
+ * data-theme="dark" on <html> (set by the toggle in header.ejs, persisted
+ * to localStorage - see its inline script for the no-flash-on-load logic).
+ * --topbar-bg is deliberately its own token, not reused from --text - the
+ * header stays a dark bar in both themes rather than flipping to light
+ * alongside everything else.
+ */
 :root {
   --border: #d7dbe0;
   --text: #1b1f24;
@@ -8,6 +18,48 @@
   --danger: #a3231f;
   --warn: #8a5a00;
   --ok: #176a33;
+  --ok-bg: #e3f3e8;
+  --danger-bg: #f7e7e6;
+  --warn-bg: #fff3da;
+  --topbar-bg: #1b1f24;
+  --hover-bg: #fafbfc;
+  --secondary-hover-bg: #ebedf0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --border: #3a4049;
+    --text: #e8eaed;
+    --muted: #9aa4b2;
+    --bg: #1b1f24;
+    --bg-alt: #23272e;
+    --accent: #3d7fd1;
+    --danger: #e5726f;
+    --warn: #e0a84d;
+    --ok: #5fc687;
+    --ok-bg: #16311f;
+    --danger-bg: #3a1d1c;
+    --warn-bg: #3a2c0f;
+    --hover-bg: #262b33;
+    --secondary-hover-bg: #2c323b;
+  }
+}
+
+:root[data-theme="dark"] {
+  --border: #3a4049;
+  --text: #e8eaed;
+  --muted: #9aa4b2;
+  --bg: #1b1f24;
+  --bg-alt: #23272e;
+  --accent: #3d7fd1;
+  --danger: #e5726f;
+  --warn: #e0a84d;
+  --ok: #5fc687;
+  --ok-bg: #16311f;
+  --danger-bg: #3a1d1c;
+  --warn-bg: #3a2c0f;
+  --hover-bg: #262b33;
+  --secondary-hover-bg: #2c323b;
 }
 
 * { box-sizing: border-box; }
@@ -19,8 +71,13 @@ body {
   margin: 0;
 }
 
+/* Without this, body links fall back to the browser's default blue/purple,
+   which reads fine on a white background but goes nearly illegible once
+   dark mode flips the page dark underneath it. */
+a, a:visited { color: var(--accent); }
+
 header.topbar {
-  background: var(--text);
+  background: var(--topbar-bg);
   color: #fff;
   padding: 0.75rem 1.25rem;
   display: flex;
@@ -53,16 +110,23 @@ main { max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; }
 .mt-2 { margin-top: 1rem; }
 .mt-3 { margin-top: 1.5rem; }
 
-h1 { font-size: 1.5rem; }
-h2 { font-size: 1.15rem; margin-top: 2rem; }
+h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.01em; }
+h2 {
+  font-size: 1.05rem; font-weight: 600; margin-top: 2.25rem; margin-bottom: 0.75rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+h2 .icon { color: var(--accent); flex-shrink: 0; }
 
 table { width: 100%; border-collapse: collapse; background: var(--bg); }
 th, td { border-bottom: 1px solid var(--border); padding: 0.5rem 0.6rem; text-align: left; font-size: 0.92rem; }
 th { background: var(--bg-alt); font-weight: 600; }
 tr td { transition: background-color 0.1s ease-in-out; }
-tr:hover td { background: #fafbfc; }
+tr:hover td { background: var(--hover-bg); }
 
-.card { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+.card {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem;
+  margin-bottom: 1rem; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 6px rgba(0, 0, 0, 0.04);
+}
 
 form.inline { display: inline; }
 
@@ -91,26 +155,28 @@ button, .btn {
   display: inline-block;
   background: var(--accent); color: #fff; border: none; border-radius: 4px;
   padding: 0.45rem 0.9rem; font-size: 0.9rem; cursor: pointer; text-decoration: none;
-  transition: background-color 0.1s ease-in-out;
+  transition: filter 0.1s ease-in-out, background-color 0.1s ease-in-out;
 }
-button:hover, .btn:hover { background: #184a87; }
-button:active, .btn:active { background: #123a6b; }
-button.secondary, .btn.secondary { background: var(--bg-alt); color: var(--text); border: 1px solid var(--border); }
-button.secondary:hover, .btn.secondary:hover { background: #ebedf0; }
+/* brightness() rather than a hardcoded darker hex - a fixed darken reads fine
+   against the light-mode accent but turns muddy against dark mode's lighter
+   one; a relative filter works for both without a second set of tokens. */
+button:hover, .btn:hover { filter: brightness(0.88); }
+button:active, .btn:active { filter: brightness(0.78); }
+button.secondary, .btn.secondary { background: var(--bg-alt); color: var(--text); border: 1px solid var(--border); filter: none; }
+button.secondary:hover, .btn.secondary:hover { background: var(--secondary-hover-bg); filter: none; }
 button.danger, .btn.danger { background: var(--danger); }
-button.danger:hover, .btn.danger:hover { background: #821b18; }
-button:disabled, .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+button:disabled, .btn:disabled { opacity: 0.6; cursor: not-allowed; filter: none; }
 
 .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.75rem; font-weight: 600; background: var(--bg-alt); border: 1px solid var(--border); }
-.badge.won { background: #e3f3e8; color: var(--ok); border-color: var(--ok); }
-.badge.lost, .badge.dropped, .badge.cancelled { background: #f7e7e6; color: var(--danger); border-color: var(--danger); }
-.badge.review { background: #fff3da; color: var(--warn); border-color: var(--warn); }
+.badge.won { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+.badge.lost, .badge.dropped, .badge.cancelled { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+.badge.review { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
 
-.warning-box { background: #fff3da; border: 1px solid #e3b23c; border-radius: 6px; padding: 0.6rem 0.8rem; margin-bottom: 0.75rem; font-size: 0.88rem; }
+.warning-box { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 6px; padding: 0.6rem 0.8rem; margin-bottom: 0.75rem; font-size: 0.88rem; }
 
 .flash { border-radius: 6px; padding: 0.6rem 0.9rem; margin-bottom: 1rem; font-size: 0.9rem; border: 1px solid; }
-.flash.success { background: #e3f3e8; color: var(--ok); border-color: var(--ok); }
-.flash.error { background: #f7e7e6; color: var(--danger); border-color: var(--danger); }
+.flash.success { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+.flash.error { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
 
 /* Lightweight bar charts - plain CSS, no charting library. Each .bar-row is
    one labeled value; .bar-fill's inline width (0-100%) is set per-row by the
@@ -133,11 +199,42 @@ button:disabled, .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .progress-bar > div { background: var(--accent); height: 100%; }
 
 .toolbar { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+/* Keeps the dashboard's quick-nav reachable on a page long enough to need
+   scrolling, without the main app header (which isn't sticky) following it. */
+.toolbar.sticky {
+  position: sticky; top: 0; z-index: 5; background: var(--bg-alt);
+  padding: 0.75rem 0; margin: 0 0 1rem; border-bottom: 1px solid var(--border);
+}
+
+.icon { flex-shrink: 0; vertical-align: -0.35em; }
+
+/* KPI cards - a responsive grid of at-a-glance numbers, each one a shortcut
+   into the detailed section below it (back_card.href, when set). */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.85rem; margin-bottom: 1.5rem; }
+.stat-card {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 6px rgba(0, 0, 0, 0.04);
+  display: flex; flex-direction: column; gap: 0.6rem; text-decoration: none; color: inherit;
+  transition: transform 0.12s ease-in-out, box-shadow 0.12s ease-in-out;
+}
+a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06); }
+.stat-card .stat-icon {
+  width: 2.1rem; height: 2.1rem; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  background: var(--bg-alt); color: var(--accent);
+}
+.stat-card.warn .stat-icon { background: var(--warn-bg); color: var(--warn); }
+.stat-card.danger .stat-icon { background: var(--danger-bg); color: var(--danger); }
+.stat-card .stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat-card .stat-label { color: var(--muted); font-size: 0.82rem; }
 
 .checklist-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0; border-bottom: 1px dashed var(--border); }
 .checklist-item.done { color: var(--muted); text-decoration: line-through; }
 
 .muted { color: var(--muted); font-size: 0.85rem; }
+
+/* A long list/table truncated to its most urgent rows links out to the full,
+   already-filtered view rather than growing the page - see dashboard.ejs. */
+.view-all { display: inline-block; margin-top: 0.5rem; font-size: 0.88rem; font-weight: 600; }
 
 /* Phone-width layout - account officers check deadlines on their phones. */
 @media (max-width: 640px) {

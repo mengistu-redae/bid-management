@@ -1,16 +1,61 @@
 <%- include('partials/header', { title: title, user: user }) %>
 <h1>Dashboard</h1>
 
-<div class="toolbar">
+<div class="toolbar sticky">
   <a class="btn secondary" href="/bids">Bid list</a>
   <a class="btn secondary" href="/bids/kanban">Kanban</a>
   <a class="btn secondary" href="/bids/calendar">Calendar</a>
+  <span class="muted" hx-boost="false" style="margin-left:auto;">Jump to:
+    <a href="#closing-this-week">Closing</a> &middot;
+    <a href="#pipeline-value">Pipeline</a> &middot;
+    <a href="#win-rate">Win rate</a> &middot;
+    <a href="#bonds-outstanding">Bonds</a> &middot;
+    <a href="#deal-regs-expiring">Deal regs</a>
+  </span>
 </div>
 
-<h2 class="mt-1">Closing this week</h2>
+<%
+  const atRiskCount = data.closingThisWeek.filter(r => r.redFlag).length;
+  const pipelineEtbTotal = data.pipelineByDivision.reduce((sum, r) => sum + Number(r.totalEtb), 0);
+%>
+<div class="stat-grid" hx-boost="false">
+  <a class="stat-card<%= atRiskCount > 0 ? ' warn' : '' %>" href="#closing-this-week">
+    <span class="stat-icon"><%- include('partials/icon', { name: 'calendar' }) %></span>
+    <span class="stat-value"><%= data.closingThisWeek.length %></span>
+    <span class="stat-label">Closing this week</span>
+  </a>
+  <a class="stat-card<%= atRiskCount > 0 ? ' danger' : '' %>" href="#closing-this-week">
+    <span class="stat-icon"><%- include('partials/icon', { name: 'alert' }) %></span>
+    <span class="stat-value"><%= atRiskCount %></span>
+    <span class="stat-label">At risk (missing MAF/quote)</span>
+  </a>
+  <a class="stat-card" href="#pipeline-value">
+    <span class="stat-icon"><%- include('partials/icon', { name: 'trending' }) %></span>
+    <span class="stat-value"><%= formatMoney(pipelineEtbTotal) %></span>
+    <span class="stat-label">Pipeline value (ETB)</span>
+  </a>
+  <a class="stat-card<%= Number(data.outstandingBondTotalEtb) > 0 ? ' warn' : '' %>" href="#bonds-outstanding">
+    <span class="stat-icon"><%- include('partials/icon', { name: 'shield' }) %></span>
+    <span class="stat-value"><%= formatMoney(data.outstandingBondTotalEtb) %></span>
+    <span class="stat-label">Bid bonds outstanding (ETB)</span>
+  </a>
+  <a class="stat-card<%= data.expiringDealRegistrations.length > 0 ? ' warn' : '' %>" href="#deal-regs-expiring">
+    <span class="stat-icon"><%- include('partials/icon', { name: 'repeat' }) %></span>
+    <span class="stat-value"><%= data.expiringDealRegistrations.length %></span>
+    <span class="stat-label">Deal regs expiring soon</span>
+  </a>
+</div>
+
+<%
+  const LIST_LIMIT = 6;
+  function viewAllLink(range) {
+    return '/bids?closingFrom=' + range.closingFrom + '&closingTo=' + range.closingTo;
+  }
+%>
+<h2 id="closing-this-week" class="mt-1"><%- include('partials/icon', { name: 'calendar' }) %> Closing this week</h2>
 <div class="card">
   <% if (data.closingThisWeek.length === 0) { %><p class="muted">Nothing closing in the next 7 days.</p><% } %>
-  <% data.closingThisWeek.forEach(row => { %>
+  <% data.closingThisWeek.slice(0, LIST_LIMIT).forEach(row => { %>
     <div class="checklist-item" style="align-items:flex-start;">
       <div class="col">
         <a href="/bids/<%= row.bidId %>"><strong><%= row.title %></strong></a> - <%= row.organizationName %>
@@ -19,12 +64,15 @@
       <% if (row.redFlag) { %><span class="badge review"><%= row.redFlagReason %></span><% } %>
     </div>
   <% }) %>
+  <% if (data.closingThisWeek.length > LIST_LIMIT) { %>
+    <a class="view-all" href="<%= viewAllLink(dateRanges.closingThisWeek) %>">View all <%= data.closingThisWeek.length %> closing this week &rarr;</a>
+  <% } %>
 </div>
 
 <h2>Closing next week</h2>
 <div class="card">
   <% if (data.closingNextWeek.length === 0) { %><p class="muted">Nothing closing 7-14 days out.</p><% } %>
-  <% data.closingNextWeek.forEach(row => { %>
+  <% data.closingNextWeek.slice(0, LIST_LIMIT).forEach(row => { %>
     <div class="checklist-item" style="align-items:flex-start;">
       <div class="col">
         <a href="/bids/<%= row.bidId %>"><strong><%= row.title %></strong></a> - <%= row.organizationName %>
@@ -33,6 +81,9 @@
       <% if (row.redFlag) { %><span class="badge review"><%= row.redFlagReason %></span><% } %>
     </div>
   <% }) %>
+  <% if (data.closingNextWeek.length > LIST_LIMIT) { %>
+    <a class="view-all" href="<%= viewAllLink(dateRanges.closingNextWeek) %>">View all <%= data.closingNextWeek.length %> closing next week &rarr;</a>
+  <% } %>
 </div>
 
 <h2>Upcoming clarification deadlines</h2>
@@ -46,7 +97,7 @@
   <% }) %>
 </div>
 
-<h2>Pipeline value</h2>
+<h2 id="pipeline-value"><%- include('partials/icon', { name: 'trending' }) %> Pipeline value</h2>
 <div class="card">
   <strong>By division (ETB)</strong>
   <p class="muted mt-0">At-a-glance only - USD pipeline isn't shown here since the two currencies are never mixed into one bar. See the table for exact ETB and USD figures.</p>
@@ -79,7 +130,7 @@
   </div>
 </div>
 
-<h2>Win rate</h2>
+<h2 id="win-rate"><%- include('partials/icon', { name: 'trending' }) %> Win rate</h2>
 <div class="card">
   <strong>By division</strong>
   <div class="bar-chart mt-1">
@@ -114,14 +165,17 @@
   </div>
 </div>
 
-<h2>Bid bonds outstanding</h2>
+<%
+  const BOND_ROW_LIMIT = 8;
+%>
+<h2 id="bonds-outstanding"><%- include('partials/icon', { name: 'shield' }) %> Bid bonds outstanding</h2>
 <div class="card">
   <p><strong>Total outstanding:</strong> <%= formatMoney(data.outstandingBondTotalEtb, 'ETB') %> &middot; <%= formatMoney(data.outstandingBondTotalUsd, 'USD') %></p>
   <table>
     <thead><tr><th>Bid</th><th>Lot</th><th>Amount</th><th>Closed</th><th>Est. expiry</th></tr></thead>
-    <tbody>
-      <% data.outstandingBonds.forEach(row => { %>
-        <tr>
+    <tbody id="bonds-tbody">
+      <% data.outstandingBonds.forEach((row, i) => { %>
+        <tr<%= i >= BOND_ROW_LIMIT ? ' hidden' : '' %>>
           <td><a href="/bids/<%= row.bidId %>"><%= row.bidTitle %></a> - <%= row.organizationName %></td>
           <td><%= row.lotLabel %></td>
           <td><%= formatMoney(row.amount, row.currency) %></td>
@@ -132,10 +186,22 @@
       <% if (data.outstandingBonds.length === 0) { %><tr><td colspan="5" class="muted">No outstanding bid bonds.</td></tr><% } %>
     </tbody>
   </table>
+  <% if (data.outstandingBonds.length > BOND_ROW_LIMIT) { %>
+    <button type="button" class="secondary w-auto mt-1" id="bonds-show-all">Show all <%= data.outstandingBonds.length %></button>
+    <script>
+      // No destination page shows this exact curated/sorted view, so unlike
+      // the closing-date sections above, the extra rows expand in place
+      // instead of linking out to a filtered list.
+      document.getElementById('bonds-show-all').addEventListener('click', function () {
+        document.querySelectorAll('#bonds-tbody tr[hidden]').forEach(function (row) { row.hidden = false; });
+        this.remove();
+      });
+    </script>
+  <% } %>
   <p class="muted">Estimated expiry uses the bond's recorded issue date when there is one, otherwise the bid's opening date, plus the bond's validity days.</p>
 </div>
 
-<h2>Deal registrations expiring soon</h2>
+<h2 id="deal-regs-expiring"><%- include('partials/icon', { name: 'repeat' }) %> Deal registrations expiring soon</h2>
 <div class="card">
   <% data.expiringDealRegistrations.forEach(row => { %>
     <div class="checklist-item">

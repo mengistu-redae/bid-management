@@ -1,0 +1,20 @@
+<%
+/**
+ * Small inline icon set - hand-drawn from basic SVG primitives only
+ * (circle/line/polygon/polyline, no freehand bezier paths), so there's no
+ * risk of malformed path data and no external icon library/CDN dependency.
+ * Uses currentColor throughout so it inherits whatever color context it's
+ * placed in (and stays theme-aware automatically).
+ * Usage: include this partial with a local called "name" set to one of
+ * the keys below (e.g. "clock").
+ */
+const icons = {
+  clock: '<circle cx="12" cy="12" r="9"/><polyline points="12,6 12,12 16,14" stroke-linecap="round" stroke-linejoin="round"/>',
+  alert: '<polygon points="12,2 22,20 2,20" stroke-linejoin="round"/><line x1="12" y1="9" x2="12" y2="14" stroke-linecap="round"/><circle cx="12" cy="17.3" r="1" fill="currentColor" stroke="none"/>',
+  trending: '<polyline points="3,17 9,11 13,15 21,6" stroke-linecap="round" stroke-linejoin="round"/><polyline points="15,6 21,6 21,12" stroke-linecap="round" stroke-linejoin="round"/>',
+  shield: '<polygon points="12,2 20,6 20,12 12,22 4,12 4,6" stroke-linejoin="round"/>',
+  repeat: '<polyline points="18,2 22,6 18,10" stroke-linecap="round" stroke-linejoin="round"/><line x1="22" y1="6" x2="6" y2="6" stroke-linecap="round"/><polyline points="6,14 2,18 6,22" stroke-linecap="round" stroke-linejoin="round"/><line x1="2" y1="18" x2="18" y2="18" stroke-linecap="round"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2" stroke-linejoin="round"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7" stroke-linecap="round"/><line x1="16" y1="3" x2="16" y2="7" stroke-linecap="round"/>',
+};
+const svg = icons[name] || '';
+%><svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><%- svg %></svg>
