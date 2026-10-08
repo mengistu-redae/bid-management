@@ -73,11 +73,17 @@
 
 * { box-sizing: border-box; }
 
+/* 15px root (vs. the 16px browser default) - since every size and most
+   spacing in this file is in rem, this one change tightens the whole app
+   proportionally (text, padding, gaps) rather than just shrinking text. */
+html { font-size: 15px; }
+
 body {
   font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   color: var(--text);
   background: var(--bg-alt);
   margin: 0;
+  line-height: 1.45;
 }
 
 /* Without this, body links fall back to the browser's default blue/purple,
@@ -133,6 +139,9 @@ h2 {
   display: flex; align-items: center; gap: 0.5rem;
 }
 h2 .icon { color: var(--accent); flex-shrink: 0; }
+/* No rule existed for h3 before, so it fell back to the browser's own
+   default (~1.17em) - larger than h2 above it, an inverted hierarchy. */
+h3 { font-size: 1rem; font-weight: 600; margin: 1.1rem 0 0.5rem; }
 
 table { width: 100%; border-collapse: collapse; background: var(--bg); }
 th, td { border-bottom: 1px solid var(--border); padding: 0.5rem 0.6rem; text-align: left; font-size: 0.92rem; }
@@ -166,7 +175,7 @@ tr:hover td { background: var(--hover-bg); }
 }
 .bid-card-icon.warn { background: var(--warn); }
 .bid-card-body { flex: 1; min-width: 0; }
-.bid-card-title { font-weight: 600; }
+.bid-card-title { font-size: 0.95rem; font-weight: 600; }
 .bid-card-meta { font-size: 0.85rem; color: var(--muted); margin-top: 0.15rem; }
 .bid-card-footer {
   display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
