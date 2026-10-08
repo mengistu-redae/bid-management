@@ -3,7 +3,6 @@ package com.motiengineering.bidmgmt.service;
 import com.motiengineering.bidmgmt.domain.AppUser;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
-import com.motiengineering.bidmgmt.domain.ChecklistItem;
 import com.motiengineering.bidmgmt.domain.DealRegistration;
 import com.motiengineering.bidmgmt.domain.LotAccountOfficer;
 import com.motiengineering.bidmgmt.domain.enums.BidStatus;
@@ -21,6 +20,7 @@ import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.repository.BidRepository;
 import com.motiengineering.bidmgmt.repository.DealRegistrationRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
+import com.motiengineering.bidmgmt.util.BidRiskEvaluator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,9 +49,6 @@ import java.util.UUID;
 public class DashboardService {
 
     private static final ZoneId ZONE = ZoneId.of("Africa/Addis_Ababa");
-    private static final String MAF_CHECKLIST_TITLE = "MAF from OEM";
-    private static final String VENDOR_QUOTE_CHECKLIST_TITLE = "Vendor/distributor quotation";
-    private static final int RED_FLAG_WINDOW_DAYS = 5;
     private static final int BOND_EXPIRING_SOON_DAYS = 14;
 
     private static final int DEAL_REGISTRATION_EXPIRING_SOON_DAYS = 30;
@@ -109,39 +106,13 @@ public class DashboardService {
                 continue;
             }
             int progress = averageChecklistProgress(bid);
-            boolean withinRedFlagWindow = bid.getClosingAt().isBefore(now.plus(RED_FLAG_WINDOW_DAYS, ChronoUnit.DAYS));
-            String missing = withinRedFlagWindow ? missingMafOrQuote(bid) : null;
+            String missing = BidRiskEvaluator.redFlagReason(bid, now);
             rows.add(new ClosingSoonRowDto(
                     bid.getId(), bid.getTitle(), bid.getOrganization().getName(), bid.getClosingAt(),
                     bid.getStatus().name(), progress, missing != null, missing));
         }
         rows.sort((a, b) -> a.closingAt().compareTo(b.closingAt()));
         return rows;
-    }
-
-    private String missingMafOrQuote(Bid bid) {
-        boolean missingMaf = false;
-        boolean missingQuote = false;
-        for (BidLot lot : bid.getLots()) {
-            for (ChecklistItem item : lot.getChecklistItems()) {
-                if (item.getTitle().equals(MAF_CHECKLIST_TITLE) && !item.isDone()) {
-                    missingMaf = true;
-                }
-                if (item.getTitle().equals(VENDOR_QUOTE_CHECKLIST_TITLE) && !item.isDone()) {
-                    missingQuote = true;
-                }
-            }
-        }
-        if (missingMaf && missingQuote) {
-            return "Missing MAF and vendor quote";
-        }
-        if (missingMaf) {
-            return "Missing MAF";
-        }
-        if (missingQuote) {
-            return "Missing vendor quote";
-        }
-        return null;
     }
 
     private int averageChecklistProgress(Bid bid) {

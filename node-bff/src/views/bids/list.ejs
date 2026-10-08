@@ -52,6 +52,7 @@
         <td><%= bid.organization ? bid.organization.name : '-' %></td>
         <td>
           <a href="/bids/<%= bid.id %>"><%= bid.title %></a>
+          <% if (bid.redFlag) { %><span class="badge review"><%= bid.redFlagReason %></span><% } %>
           <% if (needsReview) { %><span class="badge review">needs review</span><% } %>
           <% if (bid.referenceNumber) { %><div class="muted"><%= bid.referenceNumber %></div><% } %>
         </td>

@@ -19,9 +19,11 @@ import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.repository.BidScoutRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
 import com.motiengineering.bidmgmt.repository.LotScopeTypeRepository;
+import com.motiengineering.bidmgmt.util.BidRiskEvaluator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -47,6 +49,7 @@ public class BidMapper {
         List<UserDto> scouts = scoutUserIds.stream().map(usersById::get).filter(u -> u != null).map(this::toUserDto).toList();
 
         List<LotDto> lots = bid.getLots().stream().map(this::toDto).toList();
+        String redFlagReason = BidRiskEvaluator.redFlagReason(bid, Instant.now());
 
         return new BidDto(
                 bid.getId(),
@@ -67,6 +70,8 @@ public class BidMapper {
                 bid.getNotes(),
                 lots,
                 bidAccessService.canEdit(bid),
+                redFlagReason != null,
+                redFlagReason,
                 bid.getCreatedAt(),
                 bid.getUpdatedAt());
     }

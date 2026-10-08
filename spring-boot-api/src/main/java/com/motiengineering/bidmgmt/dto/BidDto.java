@@ -24,6 +24,8 @@ public record BidDto(
         String notes,
         List<LotDto> lots,
         boolean canEdit,
+        boolean redFlag,
+        String redFlagReason,
         Instant createdAt,
         Instant updatedAt) {
 }
