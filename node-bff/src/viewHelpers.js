@@ -39,6 +39,7 @@ function statusBadgeClass(status) {
   if (['lost', 'dropped', 'cancelled'].includes(s)) return 'lost';
   if (s === 'under_review') return 'review';
   if (['preparing', 'submitted', 'opened', 'under_evaluation'].includes(s)) return 'active';
+  if (s === 'identified') return 'new';
   return '';
 }
 

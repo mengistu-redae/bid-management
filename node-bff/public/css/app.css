@@ -22,6 +22,8 @@
   --ok-bg: #e3f3e8;
   --danger-bg: #f7e7e6;
   --warn-bg: #fff3da;
+  --new: #5b3fa0;
+  --new-bg: #efe9f8;
   --topbar-bg: #1b1f24;
   --hover-bg: #fafbfc;
   --secondary-hover-bg: #ebedf0;
@@ -42,6 +44,8 @@
     --ok-bg: #16311f;
     --danger-bg: #3a1d1c;
     --warn-bg: #3a2c0f;
+    --new: #b79ae8;
+    --new-bg: #2c2440;
     --hover-bg: #262b33;
     --secondary-hover-bg: #2c323b;
   }
@@ -61,6 +65,8 @@
   --ok-bg: #16311f;
   --danger-bg: #3a1d1c;
   --warn-bg: #3a2c0f;
+  --new: #b79ae8;
+  --new-bg: #2c2440;
   --hover-bg: #262b33;
   --secondary-hover-bg: #2c323b;
 }
@@ -177,6 +183,7 @@ tr:hover td { background: var(--hover-bg); }
 .status-dot.lost { background: var(--danger); }
 .status-dot.review { background: var(--warn); }
 .status-dot.active { background: var(--accent); }
+.status-dot.new { background: var(--new); }
 
 /* Kanban cards reuse the same status color mapping as a left-border accent,
    instead of repeating the status text on every card (the column header
@@ -186,6 +193,7 @@ tr:hover td { background: var(--hover-bg); }
 .kanban-card.lost { border-left-color: var(--danger); }
 .kanban-card.review { border-left-color: var(--warn); }
 .kanban-card.active { border-left-color: var(--accent); }
+.kanban-card.new { border-left-color: var(--new); }
 .bid-card-icon.sm { width: 26px; height: 26px; border-radius: 7px; }
 
 form.inline { display: inline; }
@@ -232,6 +240,7 @@ button:disabled, .btn:disabled { opacity: 0.6; cursor: not-allowed; filter: none
 .badge.lost { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
 .badge.review { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
 .badge.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+.badge.new { background: var(--new-bg); color: var(--new); border-color: var(--new); }
 
 .warning-box { background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 6px; padding: 0.6rem 0.8rem; margin-bottom: 0.75rem; font-size: 0.88rem; }
 
