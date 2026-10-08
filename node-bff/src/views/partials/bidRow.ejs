@@ -1,22 +1,31 @@
 <%
-/* One row of a bids table. Usage: include with a local called "bid", and
-   optionally "hidden" (true to render the row with the hidden attribute,
+/* One card of a bid list. Usage: include with a local called "bid", and
+   optionally "hidden" (true to render the card with the hidden attribute,
    used by by-division.ejs to truncate a group's rows).
    Shared by bids/list.ejs and bids/by-division.ejs so the at-risk/needs-review
    badges and status coloring can't drift out of sync between the two views. */
 const needsReview = bid.lots.some(l => l.needsReview);
 const rowHidden = typeof hidden !== 'undefined' && hidden;
+const divisionNames = bid.lots.map(l => l.division ? l.division.name : null).filter(Boolean);
+const divisionLabel = divisionNames.length ? [...new Set(divisionNames)].join(', ') : 'No division';
 %>
-<tr<%= rowHidden ? ' hidden' : '' %> onclick="window.location='/bids/<%= bid.id %>'" style="cursor:pointer;">
-  <td><%= bid.organization ? bid.organization.name : '-' %></td>
-  <td>
-    <a href="/bids/<%= bid.id %>"><%= bid.title %></a>
+<div class="bid-card"<%= rowHidden ? ' hidden' : '' %> onclick="window.location='/bids/<%= bid.id %>'">
+  <span class="bid-card-icon<%= bid.redFlag ? ' warn' : '' %>"><%- include('icon', { name: 'box', size: 20 }) %></span>
+  <div class="bid-card-body">
+    <div class="bid-card-title"><a href="/bids/<%= bid.id %>"><%= bid.title %></a></div>
+    <div class="bid-card-meta">
+      <%= bid.organization ? bid.organization.name : '-' %> &middot; <%= divisionLabel %>
+      <% if (bid.referenceNumber) { %>&middot; Ref: <%= bid.referenceNumber %><% } %>
+    </div>
+    <div class="bid-card-footer">
+      <span><span class="status-dot <%= statusBadgeClass(bid.status) %>"></span> <%= bid.status %></span>
+      <span>Closing <%= formatDate(bid.closingAt) %></span>
+      <span><%= bid.lots.length %> lot<%= bid.lots.length === 1 ? '' : 's' %></span>
+    </div>
+  </div>
+  <div class="bid-card-side">
+    <span class="badge <%= statusBadgeClass(bid.status) %>"><%= bid.status %></span>
     <% if (bid.redFlag) { %><span class="badge review"><%= bid.redFlagReason %></span><% } %>
     <% if (needsReview) { %><span class="badge review">needs review</span><% } %>
-    <% if (bid.referenceNumber) { %><div class="muted"><%= bid.referenceNumber %></div><% } %>
-  </td>
-  <td><%= bid.lots.map(l => l.division ? l.division.name : '?').join(', ') %></td>
-  <td><%= formatDate(bid.closingAt) %></td>
-  <td><span class="badge <%= statusBadgeClass(bid.status) %>"><%= bid.status %></span></td>
-  <td><%= bid.lots.length %></td>
-</tr>
+  </div>
+</div>

@@ -18,30 +18,14 @@
   <% if (group.rows.length === 0) { %>
     <p class="muted">-</p>
   <% } else { %>
-    <div class="card">
-    <div class="table-scroll">
-    <table>
-      <thead>
-        <tr>
-          <th>Organization</th>
-          <th>Title</th>
-          <th>Division(s)</th>
-          <th>Closing</th>
-          <th>Status</th>
-          <th>Lots</th>
-        </tr>
-      </thead>
-      <tbody id="<%= tbodyId %>">
-        <% group.rows.forEach((bid, i) => { %>
-          <%- include('../partials/bidRow', { bid, hidden: i >= groupLimit }) %>
-        <% }) %>
-      </tbody>
-    </table>
+    <div class="bid-card-list" id="<%= tbodyId %>">
+      <% group.rows.forEach((bid, i) => { %>
+        <%- include('../partials/bidRow', { bid, hidden: i >= groupLimit }) %>
+      <% }) %>
     </div>
     <% if (group.rows.length > groupLimit) { %>
       <button type="button" class="secondary w-auto mt-1" data-show-all="<%= tbodyId %>">Show all <%= group.rows.length %></button>
     <% } %>
-    </div>
   <% } %>
 <% }) %>
 
@@ -49,7 +33,7 @@
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('[data-show-all]');
     if (!btn) return;
-    document.querySelectorAll('#' + btn.dataset.showAll + ' tr[hidden]').forEach(function (row) { row.hidden = false; });
+    document.querySelectorAll('#' + btn.dataset.showAll + ' [hidden]').forEach(function (row) { row.hidden = false; });
     btn.remove();
   });
 </script>

@@ -11,27 +11,13 @@
 
 <%- include('../partials/bidFilterForm') %>
 
-<div class="table-scroll">
-<table>
-  <thead>
-    <tr>
-      <th>Organization</th>
-      <th>Title</th>
-      <th>Division(s)</th>
-      <th>Closing</th>
-      <th>Status</th>
-      <th>Lots</th>
-    </tr>
-  </thead>
-  <tbody>
-    <% bids.forEach(bid => { %>
-      <%- include('../partials/bidRow', { bid }) %>
-    <% }) %>
-    <% if (bids.length === 0) { %>
-      <tr><td colspan="6" class="muted">No bids match these filters.</td></tr>
-    <% } %>
-  </tbody>
-</table>
+<div class="bid-card-list">
+  <% bids.forEach(bid => { %>
+    <%- include('../partials/bidRow', { bid }) %>
+  <% }) %>
+  <% if (bids.length === 0) { %>
+    <p class="muted">No bids match these filters.</p>
+  <% } %>
 </div>
 
 <% if (totalPages > 1) { %>

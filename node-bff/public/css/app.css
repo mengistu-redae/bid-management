@@ -82,15 +82,20 @@ a, a:visited { color: var(--accent); }
 header.topbar {
   background: var(--topbar-bg);
   color: #fff;
-  padding: 0.75rem 1.25rem;
+  padding: 0.9rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 header.topbar a { color: #fff; text-decoration: none; font-weight: 600; }
-header.topbar nav a { margin-right: 1rem; font-weight: 400; opacity: 0.9; }
-header.topbar nav a:hover { opacity: 1; text-decoration: underline; }
+header.topbar nav a {
+  margin-right: 0.25rem; font-weight: 400; opacity: 0.85;
+  padding: 0.4rem 0.7rem; border-radius: 8px;
+  transition: opacity 0.12s ease-in-out, background-color 0.12s ease-in-out;
+}
+header.topbar nav a:hover { opacity: 1; text-decoration: none; background: rgba(255, 255, 255, 0.1); }
 
 main { max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; }
 
@@ -130,9 +135,58 @@ tr td { transition: background-color 0.1s ease-in-out; }
 tr:hover td { background: var(--hover-bg); }
 
 .card {
-  background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 1.1rem;
   margin-bottom: 1rem; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 6px rgba(0, 0, 0, 0.04);
 }
+
+/* Elevated card-style list row - shared by the bid list, the by-division
+   view, the dashboard's closing-soon sections, and (bare .card, no footer)
+   Kanban. Replaces table <tr>s and plain .checklist-item rows with a
+   self-describing card, so none of those views need a column-header row. */
+.bid-card-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.bid-card {
+  display: flex; align-items: flex-start; gap: 0.9rem;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+  padding: 0.9rem 1.1rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: transform 0.12s ease-in-out, box-shadow 0.12s ease-in-out;
+}
+.bid-card:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06); }
+.bid-card-icon {
+  flex-shrink: 0; width: 42px; height: 42px; border-radius: 10px;
+  background: var(--topbar-bg); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.bid-card-icon.warn { background: var(--warn); }
+.bid-card-body { flex: 1; min-width: 0; }
+.bid-card-title { font-weight: 600; }
+.bid-card-meta { font-size: 0.85rem; color: var(--muted); margin-top: 0.15rem; }
+.bid-card-footer {
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+  margin-top: 0.65rem; padding-top: 0.6rem; border-top: 1px dashed var(--border);
+  font-size: 0.78rem; color: var(--muted);
+}
+.bid-card-footer .progress-bar { width: 5rem; }
+.bid-card-side {
+  flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem;
+  margin-left: auto;
+}
+.status-dot { display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--muted); }
+.status-dot.won { background: var(--ok); }
+.status-dot.lost { background: var(--danger); }
+.status-dot.review { background: var(--warn); }
+.status-dot.active { background: var(--accent); }
+
+/* Kanban cards reuse the same status color mapping as a left-border accent,
+   instead of repeating the status text on every card (the column header
+   already names it). */
+.kanban-card { border-left: 4px solid var(--border); display: flex; gap: 0.6rem; align-items: center; }
+.kanban-card.won { border-left-color: var(--ok); }
+.kanban-card.lost { border-left-color: var(--danger); }
+.kanban-card.review { border-left-color: var(--warn); }
+.kanban-card.active { border-left-color: var(--accent); }
+.bid-card-icon.sm { width: 26px; height: 26px; border-radius: 7px; }
 
 form.inline { display: inline; }
 
@@ -173,7 +227,7 @@ button.secondary:hover, .btn.secondary:hover { background: var(--secondary-hover
 button.danger, .btn.danger { background: var(--danger); }
 button:disabled, .btn:disabled { opacity: 0.6; cursor: not-allowed; filter: none; }
 
-.badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.75rem; font-weight: 600; background: var(--bg-alt); border: 1px solid var(--border); }
+.badge { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: var(--bg-alt); border: 1px solid var(--border); }
 .badge.won { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
 .badge.lost { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
 .badge.review { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
@@ -219,7 +273,7 @@ button:disabled, .btn:disabled { opacity: 0.6; cursor: not-allowed; filter: none
    into the detailed section below it (back_card.href, when set). */
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.85rem; margin-bottom: 1.5rem; }
 .stat-card {
-  background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1rem;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 1rem;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 6px rgba(0, 0, 0, 0.04);
   display: flex; flex-direction: column; gap: 0.6rem; text-decoration: none; color: inherit;
   transition: transform 0.12s ease-in-out, box-shadow 0.12s ease-in-out;
@@ -251,4 +305,6 @@ a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 
   .card { padding: 0.75rem; }
   .row, form[style*="display:flex"], div[style*="display:flex"] { flex-direction: column; }
   .bar-row { grid-template-columns: 1fr; gap: 0.2rem; }
+  .bid-card { flex-wrap: wrap; }
+  .bid-card-side { margin-left: 0; flex-direction: row; align-items: center; }
 }
