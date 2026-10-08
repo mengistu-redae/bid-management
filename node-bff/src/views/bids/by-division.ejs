@@ -7,9 +7,15 @@
 
 <%- include('../partials/bidFilterForm', { action: '/bids/by-division' }) %>
 
+<%
+  function slugify(key) {
+    return key.toString().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  }
+%>
 <% groups.forEach(group => { %>
-  <h2><%= group.label %> <span class="muted">(<%= group.bids.length %>)</span></h2>
-  <% if (group.bids.length === 0) { %>
+  <% const tbodyId = 'group-tbody-' + slugify(group.key); %>
+  <h2><%= group.label %> <span class="muted">(<%= group.rows.length %>)</span></h2>
+  <% if (group.rows.length === 0) { %>
     <p class="muted">-</p>
   <% } else { %>
     <div class="card">
@@ -25,15 +31,15 @@
           <th>Lots</th>
         </tr>
       </thead>
-      <tbody id="group-tbody-<%= group.key %>">
-        <% group.bids.forEach((bid, i) => { %>
+      <tbody id="<%= tbodyId %>">
+        <% group.rows.forEach((bid, i) => { %>
           <%- include('../partials/bidRow', { bid, hidden: i >= groupLimit }) %>
         <% }) %>
       </tbody>
     </table>
     </div>
-    <% if (group.bids.length > groupLimit) { %>
-      <button type="button" class="secondary w-auto mt-1" data-show-all="group-tbody-<%= group.key %>">Show all <%= group.bids.length %></button>
+    <% if (group.rows.length > groupLimit) { %>
+      <button type="button" class="secondary w-auto mt-1" data-show-all="<%= tbodyId %>">Show all <%= group.rows.length %></button>
     <% } %>
     </div>
   <% } %>

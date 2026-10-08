@@ -1,6 +1,7 @@
 package com.motiengineering.bidmgmt.dto;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record ClosingSoonRowDto(
@@ -11,5 +12,6 @@ public record ClosingSoonRowDto(
         String status,
         int checklistProgressPercent,
         boolean redFlag,
-        String redFlagReason) {
+        String redFlagReason,
+        List<String> divisionNames) {
 }

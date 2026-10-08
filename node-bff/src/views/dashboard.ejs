@@ -47,24 +47,30 @@
 </div>
 
 <%
-  const LIST_LIMIT = 6;
   function viewAllLink(range) {
     return '/bids?closingFrom=' + range.closingFrom + '&closingTo=' + range.closingTo;
+  }
+  function divisionTag(divisionNames) {
+    return (divisionNames && divisionNames.length) ? '<span class="badge">' + divisionNames.join(', ') + '</span>' : '';
   }
 %>
 <h2 id="closing-this-week" class="mt-1"><%- include('partials/icon', { name: 'calendar' }) %> Closing this week</h2>
 <div class="card">
   <% if (data.closingThisWeek.length === 0) { %><p class="muted">Nothing closing in the next 7 days.</p><% } %>
-  <% data.closingThisWeek.slice(0, LIST_LIMIT).forEach(row => { %>
-    <div class="checklist-item" style="align-items:flex-start;">
-      <div class="col">
-        <a href="/bids/<%= row.bidId %>"><strong><%= row.title %></strong></a> - <%= row.organizationName %>
-        <div class="muted"><%= formatDateTime(row.closingAt) %> &middot; checklist <%= row.checklistProgressPercent %>%</div>
+  <% closingThisWeekGroups.forEach(group => { %>
+    <div class="subgroup-heading"><%= group.label %></div>
+    <% group.rows.forEach(row => { %>
+      <div class="checklist-item" style="align-items:flex-start;">
+        <div class="col">
+          <a href="/bids/<%= row.bidId %>"><strong><%= row.title %></strong></a> - <%= row.organizationName %>
+          <div class="muted"><%= formatDateTime(row.closingAt) %> &middot; checklist <%= row.checklistProgressPercent %>%</div>
+        </div>
+        <%- divisionTag(row.divisionNames) %>
+        <% if (row.redFlag) { %><span class="badge review"><%= row.redFlagReason %></span><% } %>
       </div>
-      <% if (row.redFlag) { %><span class="badge review"><%= row.redFlagReason %></span><% } %>
-    </div>
+    <% }) %>
   <% }) %>
-  <% if (data.closingThisWeek.length > LIST_LIMIT) { %>
+  <% if (data.closingThisWeek.length > closingThisWeekGroups.reduce((n, g) => n + g.rows.length, 0)) { %>
     <a class="view-all" href="<%= viewAllLink(dateRanges.closingThisWeek) %>">View all <%= data.closingThisWeek.length %> closing this week &rarr;</a>
   <% } %>
 </div>
@@ -72,16 +78,20 @@
 <h2>Closing next week</h2>
 <div class="card">
   <% if (data.closingNextWeek.length === 0) { %><p class="muted">Nothing closing 7-14 days out.</p><% } %>
-  <% data.closingNextWeek.slice(0, LIST_LIMIT).forEach(row => { %>
-    <div class="checklist-item" style="align-items:flex-start;">
-      <div class="col">
-        <a href="/bids/<%= row.bidId %>"><strong><%= row.title %></strong></a> - <%= row.organizationName %>
-        <div class="muted"><%= formatDateTime(row.closingAt) %> &middot; checklist <%= row.checklistProgressPercent %>%</div>
+  <% closingNextWeekGroups.forEach(group => { %>
+    <div class="subgroup-heading"><%= group.label %></div>
+    <% group.rows.forEach(row => { %>
+      <div class="checklist-item" style="align-items:flex-start;">
+        <div class="col">
+          <a href="/bids/<%= row.bidId %>"><strong><%= row.title %></strong></a> - <%= row.organizationName %>
+          <div class="muted"><%= formatDateTime(row.closingAt) %> &middot; checklist <%= row.checklistProgressPercent %>%</div>
+        </div>
+        <%- divisionTag(row.divisionNames) %>
+        <% if (row.redFlag) { %><span class="badge review"><%= row.redFlagReason %></span><% } %>
       </div>
-      <% if (row.redFlag) { %><span class="badge review"><%= row.redFlagReason %></span><% } %>
-    </div>
+    <% }) %>
   <% }) %>
-  <% if (data.closingNextWeek.length > LIST_LIMIT) { %>
+  <% if (data.closingNextWeek.length > closingNextWeekGroups.reduce((n, g) => n + g.rows.length, 0)) { %>
     <a class="view-all" href="<%= viewAllLink(dateRanges.closingNextWeek) %>">View all <%= data.closingNextWeek.length %> closing next week &rarr;</a>
   <% } %>
 </div>
@@ -89,11 +99,15 @@
 <h2>Upcoming clarification deadlines</h2>
 <div class="card">
   <% if (data.upcomingClarifications.length === 0) { %><p class="muted">None upcoming.</p><% } %>
-  <% data.upcomingClarifications.forEach(row => { %>
-    <div class="checklist-item">
-      <a href="/bids/<%= row.bidId %>"><%= row.title %></a> - <%= row.organizationName %>
-      <span class="muted"><%= formatDateTime(row.clarificationDeadline) %></span>
-    </div>
+  <% clarificationGroups.forEach(group => { %>
+    <div class="subgroup-heading"><%= group.label %></div>
+    <% group.rows.forEach(row => { %>
+      <div class="checklist-item">
+        <a href="/bids/<%= row.bidId %>"><%= row.title %></a> - <%= row.organizationName %>
+        <%- divisionTag(row.divisionNames) %>
+        <span class="muted"><%= formatDateTime(row.clarificationDeadline) %></span>
+      </div>
+    <% }) %>
   <% }) %>
 </div>
 
@@ -165,28 +179,31 @@
   </div>
 </div>
 
-<%
-  const BOND_ROW_LIMIT = 8;
-%>
 <h2 id="bonds-outstanding"><%- include('partials/icon', { name: 'shield' }) %> Bid bonds outstanding</h2>
 <div class="card">
   <p><strong>Total outstanding:</strong> <%= formatMoney(data.outstandingBondTotalEtb, 'ETB') %> &middot; <%= formatMoney(data.outstandingBondTotalUsd, 'USD') %></p>
   <table>
-    <thead><tr><th>Bid</th><th>Lot</th><th>Amount</th><th>Closed</th><th>Est. expiry</th></tr></thead>
+    <thead><tr><th>Bid</th><th>Lot</th><th>Division</th><th>Amount</th><th>Closed</th><th>Est. expiry</th></tr></thead>
     <tbody id="bonds-tbody">
-      <% data.outstandingBonds.forEach((row, i) => { %>
-        <tr<%= i >= BOND_ROW_LIMIT ? ' hidden' : '' %>>
-          <td><a href="/bids/<%= row.bidId %>"><%= row.bidTitle %></a> - <%= row.organizationName %></td>
-          <td><%= row.lotLabel %></td>
-          <td><%= formatMoney(row.amount, row.currency) %></td>
-          <td><%= formatDate(row.bidClosingAt) %></td>
-          <td><% if (row.expiringSoon) { %><span class="badge review"><%= formatDate(row.estimatedExpiry) %></span><% } else { %><%= formatDate(row.estimatedExpiry) %><% } %></td>
-        </tr>
+      <% bondsDisplayItems.forEach(item => { %>
+        <% if (item.kind === 'divider') { %>
+          <tr<%= item.hidden ? ' hidden' : '' %>><td colspan="6" class="subgroup-heading" style="margin:0;"><%= item.label %></td></tr>
+        <% } else { %>
+          <% const row = item.row; %>
+          <tr<%= item.hidden ? ' hidden' : '' %>>
+            <td><a href="/bids/<%= row.bidId %>"><%= row.bidTitle %></a> - <%= row.organizationName %></td>
+            <td><%= row.lotLabel %></td>
+            <td><%= row.divisionNames.length ? row.divisionNames.join(', ') : '-' %></td>
+            <td><%= formatMoney(row.amount, row.currency) %></td>
+            <td><%= formatDate(row.bidClosingAt) %></td>
+            <td><% if (row.expiringSoon) { %><span class="badge review"><%= formatDate(row.estimatedExpiry) %></span><% } else { %><%= formatDate(row.estimatedExpiry) %><% } %></td>
+          </tr>
+        <% } %>
       <% }) %>
-      <% if (data.outstandingBonds.length === 0) { %><tr><td colspan="5" class="muted">No outstanding bid bonds.</td></tr><% } %>
+      <% if (data.outstandingBonds.length === 0) { %><tr><td colspan="6" class="muted">No outstanding bid bonds.</td></tr><% } %>
     </tbody>
   </table>
-  <% if (data.outstandingBonds.length > BOND_ROW_LIMIT) { %>
+  <% if (data.outstandingBonds.length > bondRowLimit) { %>
     <button type="button" class="secondary w-auto mt-1" id="bonds-show-all">Show all <%= data.outstandingBonds.length %></button>
     <script>
       // No destination page shows this exact curated/sorted view, so unlike

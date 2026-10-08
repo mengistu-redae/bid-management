@@ -2,6 +2,7 @@
 
 const express = require('express');
 const { setFlash } = require('../../flash');
+const { groupByDivision } = require('../../divisionGrouping');
 
 const STATUS_OPTIONS = ['IDENTIFIED', 'UNDER_REVIEW', 'PREPARING', 'SUBMITTED', 'OPENED', 'UNDER_EVALUATION', 'WON', 'LOST', 'DROPPED', 'CANCELLED'];
 const TERMINAL_STATUSES = ['WON', 'LOST', 'DROPPED', 'CANCELLED'];
@@ -45,24 +46,16 @@ function buildBidsRouter() {
         req.api.get('/api/users'),
         req.api.get('/api/organizations'),
       ]);
-      const groups = divisions.map((d) => ({ key: d.id, label: d.name, bids: [] }));
-      const multiGroup = { key: 'multiple', label: 'Multiple divisions', bids: [] };
-      const unassignedGroup = { key: 'unassigned', label: 'Unassigned', bids: [] };
-      for (const bid of bids) {
-        const divisionIds = [...new Set(bid.lots.map((l) => l.division && l.division.id).filter(Boolean))];
-        if (divisionIds.length === 0) {
-          unassignedGroup.bids.push(bid);
-        } else if (divisionIds.length === 1) {
-          const group = groups.find((g) => g.key === divisionIds[0]);
-          (group || unassignedGroup).bids.push(bid);
-        } else {
-          multiGroup.bids.push(bid);
-        }
-      }
+      const groups = groupByDivision(
+        bids,
+        divisions.map((d) => d.name),
+        (bid) => bid.lots.map((l) => l.division && l.division.name),
+        { includeEmpty: true }
+      );
       res.render('bids/by-division', {
         title: 'Bids by division', user: req.session.user, divisions, users, organizations,
         statusOptions: STATUS_OPTIONS, query: req.query,
-        groups: [...groups, multiGroup, unassignedGroup], groupLimit: GROUP_LIMIT,
+        groups, groupLimit: GROUP_LIMIT,
       });
     } catch (err) {
       next(err);

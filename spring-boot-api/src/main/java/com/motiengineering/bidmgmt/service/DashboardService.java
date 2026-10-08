@@ -21,6 +21,7 @@ import com.motiengineering.bidmgmt.repository.BidRepository;
 import com.motiengineering.bidmgmt.repository.DealRegistrationRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
 import com.motiengineering.bidmgmt.util.BidRiskEvaluator;
+import com.motiengineering.bidmgmt.util.DivisionNames;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -109,7 +110,7 @@ public class DashboardService {
             String missing = BidRiskEvaluator.redFlagReason(bid, now);
             rows.add(new ClosingSoonRowDto(
                     bid.getId(), bid.getTitle(), bid.getOrganization().getName(), bid.getClosingAt(),
-                    bid.getStatus().name(), progress, missing != null, missing));
+                    bid.getStatus().name(), progress, missing != null, missing, DivisionNames.distinct(bid)));
         }
         rows.sort((a, b) -> a.closingAt().compareTo(b.closingAt()));
         return rows;
@@ -132,7 +133,7 @@ public class DashboardService {
             if (bid.getClarificationDeadline() == null || bid.getClarificationDeadline().isBefore(now) || bid.getStatus().isTerminal()) {
                 continue;
             }
-            rows.add(new ClarificationRowDto(bid.getId(), bid.getTitle(), bid.getOrganization().getName(), bid.getClarificationDeadline()));
+            rows.add(new ClarificationRowDto(bid.getId(), bid.getTitle(), bid.getOrganization().getName(), bid.getClarificationDeadline(), DivisionNames.distinct(bid)));
         }
         rows.sort((a, b) -> a.clarificationDeadline().compareTo(b.clarificationDeadline()));
         return rows;
@@ -282,9 +283,11 @@ public class DashboardService {
                 LocalDate estimatedExpiry = estimateBondExpiry(bid, lot);
                 boolean expiringSoon = estimatedExpiry != null && !estimatedExpiry.isBefore(today)
                         && estimatedExpiry.isBefore(today.plusDays(BOND_EXPIRING_SOON_DAYS));
+                List<String> divisionNames = lot.getDivision() == null ? List.of() : List.of(lot.getDivision().getName());
                 rows.add(new OutstandingBondRowDto(
                         lot.getId(), bid.getId(), bid.getTitle(), bid.getOrganization().getName(), lot.getLotLabel(),
-                        lot.getBidBondAmount(), lot.getBidBondCurrency().name(), bid.getClosingAt(), estimatedExpiry, expiringSoon));
+                        lot.getBidBondAmount(), lot.getBidBondCurrency().name(), bid.getClosingAt(), estimatedExpiry, expiringSoon,
+                        divisionNames));
             }
         }
         rows.sort((a, b) -> {
