@@ -82,7 +82,11 @@ function buildBidsRouter() {
       const month = req.query.month ? Number(req.query.month) : today.getMonth() + 1; // 1-12
       const bids = await req.api.get('/api/bids');
       const days = buildCalendarGrid(year, month, bids);
-      res.render('bids/calendar', { title: 'Calendar', user: req.session.user, year, month, days });
+      // Same UTC-sliced-ISO convention as each cell's own "date" key, so the
+      // "today" comparison in the template is apples-to-apples (not a second,
+      // Africa/Addis_Ababa-aware "today" that could disagree with the grid).
+      const todayKey = new Date().toISOString().slice(0, 10);
+      res.render('bids/calendar', { title: 'Calendar', user: req.session.user, year, month, days, todayKey });
     } catch (err) {
       next(err);
     }
@@ -333,16 +337,22 @@ function buildCalendarGrid(year, month, bids) {
   gridStart.setUTCDate(gridStart.getUTCDate() - startWeekday);
 
   const eventsByDate = {};
-  const addEvent = (iso, label, bidId, kind) => {
+  const addEvent = (iso, bid, kind) => {
     if (!iso) return;
     const key = iso.slice(0, 10);
     if (!eventsByDate[key]) eventsByDate[key] = [];
-    eventsByDate[key].push({ label, bidId, kind });
+    eventsByDate[key].push({
+      bidId: bid.id, title: bid.title, organizationName: bid.organization ? bid.organization.name : '-',
+      status: bid.status, kind, time: iso, redFlag: bid.redFlag, redFlagReason: bid.redFlagReason,
+    });
   };
   for (const bid of bids) {
-    addEvent(bid.closingAt, bid.title, bid.id, 'closing');
-    addEvent(bid.openingAt, bid.title, bid.id, 'opening');
-    addEvent(bid.clarificationDeadline, bid.title, bid.id, 'clarification');
+    addEvent(bid.closingAt, bid, 'closing');
+    addEvent(bid.openingAt, bid, 'opening');
+    addEvent(bid.clarificationDeadline, bid, 'clarification');
+  }
+  for (const key of Object.keys(eventsByDate)) {
+    eventsByDate[key].sort((a, b) => a.time.localeCompare(b.time));
   }
 
   const days = [];

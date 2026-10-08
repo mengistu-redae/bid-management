@@ -4,6 +4,16 @@
    const prevYear = month === 1 ? year - 1 : year;
    const nextMonth = month === 12 ? 1 : month + 1;
    const nextYear = month === 12 ? year + 1 : year;
+   const INLINE_LIMIT = 4;
+   function kindLabel(kind) {
+     if (kind === 'closing') return 'Closing';
+     if (kind === 'opening') return 'Opening';
+     return 'Clarification deadline';
+   }
+   function timeOnly(iso) {
+     const parts = formatDateTime(iso).split(' ');
+     return parts.length > 1 ? parts[1] : '';
+   }
 %>
 <div class="toolbar">
   <h1 style="margin:0;"><%= monthNames[month - 1] %> <%= year %></h1>
@@ -13,24 +23,60 @@
   <a class="btn secondary" href="/dashboard">Dashboard</a>
 </div>
 
-<p class="muted">Dots mark closing (blue), opening (green), or clarification deadline (amber) dates.</p>
+<div class="row tight muted mt-0" style="margin-bottom:0.75rem;">
+  <span><span class="cal-dot closing"></span> Closing</span>
+  <span><span class="cal-dot opening"></span> Opening</span>
+  <span><span class="cal-dot clarification"></span> Clarification deadline</span>
+</div>
 
 <div class="table-scroll">
-<div style="display:grid; grid-template-columns:repeat(7, minmax(8rem, 1fr)); gap:1px; background:var(--border); border:1px solid var(--border); min-width:56rem;">
+<div class="calendar-grid">
   <% ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => { %>
-    <div style="background:var(--bg-alt); padding:0.3rem; text-align:center; font-size:0.8rem; font-weight:600;"><%= d %></div>
+    <div class="calendar-weekday"><%= d %></div>
   <% }) %>
   <% days.forEach(cell => { %>
-    <div style="background:var(--bg); min-height:5rem; min-width:0; padding:0.3rem; overflow:hidden; <%= cell.inMonth ? '' : 'opacity:0.4;' %>">
-      <div style="font-size:0.8rem; font-weight:600;"><%= cell.day %></div>
-      <% cell.events.slice(0, 4).forEach(ev => { %>
-        <a href="/bids/<%= ev.bidId %>" style="display:block; font-size:0.72rem; text-decoration:none; color:var(--text); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="<%= ev.label %>">
-          <span style="display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:3px; background:<%= ev.kind === 'closing' ? '#1f5eab' : (ev.kind === 'opening' ? '#176a33' : '#8a5a00') %>;"></span><%= ev.label %>
+    <%
+      const hasEvents = cell.events.length > 0;
+      const modalId = 'day-modal-' + cell.date;
+      const cellClasses = ['calendar-cell'];
+      if (!cell.inMonth) cellClasses.push('out-of-month');
+      if (cell.date === todayKey) cellClasses.push('today');
+      if (hasEvents) cellClasses.push('clickable');
+    %>
+    <div class="<%= cellClasses.join(' ') %>"<% if (hasEvents) { %> onclick="document.getElementById('<%= modalId %>').showModal()"<% } %>>
+      <div class="calendar-cell-day"><%= cell.day %></div>
+      <% cell.events.slice(0, INLINE_LIMIT).forEach(ev => { %>
+        <a href="/bids/<%= ev.bidId %>" class="calendar-event" title="<%= ev.title %>" onclick="event.stopPropagation()">
+          <span class="cal-dot <%= ev.kind %>"></span><%= ev.title %>
         </a>
       <% }) %>
-      <% if (cell.events.length > 4) { %><div class="muted" style="font-size:0.7rem;">+<%= cell.events.length - 4 %> more</div><% } %>
+      <% if (cell.events.length > INLINE_LIMIT) { %>
+        <button type="button" class="calendar-more" onclick="event.stopPropagation(); document.getElementById('<%= modalId %>').showModal()">+<%= cell.events.length - INLINE_LIMIT %> more</button>
+      <% } %>
     </div>
   <% }) %>
 </div>
 </div>
+
+<% days.forEach(cell => { %>
+  <% if (cell.events.length === 0) return; %>
+  <dialog id="day-modal-<%= cell.date %>" class="day-modal">
+    <div class="day-modal-header">
+      <h3><%= formatDate(cell.date) %></h3>
+      <button type="button" class="secondary btn-xs" onclick="this.closest('dialog').close()">Close</button>
+    </div>
+    <% cell.events.forEach(ev => { %>
+      <div class="day-modal-event">
+        <span class="cal-dot <%= ev.kind %>"></span>
+        <div class="col">
+          <a href="/bids/<%= ev.bidId %>"><%= ev.title %></a>
+          <div class="muted"><%= ev.organizationName %> &middot; <%= kindLabel(ev.kind) %> <%= timeOnly(ev.time) %></div>
+          <% if (ev.redFlag) { %><span class="badge review mt-1"><%= ev.redFlagReason %></span><% } %>
+        </div>
+        <span class="badge <%= statusBadgeClass(ev.status) %>"><%= ev.status %></span>
+      </div>
+    <% }) %>
+  </dialog>
+<% }) %>
+
 <%- include('../partials/footer') %>

@@ -196,6 +196,35 @@ tr:hover td { background: var(--hover-bg); }
 .kanban-card.new { border-left-color: var(--new); }
 .bid-card-icon.sm { width: 26px; height: 26px; border-radius: 7px; }
 
+/* Calendar month grid - a day cell is only .clickable (hover affordance +
+   pointer cursor) when it actually has events; a plain Sunday-first grid,
+   not a layout rewrite. */
+.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(8rem, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; min-width: 56rem; }
+.calendar-weekday { background: var(--bg-alt); padding: 0.4rem; text-align: center; font-size: 0.8rem; font-weight: 600; }
+.calendar-cell { background: var(--bg); min-height: 5.5rem; min-width: 0; padding: 0.4rem; overflow: hidden; transition: background-color 0.12s ease-in-out; }
+.calendar-cell.out-of-month { opacity: 0.4; }
+.calendar-cell.clickable { cursor: pointer; }
+.calendar-cell.clickable:hover { background: var(--hover-bg); }
+.calendar-cell.today { box-shadow: inset 0 0 0 2px var(--accent); }
+.calendar-cell-day { font-size: 0.8rem; font-weight: 600; }
+.calendar-cell.today .calendar-cell-day { color: var(--accent); }
+.calendar-event { display: block; font-size: 0.72rem; text-decoration: none; color: var(--text); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.calendar-more { display: block; margin-top: 2px; font-size: 0.7rem; color: var(--accent); background: none; border: none; padding: 0; cursor: pointer; font-weight: 600; }
+
+.cal-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 3px; }
+.cal-dot.closing { background: var(--accent); }
+.cal-dot.opening { background: var(--ok); }
+.cal-dot.clarification { background: var(--warn); }
+
+/* Day-detail popup - a native <dialog>, so Esc/backdrop-click close for free. */
+.day-modal { border: 1px solid var(--border); border-radius: 14px; padding: 1.1rem; max-width: 32rem; width: calc(100% - 2rem); max-height: 80vh; overflow-y: auto; background: var(--bg); color: var(--text); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2); }
+.day-modal::backdrop { background: rgba(0, 0, 0, 0.45); }
+.day-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.day-modal-header h3 { margin: 0; font-size: 1.05rem; }
+.day-modal-event { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px dashed var(--border); }
+.day-modal-event:last-child { border-bottom: none; }
+.day-modal-event .col .muted { font-size: 0.8rem; }
+
 form.inline { display: inline; }
 
 label { display: block; font-size: 0.85rem; color: var(--muted); margin-top: 0.75rem; margin-bottom: 0.2rem; }
