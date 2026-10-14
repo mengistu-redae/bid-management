@@ -91,23 +91,46 @@ body {
    dark mode flips the page dark underneath it. */
 a, a:visited { color: var(--accent); }
 
-header.topbar {
-  background: var(--topbar-bg);
-  color: #fff;
-  padding: 0.9rem 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-}
+/* App shell: a fixed-width left sidebar (the former horizontal topbar,
+   rotated into a vertical nav) plus a flexible content column. The
+   hamburger button and backdrop are desktop-inert (display:none) and only
+   come alive in the narrow-screen media query below, where the sidebar
+   becomes an off-canvas drawer instead of a permanent column. */
+.app-shell { display: flex; align-items: stretch; min-height: 100vh; }
+.app-content { flex: 1; min-width: 0; }
 
-header.topbar a { color: #fff; text-decoration: none; font-weight: 600; }
-header.topbar nav a {
-  margin-right: 0.25rem; font-weight: 400; opacity: 0.85;
-  padding: 0.4rem 0.7rem; border-radius: 8px;
+.sidebar {
+  width: 230px; flex-shrink: 0; background: var(--topbar-bg); color: #fff;
+  display: flex; flex-direction: column;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.12);
+}
+.sidebar a, .sidebar a:visited { color: #fff; text-decoration: none; }
+.sidebar-brand { padding: 1.1rem 1.25rem; font-weight: 700; font-size: 1.05rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+.sidebar-nav { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.75rem; flex: 1; }
+.sidebar-nav a {
+  padding: 0.55rem 0.75rem; border-radius: 8px; font-weight: 400; opacity: 0.85;
   transition: opacity 0.12s ease-in-out, background-color 0.12s ease-in-out;
 }
-header.topbar nav a:hover { opacity: 1; text-decoration: none; background: rgba(255, 255, 255, 0.1); }
+.sidebar-nav a:hover { opacity: 1; background: rgba(255, 255, 255, 0.1); }
+.sidebar-footer {
+  padding: 0.9rem 0.75rem; border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex; flex-direction: column; gap: 0.6rem;
+}
+.sidebar-footer .sidebar-user { color: #fff; opacity: 0.85; }
+.sidebar-footer button, .sidebar-footer .btn { width: 100%; }
+
+.hamburger-btn {
+  display: none; /* shown only below the sidebar breakpoint, see media query */
+  position: fixed; top: 0.75rem; left: 0.75rem; z-index: 60;
+  width: 2.5rem; height: 2.5rem; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border: none; border-radius: 8px; background: var(--topbar-bg); cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+.hamburger-btn span { display: block; width: 1.25rem; height: 2px; background: #fff; border-radius: 2px; }
+
+.sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 45; }
+.sidebar-backdrop.open { display: block; }
 
 main { max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; }
 
@@ -365,10 +388,22 @@ a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 
    already-filtered view rather than growing the page - see dashboard.ejs. */
 .view-all { display: inline-block; margin-top: 0.5rem; font-size: 0.88rem; font-weight: 600; }
 
+/* Below this width the sidebar becomes an off-canvas drawer (closed by
+   default, toggled via the hamburger button) instead of a permanent
+   column, so narrow screens get their full width back for content. */
+@media (max-width: 860px) {
+  .hamburger-btn { display: flex; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease-in-out;
+  }
+  .sidebar.open { transform: translateX(0); }
+  .app-content main { margin-top: 4rem; } /* clears the fixed hamburger button */
+}
+
 /* Phone-width layout - account officers check deadlines on their phones. */
 @media (max-width: 640px) {
-  header.topbar { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
-  header.topbar nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
   main { margin: 1rem auto; }
   .card { padding: 0.75rem; }
   .row, form[style*="display:flex"], div[style*="display:flex"] { flex-direction: column; }
