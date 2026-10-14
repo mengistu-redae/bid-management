@@ -11,6 +11,7 @@ import com.motiengineering.bidmgmt.domain.OpportunityOem;
 import com.motiengineering.bidmgmt.domain.OpportunityOemId;
 import com.motiengineering.bidmgmt.domain.Organization;
 import com.motiengineering.bidmgmt.domain.enums.Currency;
+import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.domain.enums.OpportunityStage;
 import com.motiengineering.bidmgmt.domain.enums.Sector;
 import com.motiengineering.bidmgmt.dto.CreateBidRequest;
@@ -49,6 +50,8 @@ public class OpportunityService {
     private final OrganizationResolutionService organizationResolutionService;
     private final OemService oemService;
     private final BidService bidService;
+    private final AuditService auditService;
+    private final StageHistoryService stageHistoryService;
 
     public Opportunity get(UUID id) {
         return opportunityRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Opportunity not found: " + id));
@@ -80,7 +83,7 @@ public class OpportunityService {
     }
 
     @Transactional
-    public Opportunity update(UUID id, UpdateOpportunityRequest request) {
+    public Opportunity update(UUID id, UpdateOpportunityRequest request, AppUser actingUser) {
         Opportunity opportunity = get(id);
         if (request.title() != null) {
             opportunity.setTitle(request.title());
@@ -92,10 +95,16 @@ public class OpportunityService {
             opportunity.setEstimatedValueCurrency(parseCurrency(request.estimatedValueCurrency()));
         }
         if (request.expectedTenderDate() != null) {
+            auditService.recordIfChanged("OPPORTUNITY", opportunity.getId(), "expectedTenderDate", opportunity.getExpectedTenderDate(), request.expectedTenderDate(), actingUser);
             opportunity.setExpectedTenderDate(request.expectedTenderDate());
         }
         if (request.stage() != null) {
-            opportunity.setStage(OpportunityStage.valueOf(request.stage().toUpperCase()));
+            OpportunityStage oldStage = opportunity.getStage();
+            OpportunityStage newStage = OpportunityStage.valueOf(request.stage().toUpperCase());
+            if (oldStage != newStage) {
+                stageHistoryService.record(EntityType.OPPORTUNITY, opportunity.getId(), "stage", oldStage.name(), newStage.name(), null, actingUser);
+            }
+            opportunity.setStage(newStage);
         }
         if (request.lostReason() != null) {
             opportunity.setLostReason(request.lostReason());
@@ -146,12 +155,13 @@ public class OpportunityService {
             CreateLotRequest extraLot = new CreateLotRequest(
                     null, null, division != null ? division.getCode() : null,
                     null, null, null, null, null, null, null, List.of(), List.of());
-            BidLot lot = bidService.addLot(bid, extraLot);
+            BidLot lot = bidService.addLot(bid, extraLot, actingUser);
             lot.setNeedsReview(true);
             lot.setReviewNote("Converted from a multi-division opportunity - the estimated value was put on Lot 1 only; split it across lots manually.");
             bidLotRepository.save(lot);
         }
 
+        stageHistoryService.record(EntityType.OPPORTUNITY, opportunity.getId(), "stage", opportunity.getStage().name(), OpportunityStage.CONVERTED_TO_BID.name(), null, actingUser);
         opportunity.setStage(OpportunityStage.CONVERTED_TO_BID);
         opportunity.setConvertedBid(bid);
         opportunityRepository.save(opportunity);

@@ -5,6 +5,7 @@ import com.motiengineering.bidmgmt.domain.DealRegistration;
 import com.motiengineering.bidmgmt.domain.Oem;
 import com.motiengineering.bidmgmt.domain.Organization;
 import com.motiengineering.bidmgmt.domain.enums.DealRegistrationStatus;
+import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.domain.enums.Sector;
 import com.motiengineering.bidmgmt.dto.CreateDealRegistrationRequest;
 import com.motiengineering.bidmgmt.dto.UpdateDealRegistrationRequest;
@@ -32,6 +33,8 @@ public class DealRegistrationService {
     private final BidRepository bidRepository;
     private final OrganizationResolutionService organizationResolutionService;
     private final OemService oemService;
+    private final AuditService auditService;
+    private final StageHistoryService stageHistoryService;
 
     public DealRegistration get(UUID id) {
         return dealRegistrationRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Deal registration not found: " + id));
@@ -77,7 +80,7 @@ public class DealRegistrationService {
     }
 
     @Transactional
-    public DealRegistration update(UUID id, UpdateDealRegistrationRequest request) {
+    public DealRegistration update(UUID id, UpdateDealRegistrationRequest request, AppUser actingUser) {
         DealRegistration reg = get(id);
         if (request.distributor() != null) {
             reg.setDistributor(request.distributor());
@@ -86,15 +89,23 @@ public class DealRegistrationService {
             reg.setRegistrationId(request.registrationId());
         }
         if (request.submittedDate() != null) {
+            auditService.recordIfChanged("DEAL_REGISTRATION", reg.getId(), "submittedDate", reg.getSubmittedDate(), request.submittedDate(), actingUser);
             reg.setSubmittedDate(request.submittedDate());
         }
         if (request.status() != null) {
-            reg.setStatus(DealRegistrationStatus.valueOf(request.status().toUpperCase()));
+            DealRegistrationStatus oldStatus = reg.getStatus();
+            DealRegistrationStatus newStatus = DealRegistrationStatus.valueOf(request.status().toUpperCase());
+            if (oldStatus != newStatus) {
+                stageHistoryService.record(EntityType.DEAL_REGISTRATION, reg.getId(), "status", oldStatus.name(), newStatus.name(), null, actingUser);
+            }
+            reg.setStatus(newStatus);
         }
         if (request.approvalDate() != null) {
+            auditService.recordIfChanged("DEAL_REGISTRATION", reg.getId(), "approvalDate", reg.getApprovalDate(), request.approvalDate(), actingUser);
             reg.setApprovalDate(request.approvalDate());
         }
         if (request.expiryDate() != null) {
+            auditService.recordIfChanged("DEAL_REGISTRATION", reg.getId(), "expiryDate", reg.getExpiryDate(), request.expiryDate(), actingUser);
             reg.setExpiryDate(request.expiryDate());
         }
         if (request.protectedDiscountPercent() != null) {

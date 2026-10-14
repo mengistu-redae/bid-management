@@ -5,6 +5,7 @@ import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
 import com.motiengineering.bidmgmt.domain.BidStatusHistory;
 import com.motiengineering.bidmgmt.domain.enums.BidStatus;
+import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.repository.BidRepository;
 import com.motiengineering.bidmgmt.repository.BidStatusHistoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Enforces the bid status lifecycle from the brief: Identified -&gt; Under
@@ -45,6 +47,7 @@ public class BidStatusService {
 
     private final BidRepository bidRepository;
     private final BidStatusHistoryRepository historyRepository;
+    private final StageHistoryService stageHistoryService;
 
     public static boolean isAllowed(BidStatus from, BidStatus to) {
         return ALLOWED_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
@@ -108,5 +111,9 @@ public class BidStatusService {
         history.setReason(reason);
         history.setChangedBy(actingUser);
         historyRepository.save(history);
+
+        EntityType entityType = lot != null ? EntityType.LOT : EntityType.BID;
+        UUID entityId = lot != null ? lot.getId() : bid.getId();
+        stageHistoryService.record(entityType, entityId, "status", from == null ? null : from.name(), to.name(), reason, actingUser);
     }
 }

@@ -33,7 +33,9 @@ class DealRegistrationServiceTest {
                 mock(OpportunityRepository.class),
                 mock(BidRepository.class),
                 mock(OrganizationResolutionService.class),
-                mock(OemService.class));
+                mock(OemService.class),
+                mock(AuditService.class),
+                mock(StageHistoryService.class));
     }
 
     private DealRegistration registrationWithStatus(DealRegistrationStatus status) {

@@ -126,7 +126,7 @@ public class BidController {
     public LotDto addLot(@PathVariable UUID id, @RequestBody CreateLotRequest request) {
         Bid bid = bidService.get(id);
         requireEdit(bid);
-        BidLot lot = bidService.addLot(bid, request);
+        BidLot lot = bidService.addLot(bid, request, CurrentUserContext.requireUser());
         return bidMapper.toDto(lot);
     }
 

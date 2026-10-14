@@ -24,14 +24,16 @@ class BidStatusServiceTest {
 
     private BidRepository bidRepository;
     private BidStatusHistoryRepository historyRepository;
+    private StageHistoryService stageHistoryService;
     private BidStatusService service;
 
     @BeforeEach
     void setUp() {
         bidRepository = mock(BidRepository.class);
         historyRepository = mock(BidStatusHistoryRepository.class);
+        stageHistoryService = mock(StageHistoryService.class);
         when(bidRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        service = new BidStatusService(bidRepository, historyRepository);
+        service = new BidStatusService(bidRepository, historyRepository, stageHistoryService);
     }
 
     private Bid bidAt(BidStatus status) {

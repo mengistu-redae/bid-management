@@ -201,6 +201,79 @@ role/division/email and deactivating/reactivating; and a full import run
 where an edited organization name and division, and a skipped row, both
 landed correctly on the persisted data and in the confirm summary's counts.
 
+## Stage time tracking, delay indicators & proactive follow-up
+
+A second initiative, layered on top of the lifecycle above, to answer "how
+long has this been sitting, is that on time, who's it waiting on, and will
+someone follow up before it becomes a problem" for every record in every
+stage - plus bottleneck analytics. Phased separately from Phases 1-5 above;
+phase numbers below are relative to this initiative, not those.
+
+**Phase 1** - the shared infrastructure every later phase builds on, backend
+only (no UI yet - indicators and the Deal 360 timeline are phase 2):
+
+- **Contract and Logistics** didn't exist anywhere in the codebase before
+  this (the lifecycle stopped at a won Bid) - added as a deliberately
+  minimal pair of entities (`Contract`: status Awarded -> Signed ->
+  In Delivery -> Completed/Terminated, signed-at, delivery deadline;
+  `LogisticsShipment`: status Planning -> Dispatched -> In Transit ->
+  Customs -> Cleared -> Delivered, mode Air/Sea/Land, one Contract to many
+  shipments) plus a generic `stage_milestones` table (acceptance steps,
+  payment milestones, shipment milestones - the same shape as
+  `checklist_items`, one level up) rather than bespoke milestone tables per
+  entity. Full CRUD + guarded status transitions (`ContractService`,
+  `LogisticsService`), REST at `/api/contracts` and `/api/logistics`.
+- **`stage_history`** - one polymorphic, append-only table (entity type +
+  id, same discriminator pattern as `activity_log`/`attachments`/
+  `audit_log`) recording every status/stage/waiting-on/hold transition
+  across Opportunity, DealRegistration, Bid, Lot, ChecklistItem, Contract
+  and Logistics, instead of a separate history table per entity.
+  `BidStatusService`, `OpportunityService`, `DealRegistrationService`,
+  `ChecklistService`, and Bid/Lot creation all now dual-write into it
+  alongside their existing behavior (`bid_status_history` itself is
+  untouched - nothing that reads it today had to change).
+- **Key-date change history** reuses the *existing* generic `audit_log`
+  table and `AuditService.recordIfChanged` rather than a new one - a bid's
+  `closingAt` was already audited; `openingAt`, `clarificationDeadline`,
+  and DealRegistration's `submittedDate`/`approvalDate`/`expiryDate` and
+  Opportunity's `expectedTenderDate` were wired in the same way.
+  `KeyDateHistoryService` reports original vs current value, change count,
+  and slippage in days off that same table.
+- **Business-day calendar** - `BusinessDayCalculator` (a pure, Spring-free
+  class - working-week set + holiday set + zone - so it unit-tests without
+  a database) wrapped by `BusinessDayCalendarService`, which loads the
+  admin-editable `working_week_config` (single row, Mon-Sat by default)
+  and `holiday_calendar` tables. Seeded with a best-effort pass at 2026
+  Ethiopian public holidays (`V9__seed_2026_holidays.sql`) - the Orthodox
+  Easter- and Islamic-lunar-calendar-dependent ones are marked
+  "estimated, verify" and need a human check before anyone relies on them
+  for real escalation math.
+- **On hold** - `hold_periods` (one open hold per entity, enforced by a
+  partial unique index) plus `HoldService`, which also logs a
+  `stage_history` row at start/end so holds show up in the same unified
+  timeline. `StageClockService` subtracts hold time from both calendar and
+  business-day elapsed calculations.
+- **Backfill** (`StageHistoryBackfillRunner`, an idempotent
+  `ApplicationRunner` - safe to re-run every startup, skips anything that
+  already has `stage_history` rows) replays `bid_status_history` in full
+  for every Bid/Lot (its very first IDENTIFIED entry is always known,
+  since that's the hardcoded construction default, regardless of how much
+  real history follows it), and seeds one synthetic entry for an
+  Opportunity/DealRegistration still sitting in its very first value
+  (LEAD/DRAFT) at its `createdAt`. A record already past its first stage
+  with no real history is deliberately left unseeded, so its clock reports
+  "unknown" rather than a fabricated zero.
+
+Everything above is additive: new tables/columns only, no existing column
+touched, `bid_status_history` and `audit_log` keep working exactly as they
+did. Verified via `mvn test` against the real `bidmgmt_test` database
+(`StageHistoryBackfillRunnerTest`) and a pure unit test for the calendar
+math (`BusinessDayCalculatorTest`); not yet click-through-verified in the
+browser, since there's no UI surface until phase 2 - verified instead via
+the new `/api/stage-history`, `/api/stage-clock`, `/api/holds`,
+`/api/contracts` and `/api/logistics` endpoints against the running
+`docker compose` stack.
+
 ## Tests
 
 ```bash
@@ -235,6 +308,13 @@ HTTP request shape sent to Telegram's Bot API via `MockRestServiceServer` -
 the test that caught the token-encoding bug above), and
 `ImportRowEditorTest` (per-row edit/skip rules, including that a blank edit
 field never clobbers the parsed value).
+
+Stage-tracking phase 1 added `BusinessDayCalculatorTest` (the working week,
+holidays, and on-hold pauses, all as pure math with no database) and
+`StageHistoryBackfillRunnerTest` (a live test: real `bid_status_history`
+replayed in full, a still-LEAD Opportunity seeded from `createdAt`, and a
+past-LEAD Opportunity with nothing to replay correctly left unseeded -
+i.e. "unknown" rather than zero).
 
 ## Deployment
 

@@ -65,7 +65,7 @@ public class OpportunityController {
     @Transactional
     public OpportunityDto update(@PathVariable UUID id, @RequestBody UpdateOpportunityRequest request) {
         requireEdit(id);
-        return opportunityMapper.toDto(opportunityService.update(id, request));
+        return opportunityMapper.toDto(opportunityService.update(id, request, CurrentUserContext.requireUser()));
     }
 
     @PostMapping("/{id}/convert-to-bid")

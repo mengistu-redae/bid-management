@@ -68,7 +68,7 @@ public class DealRegistrationController {
     @Transactional
     public DealRegistrationDto update(@PathVariable UUID id, @RequestBody UpdateDealRegistrationRequest request) {
         requireEdit(id);
-        return dealRegistrationMapper.toDto(dealRegistrationService.update(id, request));
+        return dealRegistrationMapper.toDto(dealRegistrationService.update(id, request, CurrentUserContext.requireUser()));
     }
 
     @GetMapping("/{id}/activity")

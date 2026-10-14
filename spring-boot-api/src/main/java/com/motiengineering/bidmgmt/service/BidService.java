@@ -11,6 +11,7 @@ import com.motiengineering.bidmgmt.domain.LotScopeType;
 import com.motiengineering.bidmgmt.domain.LotScopeTypeId;
 import com.motiengineering.bidmgmt.domain.Organization;
 import com.motiengineering.bidmgmt.domain.enums.BidSource;
+import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.domain.enums.GoNoGo;
 import com.motiengineering.bidmgmt.domain.enums.Role;
 import com.motiengineering.bidmgmt.domain.enums.ScopeType;
@@ -51,6 +52,7 @@ public class BidService {
     private final UserResolutionService userResolutionService;
     private final ChecklistService checklistService;
     private final AuditService auditService;
+    private final StageHistoryService stageHistoryService;
 
     public Bid get(UUID id) {
         return bidRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Bid not found: " + id));
@@ -134,6 +136,7 @@ public class BidService {
             opportunityRepository.findById(request.opportunityId()).ifPresent(bid::setOpportunity);
         }
         bid = bidRepository.save(bid);
+        stageHistoryService.record(EntityType.BID, bid.getId(), "status", null, bid.getStatus().name(), null, creator);
 
         if (request.scoutNames() != null) {
             for (String name : request.scoutNames()) {
@@ -144,7 +147,7 @@ public class BidService {
 
         CreateLotRequest lotRequest = request.firstLot() != null ? request.firstLot() : new CreateLotRequest(
                 "Lot 1", null, null, null, null, null, null, null, null, null, null, null);
-        addLot(bid, lotRequest);
+        addLot(bid, lotRequest, creator);
 
         return get(bid.getId());
     }
@@ -178,9 +181,11 @@ public class BidService {
             bid.setClosingAt(request.closingAt());
         }
         if (request.openingAt() != null) {
+            auditField(bid, "openingAt", bid.getOpeningAt(), request.openingAt(), actingUser);
             bid.setOpeningAt(request.openingAt());
         }
         if (request.clarificationDeadline() != null) {
+            auditField(bid, "clarificationDeadline", bid.getClarificationDeadline(), request.clarificationDeadline(), actingUser);
             bid.setClarificationDeadline(request.clarificationDeadline());
         }
         if (request.bidValidityDays() != null) {
@@ -200,7 +205,7 @@ public class BidService {
     }
 
     @Transactional
-    public BidLot addLot(Bid bid, CreateLotRequest request) {
+    public BidLot addLot(Bid bid, CreateLotRequest request, AppUser actingUser) {
         BidLot lot = new BidLot();
         lot.setBid(bid);
         lot.setLotLabel(request.lotLabel() == null || request.lotLabel().isBlank() ? nextLotLabel(bid) : request.lotLabel());
@@ -219,6 +224,7 @@ public class BidService {
         lot.setOemBrand(request.oemBrand());
         lot = bidLotRepository.save(lot);
         bid.getLots().add(lot); // keep the in-memory graph consistent - see ImportService's note on this same pitfall
+        stageHistoryService.record(EntityType.LOT, lot.getId(), "status", null, lot.getStatus().name(), null, actingUser);
 
         if (request.scopeTypes() != null) {
             for (String st : request.scopeTypes()) {

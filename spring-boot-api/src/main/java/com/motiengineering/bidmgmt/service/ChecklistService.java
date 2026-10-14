@@ -4,6 +4,7 @@ import com.motiengineering.bidmgmt.domain.AppUser;
 import com.motiengineering.bidmgmt.domain.BidLot;
 import com.motiengineering.bidmgmt.domain.ChecklistItem;
 import com.motiengineering.bidmgmt.domain.ChecklistItemTemplate;
+import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.repository.ChecklistItemRepository;
 import com.motiengineering.bidmgmt.repository.ChecklistItemTemplateRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class ChecklistService {
 
     private final ChecklistItemTemplateRepository templateRepository;
     private final ChecklistItemRepository checklistItemRepository;
+    private final StageHistoryService stageHistoryService;
 
     /** Instantiates one ChecklistItem per active template against a freshly created lot. */
     @Transactional
@@ -55,6 +57,9 @@ public class ChecklistService {
     public ChecklistItem setDone(UUID itemId, boolean done, AppUser actingUser) {
         ChecklistItem item = checklistItemRepository.findById(itemId)
                 .orElseThrow(() -> new NoSuchElementException("Checklist item not found: " + itemId));
+        if (item.isDone() != done) {
+            stageHistoryService.record(EntityType.CHECKLIST_ITEM, item.getId(), "done", String.valueOf(item.isDone()), String.valueOf(done), null, actingUser);
+        }
         item.setDone(done);
         item.setDoneAt(done ? Instant.now() : null);
         item.setDoneBy(done ? actingUser : null);

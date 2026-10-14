@@ -3,7 +3,9 @@ package com.motiengineering.bidmgmt.service;
 import com.motiengineering.bidmgmt.domain.AppUser;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
+import com.motiengineering.bidmgmt.domain.Contract;
 import com.motiengineering.bidmgmt.domain.DealRegistration;
+import com.motiengineering.bidmgmt.domain.LogisticsShipment;
 import com.motiengineering.bidmgmt.domain.LotAccountOfficer;
 import com.motiengineering.bidmgmt.domain.Opportunity;
 import com.motiengineering.bidmgmt.domain.enums.Role;
@@ -91,5 +93,14 @@ public class BidAccessService {
     public boolean canEditDealRegistration(DealRegistration registration) {
         AppUser user = CurrentUserContext.getUser();
         return user != null && user.getRole() != Role.SCOUT;
+    }
+
+    /** A contract inherits its winning bid's edit scoping - same division/officer rules apply post-award. */
+    public boolean canEditContract(Contract contract) {
+        return canEdit(contract.getBid());
+    }
+
+    public boolean canEditLogistics(LogisticsShipment shipment) {
+        return canEditContract(shipment.getContract());
     }
 }
