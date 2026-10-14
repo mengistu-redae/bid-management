@@ -73,6 +73,13 @@
 
 * { box-sizing: border-box; }
 
+/* Without this, an author rule setting display on a hidden element (e.g.
+   .bid-card{display:flex}) silently wins over the browser's own
+   [hidden]{display:none} - author styles always beat the user-agent
+   stylesheet at equal specificity, regardless of rule order - so a hidden
+   bid-card would render anyway. Forces [hidden] to actually hide. */
+[hidden] { display: none !important; }
+
 /* 15px root (vs. the 16px browser default) - since every size and most
    spacing in this file is in rem, this one change tightens the whole app
    proportionally (text, padding, gaps) rather than just shrinking text. */
@@ -197,6 +204,7 @@ tr:hover td { background: var(--hover-bg); }
   display: flex; align-items: center; justify-content: center;
 }
 .bid-card-icon.warn { background: var(--warn); }
+.bid-card-icon.danger { background: var(--danger); }
 .bid-card-body { flex: 1; min-width: 0; }
 .bid-card-title { font-size: 0.95rem; font-weight: 600; }
 .bid-card-meta { font-size: 0.85rem; color: var(--muted); margin-top: 0.15rem; }

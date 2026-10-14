@@ -62,21 +62,20 @@
 <% if (data.delaySummary.topDelayed.length === 0) { %>
   <p class="muted">No lots are currently amber, red or critical against their stage target.</p>
 <% } else { %>
-  <div class="table-scroll">
-  <table>
-    <thead><tr><th>Bid</th><th>Lot</th><th>Division</th><th>Level</th><th>% of target</th></tr></thead>
-    <tbody>
-      <% data.delaySummary.topDelayed.forEach(row => { %>
-        <tr>
-          <td><a href="/bids/<%= row.bidId %>"><%= row.bidTitle %></a></td>
-          <td><%= row.lotLabel %></td>
-          <td><%= row.divisionName || '-' %></td>
-          <td><span class="badge <%= indicatorBadgeClass(row.level) %>"><%= row.level %></span></td>
-          <td><%= row.percentUsed !== null ? Math.round(row.percentUsed) + '%' : '-' %></td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
+  <div class="bid-card-list">
+    <% data.delaySummary.topDelayed.forEach(row => { %>
+      <div class="bid-card" onclick="window.location='/bids/<%= row.bidId %>'">
+        <span class="bid-card-icon<%= (row.level === 'RED' || row.level === 'CRITICAL') ? ' danger' : ' warn' %>"><%- include('partials/icon', { name: 'alert', size: 20 }) %></span>
+        <div class="bid-card-body">
+          <div class="bid-card-title"><a href="/bids/<%= row.bidId %>"><%= row.bidTitle %></a></div>
+          <div class="bid-card-meta"><%= row.lotLabel %><% if (row.divisionName) { %> &middot; <%= row.divisionName %><% } %></div>
+        </div>
+        <div class="bid-card-side">
+          <span class="badge <%= indicatorBadgeClass(row.level) %>"><%= row.level %></span>
+          <span class="muted"><%= row.percentUsed !== null ? Math.round(row.percentUsed) + '% of target' : '-' %></span>
+        </div>
+      </div>
+    <% }) %>
   </div>
 <% } %>
 
@@ -218,29 +217,31 @@
 </div>
 
 <h2 id="bonds-outstanding"><%- include('partials/icon', { name: 'shield' }) %> Bid bonds outstanding</h2>
-<div class="card">
-  <p><strong>Total outstanding:</strong> <%= formatMoney(data.outstandingBondTotalEtb, 'ETB') %> &middot; <%= formatMoney(data.outstandingBondTotalUsd, 'USD') %></p>
-  <table>
-    <thead><tr><th>Bid</th><th>Lot</th><th>Division</th><th>Amount</th><th>Closed</th><th>Est. expiry</th></tr></thead>
-    <tbody id="bonds-tbody">
-      <% bondsDisplayItems.forEach(item => { %>
-        <% if (item.kind === 'divider') { %>
-          <tr<%= item.hidden ? ' hidden' : '' %>><td colspan="6" class="subgroup-heading" style="margin:0;"><%= item.label %></td></tr>
-        <% } else { %>
-          <% const row = item.row; %>
-          <tr<%= item.hidden ? ' hidden' : '' %>>
-            <td><a href="/bids/<%= row.bidId %>"><%= row.bidTitle %></a> - <%= row.organizationName %></td>
-            <td><%= row.lotLabel %></td>
-            <td><%= row.divisionNames.length ? row.divisionNames.join(', ') : '-' %></td>
-            <td><%= formatMoney(row.amount, row.currency) %></td>
-            <td><%= formatDate(row.bidClosingAt) %></td>
-            <td><% if (row.expiringSoon) { %><span class="badge review"><%= formatDate(row.estimatedExpiry) %></span><% } else { %><%= formatDate(row.estimatedExpiry) %><% } %></td>
-          </tr>
-        <% } %>
-      <% }) %>
-      <% if (data.outstandingBonds.length === 0) { %><tr><td colspan="6" class="muted">No outstanding bid bonds.</td></tr><% } %>
-    </tbody>
-  </table>
+<p><strong>Total outstanding:</strong> <%= formatMoney(data.outstandingBondTotalEtb, 'ETB') %> &middot; <%= formatMoney(data.outstandingBondTotalUsd, 'USD') %></p>
+<div class="bid-card-list" id="bonds-list">
+    <% bondsDisplayItems.forEach(item => { %>
+      <% if (item.kind === 'divider') { %>
+        <div class="subgroup-heading"<%= item.hidden ? ' hidden' : '' %>><%= item.label %></div>
+      <% } else { %>
+        <% const row = item.row; %>
+        <div class="bid-card"<%= item.hidden ? ' hidden' : '' %> onclick="window.location='/bids/<%= row.bidId %>'">
+          <span class="bid-card-icon<%= row.expiringSoon ? ' warn' : '' %>"><%- include('partials/icon', { name: 'shield', size: 20 }) %></span>
+          <div class="bid-card-body">
+            <div class="bid-card-title"><a href="/bids/<%= row.bidId %>"><%= row.bidTitle %></a></div>
+            <div class="bid-card-meta"><%= row.organizationName %> &middot; <%= row.lotLabel %><% if (row.divisionNames.length) { %> &middot; <%= row.divisionNames.join(', ') %><% } %></div>
+            <div class="bid-card-footer">
+              <span><%= formatMoney(row.amount, row.currency) %></span>
+              <span>Closed <%= formatDate(row.bidClosingAt) %></span>
+            </div>
+          </div>
+          <div class="bid-card-side">
+            <% if (row.expiringSoon) { %><span class="badge review">Expires <%= formatDate(row.estimatedExpiry) %></span><% } else { %><span class="muted">Expires <%= formatDate(row.estimatedExpiry) %></span><% } %>
+          </div>
+        </div>
+      <% } %>
+    <% }) %>
+    <% if (data.outstandingBonds.length === 0) { %><p class="muted">No outstanding bid bonds.</p><% } %>
+  </div>
   <% if (data.outstandingBonds.length > bondRowLimit) { %>
     <button type="button" class="secondary w-auto mt-1" id="bonds-show-all">Show all <%= data.outstandingBonds.length %></button>
     <script>
@@ -248,13 +249,12 @@
       // the closing-date sections above, the extra rows expand in place
       // instead of linking out to a filtered list.
       document.getElementById('bonds-show-all').addEventListener('click', function () {
-        document.querySelectorAll('#bonds-tbody tr[hidden]').forEach(function (row) { row.hidden = false; });
+        document.querySelectorAll('#bonds-list [hidden]').forEach(function (el) { el.hidden = false; });
         this.remove();
       });
     </script>
-  <% } %>
-  <p class="muted">Estimated expiry uses the bond's recorded issue date when there is one, otherwise the bid's opening date, plus the bond's validity days.</p>
-</div>
+<% } %>
+<p class="muted">Estimated expiry uses the bond's recorded issue date when there is one, otherwise the bid's opening date, plus the bond's validity days.</p>
 
 <h2 id="deal-regs-expiring"><%- include('partials/icon', { name: 'repeat' }) %> Deal registrations expiring soon</h2>
 <div class="card">
