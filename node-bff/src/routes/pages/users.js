@@ -67,6 +67,7 @@ function buildUsersRouter() {
         role: body.role,
         divisionIds: toArray(body.divisionIds),
         telegramChatId: body.telegramChatId || null,
+        amberImmediate: body.amberImmediate === 'on',
       });
       setFlash(req, 'success', `Saved ${updated.fullName}.`);
       res.redirect('/users');

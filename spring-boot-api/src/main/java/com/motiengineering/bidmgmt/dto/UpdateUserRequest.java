@@ -10,5 +10,6 @@ public record UpdateUserRequest(
         String email,
         @NotBlank String role,
         List<UUID> divisionIds,
-        String telegramChatId) {
+        String telegramChatId,
+        boolean amberImmediate) {
 }

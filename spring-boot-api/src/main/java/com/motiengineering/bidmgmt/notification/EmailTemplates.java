@@ -3,17 +3,21 @@ package com.motiengineering.bidmgmt.notification;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
 import com.motiengineering.bidmgmt.domain.DealRegistration;
+import com.motiengineering.bidmgmt.domain.enums.IndicatorLevel;
 import com.motiengineering.bidmgmt.dto.ActivityDigestRowDto;
+import com.motiengineering.bidmgmt.dto.AlertItemDto;
 import com.motiengineering.bidmgmt.dto.DashboardDto;
 import com.motiengineering.bidmgmt.dto.StatusChangeDigestRowDto;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /** Plain string-built HTML - no template engine, consistent with "keep the UI clean and plain" for a handful of email shapes. */
 final class EmailTemplates {
@@ -114,6 +118,110 @@ final class EmailTemplates {
         body.append(link(appBaseUrl, "/dashboard", "Open dashboard"));
 
         return new EmailContent("Daily digest - " + formatDate(java.time.LocalDate.now(ZONE)), wrap(body.toString()));
+    }
+
+    static EmailContent delayAlert(IndicatorLevel level, AlertItemDto item, Double percentUsed, String appBaseUrl) {
+        String subject = level + ": " + item.title() + (item.subtitle() != null ? " - " + item.subtitle() : "");
+        String html = wrap(
+                "<h2>" + level + "</h2>" +
+                        "<p><strong>" + escape(item.title()) + "</strong>" + (item.subtitle() != null ? "<br>" + escape(item.subtitle()) : "") + "</p>" +
+                        (percentUsed != null ? "<p>" + Math.round(percentUsed) + "% of target used</p>" : "") +
+                        (item.extra() != null ? "<p>" + escape(item.extra()) + "</p>" : "") +
+                        link(appBaseUrl, item.linkPath(), "View"));
+        return new EmailContent(subject, html);
+    }
+
+    static EmailContent staleAlert(AlertItemDto item, boolean doubleStale, String appBaseUrl) {
+        String subject = (doubleStale ? "Still stale: " : "Stale: ") + item.title();
+        String html = wrap(
+                "<h2>" + (doubleStale ? "Still no activity" : "No recent activity") + "</h2>" +
+                        "<p><strong>" + escape(item.title()) + "</strong>" + (item.subtitle() != null ? "<br>" + escape(item.subtitle()) : "") + "</p>" +
+                        link(appBaseUrl, item.linkPath(), "View"));
+        return new EmailContent(subject, html);
+    }
+
+    static EmailContent followUpDueAlert(AlertItemDto item, LocalDate dueDate, String appBaseUrl) {
+        String subject = "Follow-up due: " + item.title();
+        String html = wrap(
+                "<h2>Follow-up due" + (dueDate != null ? " (" + formatDate(dueDate) + ")" : "") + "</h2>" +
+                        "<p><strong>" + escape(item.title()) + "</strong>" + (item.subtitle() != null ? "<br>" + escape(item.subtitle()) : "") + "</p>" +
+                        link(appBaseUrl, item.linkPath(), "View"));
+        return new EmailContent(subject, html);
+    }
+
+    static EmailContent keyDateChangedAlert(AlertItemDto item, String fieldName, String oldValue, String newValue, String appBaseUrl) {
+        String subject = "Date changed (" + fieldName + "): " + item.title();
+        String html = wrap(
+                "<h2>Key date changed</h2>" +
+                        "<p><strong>" + escape(item.title()) + "</strong>" + (item.subtitle() != null ? "<br>" + escape(item.subtitle()) : "") + "</p>" +
+                        "<p>" + escape(fieldName) + ": " + escape(oldValue) + " &rarr; <strong>" + escape(newValue) + "</strong></p>" +
+                        link(appBaseUrl, item.linkPath(), "View"));
+        return new EmailContent(subject, html);
+    }
+
+    static EmailContent userDailyDigest(String userName, List<AlertItemDto> dueFollowUps, List<AlertItemDto> newlyAmberRed,
+                                         List<AlertItemDto> staleItems, Integer criticalCountForDirector, String appBaseUrl) {
+        StringBuilder body = new StringBuilder();
+        body.append("<h2>Daily digest for ").append(escape(userName)).append("</h2>");
+
+        if (criticalCountForDirector != null) {
+            body.append("<p><strong>").append(criticalCountForDirector).append(" item(s) currently critical across the pipeline.</strong></p>");
+        }
+
+        body.append("<h3>Follow-ups due</h3>");
+        body.append(itemList(dueFollowUps, "Nothing due."));
+
+        body.append("<h3>Newly amber/red</h3>");
+        body.append(itemList(newlyAmberRed, "Nothing newly flagged."));
+
+        body.append("<h3>Stale (no recent activity)</h3>");
+        body.append(itemList(staleItems, "Nothing stale."));
+
+        body.append(link(appBaseUrl, "/delays", "Open the Delays board"));
+        return new EmailContent("Daily digest - " + formatDate(LocalDate.now(ZONE)), wrap(body.toString()));
+    }
+
+    static EmailContent weeklyBottleneckSummary(List<AlertItemDto> topDelayed, Map<String, Long> stageRedCounts, Map<String, Long> waitingOnTotals, String appBaseUrl) {
+        StringBuilder body = new StringBuilder();
+        body.append("<h2>Weekly bottleneck summary</h2>");
+
+        body.append("<h3>Top delayed records</h3>");
+        body.append(itemList(topDelayed, "Nothing currently delayed."));
+
+        body.append("<h3>Stages with the most red/critical items</h3>");
+        if (stageRedCounts.isEmpty()) {
+            body.append("<p style=\"color:#666;\">None.</p>");
+        } else {
+            body.append("<ul>");
+            stageRedCounts.forEach((stage, count) -> body.append("<li>").append(escape(stage)).append(": ").append(count).append("</li>"));
+            body.append("</ul>");
+        }
+
+        body.append("<h3>Who we're waiting on most</h3>");
+        if (waitingOnTotals.isEmpty()) {
+            body.append("<p style=\"color:#666;\">No waiting-on data yet.</p>");
+        } else {
+            body.append("<ul>");
+            waitingOnTotals.forEach((party, count) -> body.append("<li>").append(escape(party)).append(": ").append(count).append(" open item(s)</li>"));
+            body.append("</ul>");
+        }
+
+        body.append(link(appBaseUrl, "/delays", "Open the Delays board"));
+        return new EmailContent("Weekly bottleneck summary - " + formatDate(LocalDate.now(ZONE)), wrap(body.toString()));
+    }
+
+    private static String itemList(List<AlertItemDto> items, String emptyMessage) {
+        if (items.isEmpty()) {
+            return "<p style=\"color:#666;\">" + emptyMessage + "</p>";
+        }
+        StringBuilder sb = new StringBuilder("<ul>");
+        items.forEach(i -> sb.append("<li>")
+                .append(escape(i.title()))
+                .append(i.subtitle() != null ? " - " + escape(i.subtitle()) : "")
+                .append(i.extra() != null ? " (" + escape(i.extra()) + ")" : "")
+                .append("</li>"));
+        sb.append("</ul>");
+        return sb.toString();
     }
 
     private static String wrap(String innerHtml) {

@@ -141,7 +141,7 @@ class UserServiceTest {
         when(divisionRepository.findById(newDivisionId)).thenReturn(Optional.of(division));
         when(bidMapper.toDto(any(Division.class))).thenReturn(new DivisionDto(newDivisionId, "NET", "Network"));
 
-        service.update(existing.getId(), new UpdateUserRequest("Updated Name", null, "DIVISION_MANAGER", List.of(newDivisionId), null));
+        service.update(existing.getId(), new UpdateUserRequest("Updated Name", null, "DIVISION_MANAGER", List.of(newDivisionId), null, false));
 
         var order = inOrder(userDivisionRepository);
         order.verify(userDivisionRepository).deleteById_UserId(existing.getId());
@@ -170,7 +170,7 @@ class UserServiceTest {
         when(appUserRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
         when(appUserRepository.findByEmailIgnoreCase("selam@motiengineering.com")).thenReturn(Optional.empty());
 
-        UserAdminRowDto result = service.update(existing.getId(), new UpdateUserRequest("Selam", "selam@motiengineering.com", "SCOUT", null, null));
+        UserAdminRowDto result = service.update(existing.getId(), new UpdateUserRequest("Selam", "selam@motiengineering.com", "SCOUT", null, null, false));
 
         assertThat(result.email()).isEqualTo("selam@motiengineering.com");
     }
@@ -184,7 +184,7 @@ class UserServiceTest {
         existing.setRole(com.motiengineering.bidmgmt.domain.enums.Role.SCOUT);
         when(appUserRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
 
-        UserAdminRowDto result = service.update(existing.getId(), new UpdateUserRequest("Selam", "attempted-new@motiengineering.com", "SCOUT", null, null));
+        UserAdminRowDto result = service.update(existing.getId(), new UpdateUserRequest("Selam", "attempted-new@motiengineering.com", "SCOUT", null, null, false));
 
         assertThat(result.email()).isEqualTo("original@motiengineering.com");
         verify(appUserRepository, never()).findByEmailIgnoreCase(anyString());

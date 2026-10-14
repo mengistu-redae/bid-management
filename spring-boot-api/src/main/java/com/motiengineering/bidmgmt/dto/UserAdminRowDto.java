@@ -12,5 +12,6 @@ public record UserAdminRowDto(
         boolean hasLogin,
         boolean active,
         List<DivisionDto> divisions,
-        String telegramChatId) {
+        String telegramChatId,
+        boolean amberImmediate) {
 }

@@ -54,3 +54,31 @@
 - Fixed a `DateTimeException` overflow (`Instant.MAX` used as a "no
   deadline" sentinel broke date arithmetic on deadline-relative targets)
   found live while verifying the dashboard against real data.
+
+### Stage time tracking, delay indicators & proactive follow-up - Phase 3
+
+- Added `follow_up_state` (next follow-up date/owner, snooze with a
+  required reason and date) and `alert_state` (single-fire-per-threshold-
+  crossing dedup for the new alert scheduler).
+- Added `DelayAlertSchedulerService` (every 30 minutes), escalating
+  Amber -> owner, Red -> +division manager, Critical -> +Director, plus
+  stale (escalating to the manager at 2x the stale limit) and follow-up-
+  due alerts. A new per-user `amber_immediate` preference (editable on
+  the Users page) makes amber alerts digest-only by default; red/
+  critical are always immediate.
+- Added `DailyDigestSchedulerService` (per-user: due follow-ups, newly
+  amber/red items, stale items; Director also gets a critical count) and
+  `WeeklyBottleneckSchedulerService` (Monday mornings: top 10 delayed
+  records, red/critical counts, open items by waiting-on party - to the
+  Director and division managers).
+- Added the Delays board (`/delays`) - every open lot currently amber/
+  red/critical/stale, filterable and sortable, with one-step follow-up/
+  snooze logging - and My Follow-ups (`/my-follow-ups`) - overdue, due
+  today, turning-amber-soon, and stale items relevant to the current
+  user.
+- New REST endpoints: `/api/follow-up`, `/api/follow-up/snooze`,
+  `/api/my-follow-ups`, `/api/delays-board`.
+- Deliberately deferred: key-date-changed notifications (the change
+  history is already captured, just not alerted on yet) and extending
+  alert/delay-reason coverage beyond BidLot to Contract/Logistics/
+  Opportunity/DealRegistration.

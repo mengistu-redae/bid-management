@@ -1,0 +1,88 @@
+<%- include('partials/header', { title: title, user: user }) %>
+<h1>Delays board</h1>
+<p class="muted">Every open bid lot currently amber, red, critical, or stale, sorted by % of target used. From any row, log a follow-up or snooze in one step.</p>
+
+<form method="get" action="/delays" class="card toolbar" style="margin-bottom:1rem;">
+  <label class="muted" style="margin:0;" for="filter-division">Division</label>
+  <select id="filter-division" name="divisionId" class="w-auto">
+    <option value="">All divisions</option>
+    <% divisions.forEach(d => { %><option value="<%= d.id %>" <%= query.divisionId === d.id ? 'selected' : '' %>><%= d.name %></option><% }) %>
+  </select>
+  <label class="muted" style="margin:0;" for="filter-officer">Officer</label>
+  <select id="filter-officer" name="officerId" class="w-auto">
+    <option value="">All officers</option>
+    <% users.filter(u => u.role === 'ACCOUNT_OFFICER').forEach(u => { %><option value="<%= u.id %>" <%= query.officerId === u.id ? 'selected' : '' %>><%= u.fullName %></option><% }) %>
+  </select>
+  <label class="muted" style="margin:0;" for="filter-organization">Customer</label>
+  <select id="filter-organization" name="organizationId" class="w-auto">
+    <option value="">All customers</option>
+    <% organizations.forEach(o => { %><option value="<%= o.id %>" <%= query.organizationId === o.id ? 'selected' : '' %>><%= o.name %></option><% }) %>
+  </select>
+  <label class="muted" style="margin:0;" for="filter-oem">OEM</label>
+  <input id="filter-oem" name="oemBrand" value="<%= query.oemBrand || '' %>" placeholder="e.g. Dell" class="w-auto">
+  <label class="muted" style="margin:0;" for="filter-waiting-on">Waiting on</label>
+  <select id="filter-waiting-on" name="waitingOnParty" class="w-auto">
+    <option value="">Any</option>
+    <% waitingOnOptions.forEach(p => { %><option value="<%= p %>" <%= query.waitingOnParty === p ? 'selected' : '' %>><%= p %></option><% }) %>
+  </select>
+  <label class="muted" style="margin:0;" for="filter-level">Level</label>
+  <select id="filter-level" name="level" class="w-auto">
+    <option value="">All</option>
+    <% levelOptions.forEach(l => { %><option value="<%= l %>" <%= query.level === l ? 'selected' : '' %>><%= l %></option><% }) %>
+  </select>
+  <button type="submit" class="secondary">Filter</button>
+  <a class="btn secondary" href="/delays">Clear</a>
+</form>
+
+<% if (rows.length === 0) { %>
+  <p class="muted">Nothing currently amber, red, critical, or stale - matches the filter above.</p>
+<% } %>
+<div class="col" style="gap:0.6rem;">
+<% rows.forEach(row => { %>
+  <div class="card" style="padding:0.75rem 1rem;">
+    <div class="row" style="justify-content:space-between; align-items:flex-start; flex-wrap:wrap;">
+      <div>
+        <a href="/bids/<%= row.bidId %>" style="font-weight:600;"><%= row.bidTitle %></a>
+        <span class="muted"> &middot; <%= row.lotLabel %></span>
+        <div class="muted" style="font-size:0.85rem;">
+          <%= row.organizationName || '-' %><% if (row.divisionName) { %> &middot; <%= row.divisionName %><% } %><% if (row.oemBrand) { %> &middot; <%= row.oemBrand %><% } %>
+        </div>
+      </div>
+      <div class="row" style="gap:0.4rem;">
+        <span class="badge <%= statusBadgeClass(row.status) %>"><%= row.status %></span>
+        <span class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>"><%= row.indicatorLevel %></span>
+        <% if (row.stale) { %><span class="badge stale">stale</span><% } %>
+      </div>
+    </div>
+    <div class="row mt-1" style="font-size:0.85rem; flex-wrap:wrap; gap:1rem;">
+      <span><strong><%= row.percentUsed !== null ? Math.round(row.percentUsed) + '%' : '-' %></strong> of target</span>
+      <span>Officers: <%= row.officerNames.join(', ') || '-' %></span>
+      <span>Waiting on: <%= row.waitingOnParty || 'not set' %></span>
+      <span>Next follow-up: <%= row.nextFollowUpDate || 'not set' %><% if (row.followUpOwnerName) { %> (<%= row.followUpOwnerName %>)<% } %></span>
+    </div>
+    <details class="mt-1">
+      <summary class="muted" style="font-size:0.85rem;">Log follow-up / snooze</summary>
+      <form method="post" action="/delays/follow-up" class="row tight mt-1">
+        <input type="hidden" name="lotId" value="<%= row.lotId %>">
+        <input type="hidden" name="returnTo" value="/delays">
+        <input name="note" placeholder="Follow-up note" class="col">
+        <input type="date" name="nextFollowUpDate" class="w-auto">
+        <select name="ownerId" class="w-auto">
+          <option value="">Follow-up owner...</option>
+          <% users.forEach(u => { %><option value="<%= u.id %>"><%= u.fullName %></option><% }) %>
+        </select>
+        <button type="submit" class="secondary btn-xs">Save follow-up</button>
+      </form>
+      <form method="post" action="/delays/snooze" class="row tight mt-1">
+        <input type="hidden" name="lotId" value="<%= row.lotId %>">
+        <input type="hidden" name="returnTo" value="/delays">
+        <input name="reason" placeholder="Snooze reason (required)" class="col">
+        <input type="date" name="snoozedUntil" class="w-auto">
+        <button type="submit" class="secondary btn-xs">Snooze</button>
+      </form>
+    </details>
+  </div>
+<% }) %>
+</div>
+
+<%- include('partials/footer') %>

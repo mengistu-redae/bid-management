@@ -56,6 +56,10 @@ bidmgmt:
     # Cron is Africa/Addis_Ababa local time regardless of the container's own
     # timezone - see ReminderSchedulerService.
     reminder-cron: ${BIDMGMT_REMINDER_CRON:0 0 7 * * *}
+    # Every 30 minutes by default - DelayAlertSchedulerService's single-fire-per-threshold-crossing scan.
+    alert-cron: ${BIDMGMT_ALERT_CRON:0 0/30 * * * *}
+    # Weekly bottleneck summary - Monday 7am by default.
+    weekly-digest-cron: ${BIDMGMT_WEEKLY_DIGEST_CRON:0 0 7 * * MON}
     # Empty by default - TelegramNotificationChannel.supports() returns false
     # for everyone until a real bot token (from @BotFather) is set here.
     telegram-bot-token: ${BIDMGMT_TELEGRAM_BOT_TOKEN:}

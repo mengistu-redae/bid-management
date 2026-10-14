@@ -88,6 +88,11 @@ public class DashboardService {
                 delaySummary(allBids));
     }
 
+    /** Same delay summary the dashboard embeds, exposed standalone for the weekly bottleneck email. */
+    public DelaySummaryDto delaySummary() {
+        return delaySummary(bidRepository.findAll());
+    }
+
     /** Amber/red/critical/stale counts plus the worst-offending open lots - same all-in-memory approach as the rest of this service. */
     private DelaySummaryDto delaySummary(List<Bid> allBids) {
         int amber = 0;

@@ -87,6 +87,7 @@ public class UserService {
         user.setFullName(request.fullName());
         user.setRole(parseRole(request.role()));
         user.setTelegramChatId(blankToNull(request.telegramChatId()));
+        user.setAmberImmediate(request.amberImmediate());
         user = appUserRepository.save(user);
         replaceDivisions(user, request.role(), request.divisionIds());
         return toAdminRow(user);
@@ -144,7 +145,7 @@ public class UserService {
         return new UserAdminRowDto(
                 user.getId(), user.getFullName(), user.getEmail(),
                 user.getRole() == null ? null : user.getRole().name(),
-                user.getKeycloakUserId() != null, user.isActive(), divisions, user.getTelegramChatId());
+                user.getKeycloakUserId() != null, user.isActive(), divisions, user.getTelegramChatId(), user.isAmberImmediate());
     }
 
     private AppUser requireUser(UUID userId) {

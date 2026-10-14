@@ -343,6 +343,75 @@ resets the clock); and the Deal 360 page rendering a real two-segment
 timeline (a long over-target IDENTIFIED bar, then the new ongoing
 UNDER_REVIEW segment) for that same lot.
 
+**Phase 3** - proactive follow-up, a Delays board, and notifications/
+escalation - the first phase of this initiative that actually sends
+anything beyond the existing daily reminders:
+
+- **Follow-up state** (`follow_up_state`, one row per entity) - a next
+  follow-up date and owner, settable together with an activity-log note
+  in one step (`FollowUpService.logFollowUp`). Snoozing
+  (`FollowUpService.snooze`) requires a reason and a date, pushes the
+  next follow-up date out to match, and logs the reason to the same
+  activity log.
+- **`DelayAlertSchedulerService`** (every 30 minutes by default,
+  `bidmgmt.notifications.alert-cron`) - the single-fire-per-threshold-
+  crossing engine. `alert_state` (entity + alert kind + a context key
+  scoping one "episode" - the current stage value for indicator alerts,
+  so a new stage always starts fresh) tracks what's already been sent;
+  a level recrossing above what's recorded fires again, dropping back to
+  green/not-stale/not-due clears the row so the next crossing is fresh.
+  Escalation matches the brief exactly: Amber -> owner (digest-only
+  unless they opt into immediate amber alerts - a new per-user
+  `amber_immediate` preference, editable on the Users page), Red ->
+  + division manager, Critical -> + Director. Stale follows the same
+  pattern, escalating to the manager at 2x the stale-after-days
+  threshold. Follow-up-due fires once per due date, to the follow-up
+  owner only. Snoozed entities are skipped entirely. Scoped to BidLot,
+  matching phase 2's delay-reason enforcement scope.
+- **`DailyDigestSchedulerService`** (same daily cron as the existing
+  reminders) - one email per relevant user, built from the last 24h of
+  `alert_state` rows (so "newly amber/red" means exactly what the alert
+  scheduler already decided was worth a fresh alert) plus due-or-
+  overdue follow-ups. The Director's bucket also gets a running critical
+  count. Fully additive - the existing Director-only
+  `DIRECTOR_DIGEST` keeps working unchanged alongside it.
+- **`WeeklyBottleneckSchedulerService`** (Monday 7am by default,
+  `bidmgmt.notifications.weekly-digest-cron`) - top 10 most delayed
+  records (reusing `DashboardService`'s own delay summary, now exposed
+  as a standalone `delaySummary()`), red/critical counts by level, and
+  open-item counts by waiting-on party, to the Director and every
+  division manager. The "who we're waiting on most" figure is a current-
+  open-item count, not total days waited - the deeper time-waiting
+  analysis is phase 4's bottleneck-analytics territory, which has the
+  `stage_history` data to compute it properly.
+- **Delays board** (`/delays`, backed by `DelaysBoardService` +
+  `/api/delays-board`) - every open lot currently amber/red/critical/
+  stale, filterable by division/officer/customer/OEM/waiting-on/level,
+  sorted by % of target used, with a one-step "log follow-up or snooze"
+  panel on every row.
+- **My Follow-ups** (`/my-follow-ups`, backed by `MyFollowUpsService`) -
+  overdue and due-today follow-ups the current user owns, plus (for
+  items they're the assigned officer on) green lots "turning amber
+  soon" (within 15 points of the amber threshold) and currently-stale
+  items.
+- Deliberately deferred for now: key-date-changed notifications (phase
+  1/2 already capture the change history via `audit_log` -
+  `KeyDateHistoryService` reports it - but nothing sends an alert on the
+  change yet) and extending delay-reason/alert coverage beyond BidLot to
+  Contract/Logistics/Opportunity/DealRegistration. Both are additive
+  follow-ons, not redesigns.
+
+Live-verified end to end: the Delays board rendering real filtered/sorted
+data, logging a follow-up from a board row (date-picker quirks aside, the
+save round-tripped and the row's "Next follow-up" updated immediately),
+My Follow-ups rendering its four empty-state sections correctly for a user
+with no matching items, and the amber-immediate preference toggle saving
+on the Users page. `DelayAlertSchedulerServiceTest` covers single-fire
+behavior, all three escalation tiers' recipients, de-escalation-clears-
+state, and snooze suppression with mocked collaborators (no real cron
+wait needed); `FollowUpServiceTest` covers the required-reason/required-
+date snooze validation and the next-follow-up-date push.
+
 ## Tests
 
 ```bash
@@ -394,6 +463,13 @@ shipment-mode, the no-target and unknown-elapsed-time cases, and the
 segment-building math is covered on the node-bff side too
 (`node-bff/test/dealTimeline.test.js`, run via `npm test` - the first test
 added for node-bff, since none existed before).
+
+Stage-tracking phase 3 added `DelayAlertSchedulerServiceTest` (single-fire-
+per-threshold-crossing, the Amber/Red/Critical recipient escalation tiers,
+de-escalation clearing state, snooze suppression, and follow-up-due firing
+once) and `FollowUpServiceTest` (snooze's required reason/date, the next-
+follow-up-date push, and `isSnoozed`'s date-boundary behavior) - both
+pure-Mockito unit tests, no database needed.
 
 ## Deployment
 

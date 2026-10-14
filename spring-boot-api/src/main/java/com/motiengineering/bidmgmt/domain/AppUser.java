@@ -40,6 +40,9 @@ public class AppUser {
     /** Set by the user themselves (or an admin) via the user management page - see TelegramNotificationChannel. */
     private String telegramChatId;
 
+    /** Amber alerts are digest-only unless this is set; red/critical are always immediate regardless - see DelayAlertSchedulerService. */
+    private boolean amberImmediate;
+
     @CreationTimestamp
     private Instant createdAt;
 }

@@ -28,6 +28,10 @@
   <label>Telegram chat ID (optional - see Telegram setup instructions on the profile page)</label>
   <input name="telegramChatId" value="<%= target.telegramChatId || '' %>" placeholder="e.g. 123456789">
 
+  <label class="inline-label mt-1">
+    <input type="checkbox" name="amberImmediate" class="w-auto" <%= target.amberImmediate ? 'checked' : '' %>> Send amber delay alerts immediately (otherwise digest-only - red/critical are always immediate)
+  </label>
+
   <div class="toolbar mt-2">
     <button type="submit">Save</button>
     <a class="btn secondary" href="/users">Cancel</a>
