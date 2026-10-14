@@ -394,6 +394,7 @@ function buildFilterQuery(query) {
   if (query.organizationId) params.set('organizationId', query.organizationId);
   if (query.closingFrom) params.set('closingFrom', toInstant(query.closingFrom, null));
   if (query.closingTo) params.set('closingTo', toInstant(query.closingTo, '23:59'));
+  if (query.search) params.set('search', query.search);
   const qs = params.toString();
   return qs ? `?${qs}` : '';
 }

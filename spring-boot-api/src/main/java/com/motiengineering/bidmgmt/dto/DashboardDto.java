@@ -16,5 +16,14 @@ public record DashboardDto(
         BigDecimal outstandingBondTotalEtb,
         BigDecimal outstandingBondTotalUsd,
         List<ExpiringDealRegistrationRowDto> expiringDealRegistrations,
-        DelaySummaryDto delaySummary) {
+        DelaySummaryDto delaySummary,
+        /** Every currently open bid missing its MAF and/or vendor quote, regardless of closing date - a superset of closingThisWeek's redFlag rows. */
+        List<ClosingSoonRowDto> missingReadiness,
+        List<LifecycleStageRowDto> lifecycleStages,
+        List<OpenNoResultRowDto> bidsPastOpeningNoResult,
+        DealRegistrationSummaryDto dealRegistrationSummary,
+        List<DivisionPillDto> divisionFilters,
+        /** Open bids where no lot has an estimated value recorded yet. */
+        int unpricedBidCount,
+        int bondsExpiringWithin90DaysCount) {
 }

@@ -10,13 +10,16 @@ public record BidFilter(
         UUID officerId,
         UUID organizationId,
         Instant closingFrom,
-        Instant closingTo) {
+        Instant closingTo,
+        /** Case-insensitive substring match against title, organization name, or reference number - the dashboard's search bar. */
+        String search) {
 
     public static BidFilter empty() {
-        return new BidFilter(null, null, null, null, null, null);
+        return new BidFilter(null, null, null, null, null, null, null);
     }
 
     public boolean isEmpty() {
-        return divisionId == null && status == null && officerId == null && organizationId == null && closingFrom == null && closingTo == null;
+        return divisionId == null && status == null && officerId == null && organizationId == null && closingFrom == null && closingTo == null
+                && (search == null || search.isBlank());
     }
 }

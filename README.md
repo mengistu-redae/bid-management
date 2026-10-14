@@ -474,6 +474,86 @@ an in-page `fetch` confirming a `200` response with the correct
 `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
 content type and a non-empty body.
 
+## Dashboard redesign (Bid Desk)
+
+The dashboard was rebuilt from a design spec (`docs/Bid Desk Dashboard
+Redesign.pdf`) covering a restructured sidebar, a working division filter,
+a per-bid "readiness gaps" table, a redesigned delay widget, and a few
+new summary panels - all built on real computations, not static mockup
+numbers:
+
+- **Sidebar** regrouped into Today (Dashboard, My follow-ups, Delays,
+  Calendar - the first two now carry live badge counts), Lifecycle
+  (numbered Opportunities/Deal registrations/Bids - Contract and
+  Logistics are deliberately left out of the nav, since neither has a
+  node-bff UI yet; see the lifecycle-evaluation discussion that preceded
+  this work) and Insight (Reports, Bid bonds & guarantees). The two
+  sidebar badges come from a new `app.use` middleware in `index.js` that
+  calls the existing `/api/my-follow-ups` and `/api/delays-board`
+  endpoints once per request and sets `res.locals.navCounts` - no new
+  backend endpoint needed, just reuses what Phase 3 already built. This
+  does mean every page now makes two extra API calls for the sidebar
+  alone; both reuse the same all-in-memory per-request computation the
+  rest of this app already leans on, which is fine at today's scale but
+  is the first thing to revisit if the app ever feels sluggish.
+- **A real, working division filter** - `?division=` on `/dashboard`
+  (omitted for all, `none` for the no-division bucket, or a division's
+  UUID), threaded through to `DashboardService.build(String
+  divisionFilter)`. The filter pills above the stat grid always show
+  counts from the *unfiltered* bid set (computed once up front,
+  independent of whatever filter is currently applied) so they read as
+  stable reference numbers rather than shifting as you click between
+  them.
+- **Readiness gaps** - a new per-bid check (`DashboardService
+  .readinessGaps`) flagging whichever of Division / Owner / Go-no-go /
+  MAF / Vendor quote / Closing time / Verify bond / Scope the bid is
+  still missing, shown as badges in the "Closing in 7 days" table.
+  Division/Owner/MAF/Vendor-quote/Scope map directly to existing fields
+  (lot division, assigned account officer, the MAF/vendor-quote
+  checklist items reused from `BidRiskEvaluator`, lot scope types);
+  Go-no-go reuses the existing (previously UI-less) `Bid.goNoGoDecision`
+  field; "Closing time" and "Verify bond" are heuristics documented in
+  code (`closingAt` at exactly midnight local time = time still TBC; a
+  bond amount recorded with its form still `UNKNOWN` = needs verifying)
+  since neither has a dedicated flag in the data model.
+- **Where deals are stuck** keeps the card-list design from the prior
+  dashboard pass, with a new Critical/Red/Amber/On-track segmented
+  summary bar (stale reported separately, since staleness is orthogonal
+  to color level) and a days-in-stage/target/waiting-on line per card -
+  `DelayRowDto` and `DelaySummaryDto` both gained fields for this
+  (`daysUsed`, `targetDays`, `waitingOnParty`, `greenCount`).
+- **New summary panels**, each backed by a real (not placeholder)
+  computation: by-lifecycle-stage bid counts/ETB totals (a 5-bucket
+  grouping of `BidStatus` - Identified/Preparing/Submitted/Evaluation/
+  Won, excluding closed-lost outcomes since this is a live-pipeline
+  snapshot), a "bids past opening with no result" callout on the Win
+  rate card, and a Deal registrations panel (expiring-soon/pending-OEM/
+  approved counts, plus PREPARING bids with an OEM brand but no linked
+  deal registration).
+- **Bid bonds outstanding** reverted from the card-list redesigned
+  earlier in this session back to a dense table, matching the spec
+  exactly - the two designs were evaluated against each other and the
+  table won for this specific, highly tabular dataset.
+- **A real header search** - "Search bids, customers, reference numbers"
+  submits to `/bids?search=`, backed by a new case-insensitive substring
+  match against title/organization name/reference number
+  (`BidFilter.search`, `BidService.matches`) rather than a decorative,
+  non-functional input.
+- A real CSS bug was caught and fixed during live verification: the new
+  `.pill` (division filter) and `.next-week-item` links both read in the
+  wrong color once *visited*, because a plain class selector loses to
+  `a:visited` at equal specificity - the exact same class of bug the
+  bid-card redesign already has a comment about. Fixed by including
+  `:visited` explicitly in both selectors, matching the existing
+  `.btn:visited` pattern.
+
+Live-verified end to end against the real `bidmgmt` database: every
+section rendering real figures (not zeros/placeholders), the division
+filter actually narrowing every widget on the page while the pills
+themselves stayed stable, the search bar returning the correct bids,
+dark theme readability, and the visited-link color bug caught and fixed
+before calling this done.
+
 ## Tests
 
 ```bash
@@ -539,6 +619,20 @@ code aggregation by excess-over-target days, waiting-on totals correctly
 including a still-open episode through "now", and the date-slippage
 report's original-vs-current/change-count math) - a pure-Mockito unit
 test, no database needed.
+
+The dashboard redesign extended `DashboardServiceTest` with three more
+cases: `readinessGapsFlagsEveryMissingSignal` (a bid missing every one of
+the eight signals - division, officer, go-no-go decision, MAF, closing
+time, bond verification, scope - gets every matching gap badge, asserted
+`containsExactlyInAnyOrder` so the test fails if a gap is silently added
+or dropped later), `readinessGapsEmptyWhenBidIsFullyReady` (the inverse -
+a fully staffed, priced, decided bid produces zero gaps), and
+`divisionFilterNarrowsEveryWidgetWhilePillCountsStayUnfiltered` (filtering
+to one division narrows both `closingThisWeek` and `pipelineByDivision`,
+while the division pills themselves keep reporting both divisions' real,
+unfiltered counts - the regression this test caught during development:
+the pills were silently empty because the test's `DivisionRepository`
+mock hadn't been given the test's own `Division` objects).
 
 ## Deployment
 

@@ -104,3 +104,29 @@
   filter form, and an Export-to-Excel link, following the Reports area's
   existing conventions.
 - Scoped to BidLot only, same as phases 2 and 3.
+
+### Dashboard redesign (Bid Desk)
+
+- Rebuilt the dashboard from a design spec, with a working division
+  filter (`?division=` on `/dashboard`, threaded through
+  `DashboardService.build(String)`), a per-bid readiness-gap table
+  (Division/Owner/Go-no-go/MAF/Vendor quote/Closing time/Verify bond/
+  Scope, several reusing existing fields and the previously UI-less
+  `Bid.goNoGoDecision`), and a redesigned "Where deals are stuck" widget
+  with a Critical/Red/Amber/On-track segmented summary bar and a days-
+  in-stage/target/waiting-on line per card.
+- Added by-lifecycle-stage bid counts/ETB totals, a "bids past opening
+  with no result" callout on Win rate, and a Deal registrations summary
+  panel (expiring-soon/pending-OEM/approved counts, plus PREPARING bids
+  with an OEM brand but no linked registration).
+- Added a real header search (`BidFilter.search`, case-insensitive
+  substring match against title/organization/reference number) backing
+  the "Search bids, customers, reference numbers" bar.
+- Sidebar regrouped into Today/Lifecycle/Insight, with live badge counts
+  on My follow-ups and Delays (reuses the existing `/api/my-follow-ups`
+  and `/api/delays-board` endpoints via a new per-request node-bff
+  middleware - no new backend endpoint needed).
+- Fixed a CSS bug caught during live verification: new `.pill` and
+  `.next-week-item` links read in the wrong color once visited, because
+  a plain class selector loses to `a:visited` at equal specificity - the
+  same class of bug the earlier bid-card redesign already worked around.

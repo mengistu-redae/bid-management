@@ -69,8 +69,9 @@ public class BidController {
             @RequestParam(required = false) UUID officerId,
             @RequestParam(required = false) UUID organizationId,
             @RequestParam(required = false) java.time.Instant closingFrom,
-            @RequestParam(required = false) java.time.Instant closingTo) {
-        var filter = new com.motiengineering.bidmgmt.dto.BidFilter(divisionId, status, officerId, organizationId, closingFrom, closingTo);
+            @RequestParam(required = false) java.time.Instant closingTo,
+            @RequestParam(required = false) String search) {
+        var filter = new com.motiengineering.bidmgmt.dto.BidFilter(divisionId, status, officerId, organizationId, closingFrom, closingTo, search);
         return bidService.list(filter).stream().map(bidMapper::toDto).toList();
     }
 
@@ -81,8 +82,9 @@ public class BidController {
             @RequestParam(required = false) UUID officerId,
             @RequestParam(required = false) UUID organizationId,
             @RequestParam(required = false) java.time.Instant closingFrom,
-            @RequestParam(required = false) java.time.Instant closingTo) {
-        var filter = new com.motiengineering.bidmgmt.dto.BidFilter(divisionId, status, officerId, organizationId, closingFrom, closingTo);
+            @RequestParam(required = false) java.time.Instant closingTo,
+            @RequestParam(required = false) String search) {
+        var filter = new com.motiengineering.bidmgmt.dto.BidFilter(divisionId, status, officerId, organizationId, closingFrom, closingTo, search);
         List<BidDto> rows = bidService.list(filter).stream().map(bidMapper::toDto).toList();
         byte[] xlsx = bidExportService.toExcel(rows);
         return ResponseEntity.ok()

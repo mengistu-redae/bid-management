@@ -96,6 +96,16 @@ public class BidService {
                 return false;
             }
         }
+        if (filter.search() != null && !filter.search().isBlank()) {
+            String needle = filter.search().trim().toLowerCase();
+            boolean titleMatches = bid.getTitle() != null && bid.getTitle().toLowerCase().contains(needle);
+            boolean orgMatches = bid.getOrganization() != null && bid.getOrganization().getName() != null
+                    && bid.getOrganization().getName().toLowerCase().contains(needle);
+            boolean refMatches = bid.getReferenceNumber() != null && bid.getReferenceNumber().toLowerCase().contains(needle);
+            if (!titleMatches && !orgMatches && !refMatches) {
+                return false;
+            }
+        }
         return true;
     }
 

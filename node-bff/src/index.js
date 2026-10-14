@@ -55,6 +55,26 @@ async function main() {
   app.use(requireSession);
   app.use(attachApiClient(getClient));
 
+  // Sidebar badge counts (My follow-ups / Delays), computed once per
+  // request and read directly off res.locals by partials/header.ejs - see
+  // its own comment for why this costs an extra two API calls per page.
+  // Fails open (no badges) rather than breaking the page if either call errors.
+  app.use(async (req, res, next) => {
+    try {
+      const [followUps, delaysBoard] = await Promise.all([
+        req.api.get('/api/my-follow-ups'),
+        req.api.get('/api/delays-board'),
+      ]);
+      res.locals.navCounts = {
+        followUps: (followUps.overdue || []).length + (followUps.dueToday || []).length,
+        delays: delaysBoard.length,
+      };
+    } catch (err) {
+      res.locals.navCounts = null;
+    }
+    next();
+  });
+
   app.get('/', (req, res) => res.redirect('/dashboard'));
   app.use('/dashboard', buildDashboardRouter());
   app.use('/bids', buildBidsRouter());
