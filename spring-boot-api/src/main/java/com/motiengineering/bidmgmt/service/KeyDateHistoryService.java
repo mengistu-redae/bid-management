@@ -52,7 +52,8 @@ public class KeyDateHistoryService {
         return new KeyDateSummary(fieldName, original, current, entries.size(), slippage);
     }
 
-    private Long slippageDays(String original, String current) {
+    /** Public/static so DelayAnalyticsService's global date-slippage report can reuse the exact same parsing rules. */
+    public static Long slippageDays(String original, String current) {
         if (original == null || current == null) {
             return null;
         }

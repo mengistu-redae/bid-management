@@ -104,7 +104,8 @@ public class IndicatorService {
         return elapsed.calendar().toMinutes() / (60.0 * 24.0);
     }
 
-    private Optional<StageTarget> resolveTarget(EntityType entityType, String stageValue, TargetContext context) {
+    /** Exposed for DelayAnalyticsService, which needs just the resolved target (not a full elapsed-time computation) for historical/completed stage segments. */
+    public Optional<StageTarget> resolveTarget(EntityType entityType, String stageValue, TargetContext context) {
         List<StageTarget> candidates = stageTargetRepository.findByEntityTypeAndStageValueAndActiveTrue(entityType, stageValue);
         StageTarget best = null;
         int bestScore = -1;

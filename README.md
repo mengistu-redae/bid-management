@@ -412,6 +412,68 @@ state, and snooze suppression with mocked collaborators (no real cron
 wait needed); `FollowUpServiceTest` covers the required-reason/required-
 date snooze validation and the next-follow-up-date push.
 
+**Phase 4** - delay analytics / bottleneck reports, the last phase of this
+initiative: turning the `stage_history` data every earlier phase has been
+recording into retrospective reporting, rather than the live/forward-
+looking indicators and alerts of phases 2-3:
+
+- **`DelayAnalyticsService`** - a single-pass aggregator: for every BidLot,
+  its full `stage_history` is fetched once and walked once, deriving all
+  seven report sections from that one pass rather than a separate query
+  per section (the same "all-in-memory, deliberate simplification at this
+  scale" approach `DashboardService` already documents and uses). Per
+  completed stage segment, elapsed business days come from the same
+  `BusinessDayCalendarService` phase 1 built, and the target it's compared
+  against comes from `IndicatorService.resolveTarget` (made public for
+  this - the exact same most-specific-override-wins resolution live
+  indicators use, so historical analytics and live badges can never
+  drift apart) and `KeyDateHistoryService.slippageDays` (also made public,
+  for the date-slippage section below) are reused rather than
+  reimplemented.
+- **Per-stage duration stats** - completed count, avg/median/P90 business
+  days, and % of completed segments over target, per stage value.
+- **Monthly trend** - the same duration figures bucketed by stage +
+  calendar month.
+- **Breakdowns** - total delay days (actual minus target, summed) by
+  division, account officer, customer, and OEM.
+- **Delay-reason Pareto** - total excess-over-target days grouped by the
+  `delay_reason_code` recorded on the exit transition (phase 2's required-
+  reason-when-leaving-a-red/critical-stage rule is what guarantees most
+  rows carry one).
+- **Date slippage** - reuses `audit_log` the same way `KeyDateHistoryService`
+  already does (phase 1), scanning it for `closingAt`/`openingAt`/
+  `clarificationDeadline` (Bid), `expectedTenderDate` (Opportunity), and
+  `submittedDate`/`approvalDate`/`expiryDate` (DealRegistration) changes
+  in range: a by-field total-slippage summary, and the top 15 most-
+  revised individual records.
+- **Who we're waiting on most** - total days by waiting-on party type,
+  deliberately including the still-open final episode through "now" (not
+  just resolved waits) - a currently-painful 60-day OEM wait should show
+  up immediately, not only once it's finally resolved. This is the
+  deeper version of phase 3's weekly digest "open-item count" figure,
+  now with actual elapsed time.
+- **Excel export** (`DelayAnalyticsExportService`, Apache POI, following
+  `ReportExportService`'s existing conventions) - all seven sections as
+  separate sheets, from `/api/delay-analytics/export`.
+- Date-range filterable (`from`/`to` query params on
+  `/api/delay-analytics` and its export, both optional - defaulting to
+  all-time) via `GET /reports/delay-analytics` in node-bff, following the
+  same table/bar-chart presentation (`partials/barChart`, no new charting
+  library) as the rest of the Reports area.
+- Scoped to BidLot only, same as phases 2 and 3's delay-reason enforcement
+  and alert scheduling - Contract/Logistics/Opportunity/DealRegistration
+  coverage remains a bounded, additive follow-on.
+
+Live-verified end to end against the real `bidmgmt` database: all seven
+report sections rendering real data on `/reports/delay-analytics`
+(per-stage duration, monthly trend, four breakdowns, delay-reason Pareto,
+date slippage, waiting-on totals); the date-range filter correctly
+returning "no completed stage segments" for a range with no data and the
+real figures for an unfiltered request; and the Excel export verified via
+an in-page `fetch` confirming a `200` response with the correct
+`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
+content type and a non-empty body.
+
 ## Tests
 
 ```bash
@@ -470,6 +532,13 @@ de-escalation clearing state, snooze suppression, and follow-up-due firing
 once) and `FollowUpServiceTest` (snooze's required reason/date, the next-
 follow-up-date push, and `isSnoozed`'s date-boundary behavior) - both
 pure-Mockito unit tests, no database needed.
+
+Stage-tracking phase 4 added `DelayAnalyticsServiceTest` (avg/median/P90
+and %-over-target computation for a completed stage segment, delay-reason-
+code aggregation by excess-over-target days, waiting-on totals correctly
+including a still-open episode through "now", and the date-slippage
+report's original-vs-current/change-count math) - a pure-Mockito unit
+test, no database needed.
 
 ## Deployment
 

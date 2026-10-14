@@ -82,3 +82,25 @@
   history is already captured, just not alerted on yet) and extending
   alert/delay-reason coverage beyond BidLot to Contract/Logistics/
   Opportunity/DealRegistration.
+
+### Stage time tracking, delay indicators & proactive follow-up - Phase 4
+
+- Added `DelayAnalyticsService`, a single-pass-per-lot aggregator over
+  `stage_history` producing: per-stage duration stats (avg/median/P90
+  business days, % over target), monthly trend, delay-day breakdowns by
+  division/officer/customer/OEM, a delay-reason-code Pareto, a date-
+  slippage report (by field and top 15 most-revised records, reusing
+  `audit_log`/`KeyDateHistoryService`), and waiting-on totals by party
+  type (including the still-open final episode through "now").
+- Exposed `IndicatorService.resolveTarget` and
+  `KeyDateHistoryService.slippageDays` (previously private) so historical
+  analytics reuse the exact same target-resolution and slippage math as
+  the live indicators, rather than duplicating it.
+- Added `DelayAnalyticsExportService` (Apache POI, 7-sheet `.xlsx`) and
+  `GET /api/delay-analytics` / `GET /api/delay-analytics/export`
+  (both accept optional `from`/`to` date-range filters).
+- Added `/reports/delay-analytics` in node-bff - tables and bar charts
+  (`partials/barChart`) for all seven report sections, a date-range
+  filter form, and an Export-to-Excel link, following the Reports area's
+  existing conventions.
+- Scoped to BidLot only, same as phases 2 and 3.

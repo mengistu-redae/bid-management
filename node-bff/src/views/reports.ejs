@@ -1,6 +1,8 @@
 <%- include('partials/header', { title: title, user: user }) %>
 <h1>Reports</h1>
 
+<p><a class="btn secondary" href="/reports/delay-analytics">Delay analytics (bottleneck reports) &rarr;</a></p>
+
 <form method="get" action="/reports" class="card toolbar" style="margin-bottom:1rem;">
   <label>Year <input type="number" name="year" value="<%= year %>" style="width:6rem;"></label>
   <label>Month <input type="number" name="month" min="1" max="12" value="<%= month %>" style="width:4rem;"></label>
