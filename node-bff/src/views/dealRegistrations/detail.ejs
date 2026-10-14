@@ -6,6 +6,9 @@
     <div class="muted"><%= registration.organization.name %><% if (registration.registrationId) { %> &middot; Ref: <%= registration.registrationId %><% } %></div>
   </div>
   <span class="badge <%= registration.status === 'REJECTED' || registration.status === 'EXPIRED' ? 'lost' : (registration.status === 'APPROVED' ? 'won' : '') %>" style="font-size:1rem;"><%= registration.status %></span>
+  <% if (registration.indicator && registration.indicator.level !== 'NO_TARGET' && registration.indicator.level !== 'UNKNOWN') { %>
+    <span class="badge <%= indicatorBadgeClass(registration.indicator.level) %>" style="font-size:1rem;" title="<%= indicatorLabel(registration.indicator) %>"><%= registration.indicator.level %></span>
+  <% } %>
 </div>
 
 <% if (registration.conflictCount > 0) { %>

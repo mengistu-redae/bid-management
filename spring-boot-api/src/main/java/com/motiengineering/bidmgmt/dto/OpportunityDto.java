@@ -21,6 +21,7 @@ public record OpportunityDto(
         List<DivisionDto> divisions,
         List<OemDto> oems,
         boolean canEdit,
+        IndicatorDto indicator,
         Instant createdAt,
         Instant updatedAt) {
 }

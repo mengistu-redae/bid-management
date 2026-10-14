@@ -32,5 +32,7 @@ public record LotDto(
         List<String> scopeTypes,
         List<UserDto> accountOfficers,
         List<ChecklistItemDto> checklistItems,
-        int checklistProgressPercent) {
+        int checklistProgressPercent,
+        IndicatorDto indicator,
+        WaitingOnDto waitingOn) {
 }

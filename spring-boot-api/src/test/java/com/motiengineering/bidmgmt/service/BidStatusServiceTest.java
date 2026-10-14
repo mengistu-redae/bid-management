@@ -3,6 +3,7 @@ package com.motiengineering.bidmgmt.service;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
 import com.motiengineering.bidmgmt.domain.enums.BidStatus;
+import com.motiengineering.bidmgmt.domain.enums.IndicatorLevel;
 import com.motiengineering.bidmgmt.repository.BidRepository;
 import com.motiengineering.bidmgmt.repository.BidStatusHistoryRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +26,7 @@ class BidStatusServiceTest {
     private BidRepository bidRepository;
     private BidStatusHistoryRepository historyRepository;
     private StageHistoryService stageHistoryService;
+    private IndicatorService indicatorService;
     private BidStatusService service;
 
     @BeforeEach
@@ -32,8 +34,11 @@ class BidStatusServiceTest {
         bidRepository = mock(BidRepository.class);
         historyRepository = mock(BidStatusHistoryRepository.class);
         stageHistoryService = mock(StageHistoryService.class);
+        indicatorService = mock(IndicatorService.class);
         when(bidRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        service = new BidStatusService(bidRepository, historyRepository, stageHistoryService);
+        when(indicatorService.compute(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new IndicatorService.IndicatorResult(IndicatorLevel.NO_TARGET, null, null, null, true, false));
+        service = new BidStatusService(bidRepository, historyRepository, stageHistoryService, indicatorService);
     }
 
     private Bid bidAt(BidStatus status) {
@@ -112,10 +117,26 @@ class BidStatusServiceTest {
     void aSingleLotCanDivergeFromItsSiblingsIndependently() {
         BidLot lot = new BidLot();
         lot.setStatus(BidStatus.PREPARING);
+        lot.setBid(bidAt(BidStatus.PREPARING));
 
-        service.transitionLot(lot, BidStatus.DROPPED, "this lot's OEM withdrew support", null);
+        service.transitionLot(lot, BidStatus.DROPPED, "this lot's OEM withdrew support", null, null);
 
         assertThat(lot.getStatus()).isEqualTo(BidStatus.DROPPED);
         assertThat(lot.getExitReason()).isEqualTo("this lot's OEM withdrew support");
+    }
+
+    @Test
+    void movingOutOfARedOrCriticalStageRequiresADelayReason() {
+        BidLot lot = new BidLot();
+        lot.setStatus(BidStatus.UNDER_REVIEW);
+        lot.setBid(bidAt(BidStatus.UNDER_REVIEW));
+        when(indicatorService.compute(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new IndicatorService.IndicatorResult(IndicatorLevel.RED, 120.0, 2.4, 2.0, true, false));
+
+        assertThatThrownBy(() -> service.transitionLot(lot, BidStatus.PREPARING, null, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        service.transitionLot(lot, BidStatus.PREPARING, null, "WAITING_OEM_MAF", null);
+        assertThat(lot.getStatus()).isEqualTo(BidStatus.PREPARING);
     }
 }

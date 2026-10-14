@@ -1,19 +1,27 @@
 package com.motiengineering.bidmgmt.web;
 
+import com.motiengineering.bidmgmt.domain.AppUser;
+import com.motiengineering.bidmgmt.domain.WaitingOnState;
 import com.motiengineering.bidmgmt.domain.enums.EntityType;
+import com.motiengineering.bidmgmt.domain.enums.WaitingOnParty;
 import com.motiengineering.bidmgmt.dto.HoldRequest;
 import com.motiengineering.bidmgmt.dto.StageClockDto;
 import com.motiengineering.bidmgmt.dto.StageHistoryEntryDto;
+import com.motiengineering.bidmgmt.dto.WaitingOnDto;
+import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.security.CurrentUserContext;
 import com.motiengineering.bidmgmt.service.HoldService;
 import com.motiengineering.bidmgmt.service.StageClockService;
 import com.motiengineering.bidmgmt.service.StageHistoryService;
+import com.motiengineering.bidmgmt.service.WaitingOnService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -36,6 +44,11 @@ public class StageTrackingController {
     private final StageHistoryService stageHistoryService;
     private final StageClockService stageClockService;
     private final HoldService holdService;
+    private final WaitingOnService waitingOnService;
+    private final AppUserRepository appUserRepository;
+
+    public record SetWaitingOnRequest(@NotBlank String partyType, UUID personId, String note) {
+    }
 
     @GetMapping("/api/stage-history")
     public List<StageHistoryEntryDto> history(@RequestParam EntityType entityType, @RequestParam UUID entityId) {
@@ -72,5 +85,27 @@ public class StageTrackingController {
     @GetMapping("/api/holds/active")
     public boolean isOnHold(@RequestParam EntityType entityType, @RequestParam UUID entityId) {
         return holdService.isOnHold(entityType, entityId);
+    }
+
+    @GetMapping("/api/waiting-on")
+    public WaitingOnDto getWaitingOn(@RequestParam EntityType entityType, @RequestParam UUID entityId) {
+        return waitingOnService.get(entityType, entityId).map(this::toDto).orElse(null);
+    }
+
+    @PutMapping("/api/waiting-on")
+    @Transactional
+    public WaitingOnDto setWaitingOn(@RequestParam EntityType entityType, @RequestParam UUID entityId, @Valid @RequestBody SetWaitingOnRequest request) {
+        AppUser person = request.personId() == null ? null : appUserRepository.findById(request.personId()).orElse(null);
+        WaitingOnState state = waitingOnService.set(entityType, entityId, WaitingOnParty.valueOf(request.partyType().toUpperCase()), person, request.note(), CurrentUserContext.requireUser());
+        return toDto(state);
+    }
+
+    private WaitingOnDto toDto(WaitingOnState state) {
+        return new WaitingOnDto(
+                state.getPartyType() == null ? null : state.getPartyType().name(),
+                state.getPerson() == null ? null : state.getPerson().getId(),
+                state.getPerson() == null ? null : state.getPerson().getFullName(),
+                state.getNote(),
+                state.getUpdatedAt());
     }
 }

@@ -5,7 +5,9 @@ import com.motiengineering.bidmgmt.domain.Oem;
 import com.motiengineering.bidmgmt.domain.Opportunity;
 import com.motiengineering.bidmgmt.domain.OpportunityDivision;
 import com.motiengineering.bidmgmt.domain.OpportunityOem;
+import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.dto.DivisionDto;
+import com.motiengineering.bidmgmt.dto.IndicatorDto;
 import com.motiengineering.bidmgmt.dto.OemDto;
 import com.motiengineering.bidmgmt.dto.OpportunityDto;
 import com.motiengineering.bidmgmt.repository.DivisionRepository;
@@ -16,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -28,6 +31,7 @@ public class OpportunityMapper {
     private final OemRepository oemRepository;
     private final BidMapper bidMapper;
     private final BidAccessService bidAccessService;
+    private final IndicatorService indicatorService;
 
     public OpportunityDto toDto(Opportunity opportunity) {
         List<DivisionDto> divisions = opportunityDivisionRepository.findById_OpportunityId(opportunity.getId()).stream()
@@ -40,6 +44,7 @@ public class OpportunityMapper {
                 .filter(java.util.Objects::nonNull)
                 .map(this::toDto)
                 .toList();
+        IndicatorDto indicator = opportunity.getStage() == null || opportunity.getStage().isTerminal() ? null : indicatorFor(opportunity, divisions);
 
         return new OpportunityDto(
                 opportunity.getId(),
@@ -56,8 +61,20 @@ public class OpportunityMapper {
                 divisions,
                 oems,
                 bidAccessService.canEditOpportunity(opportunity),
+                indicator,
                 opportunity.getCreatedAt(),
                 opportunity.getUpdatedAt());
+    }
+
+    private IndicatorDto indicatorFor(Opportunity opportunity, List<DivisionDto> divisions) {
+        UUID divisionId = divisions.size() == 1 ? divisions.get(0).id() : null;
+        TargetContext context = new TargetContext(
+                divisionId,
+                opportunity.getOrganization() == null ? null : opportunity.getOrganization().getSector(),
+                null, null);
+        IndicatorService.IndicatorResult result = indicatorService.compute(
+                EntityType.OPPORTUNITY, opportunity.getId(), "stage", opportunity.getStage().name(), opportunity.getCreatedAt(), context, Map.of());
+        return new IndicatorDto(result.level().name(), result.percentUsed(), result.daysUsed(), result.targetDays(), result.usesBusinessDays(), result.stale());
     }
 
     public OemDto toDto(Oem oem) {

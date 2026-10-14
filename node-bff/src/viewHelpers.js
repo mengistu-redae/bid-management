@@ -49,4 +49,22 @@ function barWidth(value, max) {
   return Math.min(100, Math.round((value / max) * 100));
 }
 
-module.exports = { formatDate, formatDateTime, formatMoney, statusBadgeClass, barWidth };
+function indicatorBadgeClass(level) {
+  if (!level) return '';
+  const l = level.toLowerCase();
+  if (['green', 'amber', 'red', 'critical'].includes(l)) return `indicator-${l}`;
+  return '';
+}
+
+/** "2.3d / 2d target" style label for an IndicatorDto - null-safe, since NO_TARGET/UNKNOWN carry no numbers. */
+function indicatorLabel(indicator) {
+  if (!indicator) return null;
+  if (indicator.level === 'NO_TARGET') return null;
+  if (indicator.level === 'UNKNOWN') return 'unknown';
+  const unit = indicator.usesBusinessDays ? 'bd' : 'd';
+  const used = indicator.daysUsed === null || indicator.daysUsed === undefined ? '?' : indicator.daysUsed.toFixed(1);
+  const target = indicator.targetDays === null || indicator.targetDays === undefined ? '?' : indicator.targetDays.toFixed(1);
+  return `${used}${unit} / ${target}${unit} target`;
+}
+
+module.exports = { formatDate, formatDateTime, formatMoney, statusBadgeClass, barWidth, indicatorBadgeClass, indicatorLabel };

@@ -35,6 +35,9 @@ function divisionIcon(names) {
   </div>
   <div class="bid-card-side">
     <span class="badge <%= statusBadgeClass(bid.status) %>"><%= bid.status %></span>
+    <% if (bid.worstIndicator && bid.worstIndicator.level !== 'NO_TARGET' && bid.worstIndicator.level !== 'UNKNOWN') { %>
+      <span class="badge <%= indicatorBadgeClass(bid.worstIndicator.level) %>" title="<%= indicatorLabel(bid.worstIndicator) %>"><%= bid.worstIndicator.level %></span>
+    <% } %>
     <% if (bid.redFlag) { %><span class="badge review"><%= bid.redFlagReason %></span><% } %>
     <% if (needsReview) { %><span class="badge review">needs review</span><% } %>
   </div>

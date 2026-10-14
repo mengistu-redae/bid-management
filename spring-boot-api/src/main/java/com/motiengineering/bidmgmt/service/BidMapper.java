@@ -9,12 +9,16 @@ import com.motiengineering.bidmgmt.domain.Division;
 import com.motiengineering.bidmgmt.domain.LotAccountOfficer;
 import com.motiengineering.bidmgmt.domain.LotScopeType;
 import com.motiengineering.bidmgmt.domain.Organization;
+import com.motiengineering.bidmgmt.domain.WaitingOnState;
+import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.dto.BidDto;
 import com.motiengineering.bidmgmt.dto.ChecklistItemDto;
 import com.motiengineering.bidmgmt.dto.DivisionDto;
+import com.motiengineering.bidmgmt.dto.IndicatorDto;
 import com.motiengineering.bidmgmt.dto.LotDto;
 import com.motiengineering.bidmgmt.dto.OrganizationDto;
 import com.motiengineering.bidmgmt.dto.UserDto;
+import com.motiengineering.bidmgmt.dto.WaitingOnDto;
 import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.repository.BidScoutRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
@@ -24,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,6 +44,8 @@ public class BidMapper {
     private final AppUserRepository appUserRepository;
     private final ChecklistService checklistService;
     private final BidAccessService bidAccessService;
+    private final IndicatorService indicatorService;
+    private final WaitingOnService waitingOnService;
 
     public BidDto toDto(Bid bid) {
         List<UUID> scoutUserIds = bidScoutRepository.findById_BidId(bid.getId()).stream()
@@ -50,6 +57,7 @@ public class BidMapper {
 
         List<LotDto> lots = bid.getLots().stream().map(this::toDto).toList();
         String redFlagReason = BidRiskEvaluator.redFlagReason(bid, Instant.now());
+        IndicatorDto worstIndicator = lots.stream().map(LotDto::indicator).filter(i -> i != null).max(Comparator.comparingInt(this::severityRank)).orElse(null);
 
         return new BidDto(
                 bid.getId(),
@@ -72,8 +80,20 @@ public class BidMapper {
                 bidAccessService.canEdit(bid),
                 redFlagReason != null,
                 redFlagReason,
+                worstIndicator,
                 bid.getCreatedAt(),
                 bid.getUpdatedAt());
+    }
+
+    /** GREEN=0 ... CRITICAL=4, so max() finds the worst across a bid's lots; NO_TARGET/UNKNOWN sort below GREEN (nothing to show takes a back seat to an actual color). */
+    private int severityRank(IndicatorDto indicator) {
+        return switch (indicator.level()) {
+            case "CRITICAL" -> 4;
+            case "RED" -> 3;
+            case "AMBER" -> 2;
+            case "GREEN" -> 1;
+            default -> 0;
+        };
     }
 
     public LotDto toDto(BidLot lot) {
@@ -117,7 +137,36 @@ public class BidMapper {
                 scopeTypes,
                 officers,
                 items,
-                progress);
+                progress,
+                lot.getStatus() == null || lot.getStatus().isTerminal() ? null : indicatorFor(lot),
+                waitingOnDto(lot));
+    }
+
+    private IndicatorDto indicatorFor(BidLot lot) {
+        TargetContext context = new TargetContext(
+                lot.getDivision() == null ? null : lot.getDivision().getId(),
+                lot.getBid().getOrganization() == null ? null : lot.getBid().getOrganization().getSector(),
+                lot.getOemBrand(),
+                null);
+        Map<String, Instant> deadlineFields = IndicatorService.deadlineField("closingAt", lot.getBid().getClosingAt());
+        IndicatorService.IndicatorResult result = indicatorService.compute(
+                EntityType.LOT, lot.getId(), "status", lot.getStatus().name(), lot.getCreatedAt(), context, deadlineFields);
+        return new IndicatorDto(result.level().name(), result.percentUsed(), result.daysUsed(), result.targetDays(), result.usesBusinessDays(), result.stale());
+    }
+
+    private WaitingOnDto waitingOnDto(BidLot lot) {
+        return waitingOnService.get(EntityType.LOT, lot.getId())
+                .map(this::toWaitingOnDto)
+                .orElse(null);
+    }
+
+    private WaitingOnDto toWaitingOnDto(WaitingOnState state) {
+        return new WaitingOnDto(
+                state.getPartyType() == null ? null : state.getPartyType().name(),
+                state.getPerson() == null ? null : state.getPerson().getId(),
+                state.getPerson() == null ? null : state.getPerson().getFullName(),
+                state.getNote(),
+                state.getUpdatedAt());
     }
 
     public ChecklistItemDto toDto(ChecklistItem item) {

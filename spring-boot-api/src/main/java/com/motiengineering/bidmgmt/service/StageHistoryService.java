@@ -21,7 +21,12 @@ public class StageHistoryService {
 
     @Transactional
     public StageHistoryEntry record(EntityType entityType, UUID entityId, String stageField, String fromValue, String toValue, String note, AppUser changedBy) {
-        return stageHistoryRepository.save(new StageHistoryEntry(entityType, entityId, stageField, fromValue, toValue, note, changedBy, Instant.now(), false));
+        return record(entityType, entityId, stageField, fromValue, toValue, note, null, changedBy);
+    }
+
+    @Transactional
+    public StageHistoryEntry record(EntityType entityType, UUID entityId, String stageField, String fromValue, String toValue, String note, String delayReasonCode, AppUser changedBy) {
+        return stageHistoryRepository.save(new StageHistoryEntry(entityType, entityId, stageField, fromValue, toValue, note, delayReasonCode, changedBy, Instant.now(), false));
     }
 
     /** Used only by the one-time backfill, so a historical changedAt can be set instead of "now". */

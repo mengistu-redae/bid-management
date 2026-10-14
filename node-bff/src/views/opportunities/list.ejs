@@ -14,7 +14,12 @@
       <tr onclick="window.location='/opportunities/<%= o.id %>'" style="cursor:pointer;">
         <td><%= o.organization ? o.organization.name : '-' %></td>
         <td><%= o.title %></td>
-        <td><span class="badge <%= o.stage === 'LOST_CLOSED' ? 'lost' : (o.stage === 'CONVERTED_TO_BID' ? 'won' : '') %>"><%= o.stage %></span></td>
+        <td>
+          <span class="badge <%= o.stage === 'LOST_CLOSED' ? 'lost' : (o.stage === 'CONVERTED_TO_BID' ? 'won' : '') %>"><%= o.stage %></span>
+          <% if (o.indicator && o.indicator.level !== 'NO_TARGET' && o.indicator.level !== 'UNKNOWN') { %>
+            <span class="badge <%= indicatorBadgeClass(o.indicator.level) %>" title="<%= indicatorLabel(o.indicator) %>"><%= o.indicator.level %></span>
+          <% } %>
+        </td>
         <td><%= formatMoney(o.estimatedValue, o.estimatedValueCurrency) %></td>
         <td><%= formatDate(o.expectedTenderDate) %></td>
         <td><%= o.owner ? o.owner.fullName : '-' %></td>

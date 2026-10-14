@@ -22,6 +22,7 @@ public record DealRegistrationDto(
         String notes,
         int conflictCount,
         boolean expiringSoon,
+        IndicatorDto indicator,
         Instant createdAt,
         Instant updatedAt) {
 }

@@ -15,6 +15,7 @@ public record LogisticsShipmentDto(
         Instant deliveredAt,
         String notes,
         boolean onHold,
+        IndicatorDto indicator,
         Instant createdAt,
         Instant updatedAt) {
 }

@@ -42,7 +42,7 @@ public class LotController {
         BidLot lot = get(id);
         requireEdit(lot);
         BidStatus newStatus = parseStatus(request.newStatus());
-        BidLot updated = bidStatusService.transitionLot(lot, newStatus, request.reason(), CurrentUserContext.requireUser());
+        BidLot updated = bidStatusService.transitionLot(lot, newStatus, request.reason(), request.delayReasonCode(), CurrentUserContext.requireUser());
         return bidMapper.toDto(updated);
     }
 

@@ -1,0 +1,35 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+
+<div class="mt-0"><a href="/bids/<%= bid.id %>">&larr; Back to bid</a></div>
+
+<h1 class="mt-1"><%= bid.title %></h1>
+<p class="muted">Deal 360 - the full chain from opportunity through logistics, each row its own proportional timeline (not a shared calendar axis). Segment color: green = within target, red = over target, grey = no target set (includes deadline-relative stages, approximated out of this view) or the current/ongoing stage.</p>
+
+<div class="card">
+  <% if (rows.length === 0) { %>
+    <p class="muted">No stage history recorded yet for this deal's chain.</p>
+  <% } %>
+  <% rows.forEach(row => { %>
+    <div class="mt-2">
+      <div class="row" style="justify-content:space-between; align-items:baseline;">
+        <strong><%= row.kind %><% if (row.href) { %>: <a href="<%= row.href %>"><%= row.label %></a><% } else { %>: <%= row.label %><% } %></strong>
+        <span class="muted" style="font-size:0.8rem;"><%= row.segments.length %> stage<%= row.segments.length === 1 ? '' : 's' %></span>
+      </div>
+      <% if (row.segments.length === 0) { %>
+        <p class="muted" style="font-size:0.85rem;">No stage history yet.</p>
+      <% } else { %>
+        <div class="timeline-bar">
+          <% row.segments.forEach(seg => { %>
+            <div class="timeline-segment <%= seg.ongoing ? 'ongoing' : (seg.overTarget ? 'over' : (seg.targetDays !== null ? 'under' : 'no-target')) %>"
+                 style="width: <%= seg.widthPercent %>%;"
+                 title="<%= seg.value %> - <%= seg.durationDays.toFixed(1) %>d<%= seg.targetDays !== null ? ' (target ' + seg.targetDays + 'd)' : '' %><%= seg.ongoing ? ' - ongoing' : '' %>">
+              <span class="timeline-segment-label"><%= seg.value %></span>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+  <% }) %>
+</div>
+
+<%- include('../partials/footer') %>

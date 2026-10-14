@@ -53,6 +53,9 @@ public class StageHistoryEntry {
 
     private String note;
 
+    /** Required when exiting a stage that was RED/CRITICAL at the time - see IndicatorService. */
+    private String delayReasonCode;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "changed_by")
     private AppUser changedBy;
@@ -62,12 +65,17 @@ public class StageHistoryEntry {
     private boolean backfilled;
 
     public StageHistoryEntry(EntityType entityType, UUID entityId, String stageField, String fromValue, String toValue, String note, AppUser changedBy, Instant changedAt, boolean backfilled) {
+        this(entityType, entityId, stageField, fromValue, toValue, note, null, changedBy, changedAt, backfilled);
+    }
+
+    public StageHistoryEntry(EntityType entityType, UUID entityId, String stageField, String fromValue, String toValue, String note, String delayReasonCode, AppUser changedBy, Instant changedAt, boolean backfilled) {
         this.entityType = entityType;
         this.entityId = entityId;
         this.stageField = stageField;
         this.fromValue = fromValue;
         this.toValue = toValue;
         this.note = note;
+        this.delayReasonCode = delayReasonCode;
         this.changedBy = changedBy;
         this.changedAt = changedAt;
         this.backfilled = backfilled;

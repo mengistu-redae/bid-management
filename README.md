@@ -274,6 +274,75 @@ the new `/api/stage-history`, `/api/stage-clock`, `/api/holds`,
 `/api/contracts` and `/api/logistics` endpoints against the running
 `docker compose` stack.
 
+**Phase 2** - targets, indicators everywhere, waiting-on, delay reasons, and
+the Deal 360 stage timeline - the first UI surface for this initiative:
+
+- **`stage_targets`** - "what does late mean" per (entity type, stage
+  value), with optional narrower overrides by division, customer sector,
+  OEM name, or shipment mode (most-specific-match-wins resolution in
+  `IndicatorService`). Seeded with the default list confirmed with the
+  user beforehand (business-day durations for Opportunity/DealRegistration/
+  BidLot/Contract stages, deadline-relative targets for Preparing-before-
+  closing and In-Delivery-before-delivery-deadline, and per-shipment-mode
+  Logistics transit times - Air 5 business days, Sea 35 calendar days,
+  Land 10 business days). Admin-editable via `/api/stage-targets`
+  (Director-only writes).
+- **`indicator_config`** - single-row, admin-editable thresholds (Amber
+  75%, Red 100%, Critical 150% of target by default, plus a default stale-
+  after-days) via `/api/indicator-config`.
+- **Indicators everywhere** - every DTO for a trackable entity (Bid's lots
+  individually, rolled up to the Bid as the worst level across its lots per
+  the confirmed lot-level-granularity decision; Opportunity; Deal
+  Registration; Contract; Logistics) now carries a computed
+  GREEN/AMBER/RED/CRITICAL/UNKNOWN/NO_TARGET indicator plus a stale flag,
+  shown as a colored badge on the bid list, Kanban board, bid detail (bid
+  and per-lot), Opportunities list/detail, Deal Registrations list/detail,
+  and a new "Delays" section on the dashboard (amber/red/critical/stale
+  counts plus the top 10 most-delayed lots).
+- **Waiting-on** - `waiting_on_state` (current value per entity) +
+  `stage_history` (the change log, reusing phase 1's table rather than a
+  new one) for who/what an open stage is waiting on (Internal with a
+  person, Customer, OEM, Distributor, Implementation Partner, Bank,
+  Freight Forwarder/Customs, Other). Editable inline on the bid lot card.
+- **Delay reasons** - an admin-editable `delay_reason_codes` list (seeded
+  with the brief's examples). A reason code is now required, server-side,
+  when moving a `BidLot` out of a stage that's currently RED or CRITICAL
+  (`BidStatusService.transitionLot`) - deliberately scoped to lots only
+  for this phase (the highest-churn part of the pipeline); the same
+  pattern can be extended to Contract/Logistics/Opportunity/
+  DealRegistration transitions later without new infrastructure.
+- **Deal 360** - a new page per bid (`/bids/:id/deal360`) assembling the
+  whole chain on the fly (Opportunity found by `convertedBidId`, Deal
+  Registrations by `bidId`, Contract by `bidId`, Logistics by
+  `contractId` - no new "Deal" table, per the confirmed on-the-fly-
+  grouping decision) and rendering each entity's own `stage_history` as a
+  horizontal bar of proportionally-sized segments (`dealTimeline.js`,
+  calendar-day approximation, not the precise business-day figures already
+  shown in the indicator badges elsewhere), colored green/red against its
+  current stage target, with the ongoing stage shown as a diagonal-striped
+  segment.
+
+A real bug was caught live during browser verification: both the delay-
+reason-enforcement check and several indicator computations built their
+"no deadline set" fallback as `Instant.MAX`, which overflows
+(`DateTimeException: Invalid value for EpochDay`) the moment a
+DEADLINE_RELATIVE target tries ordinary date arithmetic on it (e.g.
+`minus(offsetDays, DAYS)`) - every bid with no `closingAt` 500'd on its
+dashboard delay summary. Fixed by `IndicatorService.deadlineField(name,
+value)`, which omits the map entry entirely when the value is null instead
+of passing a sentinel, so the target correctly resolves to UNKNOWN.
+
+Live-verified end to end against the real `bidmgmt` database: the
+dashboard's Delays section rendering real counts (57 lots critical in the
+existing imported/historical data - expected, since those records predate
+this feature and were never actively tracked against these targets);
+changing a lot's status without a delay reason correctly rejected by the
+API; the same change succeeding once a reason was supplied, with the
+lot's badge immediately flipping to GREEN (a fresh `stage_history` entry
+resets the clock); and the Deal 360 page rendering a real two-segment
+timeline (a long over-target IDENTIFIED bar, then the new ongoing
+UNDER_REVIEW segment) for that same lot.
+
 ## Tests
 
 ```bash
@@ -315,6 +384,16 @@ holidays, and on-hold pauses, all as pure math with no database) and
 replayed in full, a still-LEAD Opportunity seeded from `createdAt`, and a
 past-LEAD Opportunity with nothing to replay correctly left unseeded -
 i.e. "unknown" rather than zero).
+
+Stage-tracking phase 2 added `IndicatorServiceTest` (duration and deadline-
+relative threshold crossings at the Green/Amber/Red/Critical boundaries,
+most-specific-override-wins target resolution across division/sector/OEM/
+shipment-mode, the no-target and unknown-elapsed-time cases, and the
+`Instant.MAX` overflow regression) and extended `BidStatusServiceTest` and
+`DashboardServiceTest` with a mocked `IndicatorService`. `dealTimeline.js`'s
+segment-building math is covered on the node-bff side too
+(`node-bff/test/dealTimeline.test.js`, run via `npm test` - the first test
+added for node-bff, since none existed before).
 
 ## Deployment
 

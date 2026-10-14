@@ -8,10 +8,14 @@ import com.motiengineering.bidmgmt.domain.LotAccountOfficer;
 import com.motiengineering.bidmgmt.domain.enums.BidStatus;
 import com.motiengineering.bidmgmt.domain.enums.Currency;
 import com.motiengineering.bidmgmt.domain.enums.DealRegistrationStatus;
+import com.motiengineering.bidmgmt.domain.enums.EntityType;
+import com.motiengineering.bidmgmt.domain.enums.IndicatorLevel;
 import com.motiengineering.bidmgmt.domain.enums.Outcome;
 import com.motiengineering.bidmgmt.dto.ClarificationRowDto;
 import com.motiengineering.bidmgmt.dto.ClosingSoonRowDto;
 import com.motiengineering.bidmgmt.dto.DashboardDto;
+import com.motiengineering.bidmgmt.dto.DelayRowDto;
+import com.motiengineering.bidmgmt.dto.DelaySummaryDto;
 import com.motiengineering.bidmgmt.dto.ExpiringDealRegistrationRowDto;
 import com.motiengineering.bidmgmt.dto.OutstandingBondRowDto;
 import com.motiengineering.bidmgmt.dto.PipelineValueRowDto;
@@ -59,6 +63,9 @@ public class DashboardService {
     private final AppUserRepository appUserRepository;
     private final DealRegistrationRepository dealRegistrationRepository;
     private final ChecklistService checklistService;
+    private final IndicatorService indicatorService;
+
+    private static final int TOP_DELAYED_LIMIT = 10;
 
     public DashboardDto build() {
         List<Bid> allBids = bidRepository.findAll();
@@ -77,7 +84,51 @@ public class DashboardService {
                 outstandingBonds(allBids, today),
                 sumBondsByCurrency(allBids, Currency.ETB),
                 sumBondsByCurrency(allBids, Currency.USD),
-                expiringDealRegistrations(today));
+                expiringDealRegistrations(today),
+                delaySummary(allBids));
+    }
+
+    /** Amber/red/critical/stale counts plus the worst-offending open lots - same all-in-memory approach as the rest of this service. */
+    private DelaySummaryDto delaySummary(List<Bid> allBids) {
+        int amber = 0;
+        int red = 0;
+        int critical = 0;
+        int stale = 0;
+        List<DelayRowDto> rows = new ArrayList<>();
+        for (Bid bid : allBids) {
+            for (BidLot lot : bid.getLots()) {
+                if (lot.getStatus() == null || lot.getStatus().isTerminal()) {
+                    continue;
+                }
+                TargetContext context = new TargetContext(
+                        lot.getDivision() == null ? null : lot.getDivision().getId(),
+                        bid.getOrganization() == null ? null : bid.getOrganization().getSector(),
+                        lot.getOemBrand(), null);
+                Map<String, Instant> deadlineFields = IndicatorService.deadlineField("closingAt", bid.getClosingAt());
+                IndicatorService.IndicatorResult result = indicatorService.compute(
+                        EntityType.LOT, lot.getId(), "status", lot.getStatus().name(), lot.getCreatedAt(), context, deadlineFields);
+                if (result.stale()) {
+                    stale++;
+                }
+                if (result.level() == IndicatorLevel.AMBER) {
+                    amber++;
+                } else if (result.level() == IndicatorLevel.RED) {
+                    red++;
+                } else if (result.level() == IndicatorLevel.CRITICAL) {
+                    critical++;
+                }
+                if (result.level() == IndicatorLevel.AMBER || result.level() == IndicatorLevel.RED || result.level() == IndicatorLevel.CRITICAL) {
+                    rows.add(new DelayRowDto(bid.getId(), bid.getTitle(), lot.getLotLabel(),
+                            lot.getDivision() == null ? null : lot.getDivision().getName(),
+                            result.level().name(), result.percentUsed()));
+                }
+            }
+        }
+        List<DelayRowDto> top = rows.stream()
+                .sorted((a, b) -> Double.compare(b.percentUsed() == null ? 0 : b.percentUsed(), a.percentUsed() == null ? 0 : a.percentUsed()))
+                .limit(TOP_DELAYED_LIMIT)
+                .toList();
+        return new DelaySummaryDto(amber, red, critical, stale, top);
     }
 
     private List<ExpiringDealRegistrationRowDto> expiringDealRegistrations(LocalDate today) {

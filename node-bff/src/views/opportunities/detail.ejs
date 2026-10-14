@@ -6,6 +6,9 @@
     <div class="muted"><%= opportunity.organization ? opportunity.organization.name : '-' %></div>
   </div>
   <span class="badge <%= opportunity.stage === 'LOST_CLOSED' ? 'lost' : (opportunity.stage === 'CONVERTED_TO_BID' ? 'won' : '') %>" style="font-size:1rem;"><%= opportunity.stage %></span>
+  <% if (opportunity.indicator && opportunity.indicator.level !== 'NO_TARGET' && opportunity.indicator.level !== 'UNKNOWN') { %>
+    <span class="badge <%= indicatorBadgeClass(opportunity.indicator.level) %>" style="font-size:1rem;" title="<%= indicatorLabel(opportunity.indicator) %>"><%= opportunity.indicator.level %></span>
+  <% } %>
 </div>
 
 <div class="card">

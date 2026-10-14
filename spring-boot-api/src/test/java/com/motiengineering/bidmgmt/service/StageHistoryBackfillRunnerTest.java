@@ -74,7 +74,7 @@ class StageHistoryBackfillRunnerTest {
         Bid bid = bidService.create(bidRequest, director);
         entityManager.flush(); // force the lot's initial INSERT before mutating it again - see BidService.create()'s javadoc on this entity's isNew()/merge() pitfall
         BidLot lot = bid.getLots().get(0);
-        bidStatusService.transitionLot(lot, BidStatus.UNDER_REVIEW, null, director);
+        bidStatusService.transitionLot(lot, BidStatus.UNDER_REVIEW, null, null, director);
         entityManager.flush();
 
         // Wipe the live stage_history rows BidStatusService/BidService just wrote, to simulate data that predates stage tracking.

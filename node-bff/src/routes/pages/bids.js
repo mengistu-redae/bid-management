@@ -3,8 +3,10 @@
 const express = require('express');
 const { setFlash } = require('../../flash');
 const { groupByDivision } = require('../../divisionGrouping');
+const { buildSegments } = require('../../dealTimeline');
 
 const STATUS_OPTIONS = ['IDENTIFIED', 'UNDER_REVIEW', 'PREPARING', 'SUBMITTED', 'OPENED', 'UNDER_EVALUATION', 'WON', 'LOST', 'DROPPED', 'CANCELLED'];
+const WAITING_ON_OPTIONS = ['INTERNAL', 'CUSTOMER', 'OEM', 'DISTRIBUTOR', 'IMPLEMENTATION_PARTNER', 'BANK', 'FREIGHT_FORWARDER_CUSTOMS', 'OTHER'];
 const TERMINAL_STATUSES = ['WON', 'LOST', 'DROPPED', 'CANCELLED'];
 const SCOPE_TYPES = ['DELIVERY', 'IMPLEMENTATION', 'TRAINING', 'SUPPORT_RENEWAL'];
 const PAGE_SIZE = 25;
@@ -195,11 +197,12 @@ function buildBidsRouter() {
 
   router.get('/:id', async (req, res, next) => {
     try {
-      const [bid, historyAsc, activity, allDealRegistrations] = await Promise.all([
+      const [bid, historyAsc, activity, allDealRegistrations, delayReasonCodes] = await Promise.all([
         req.api.get(`/api/bids/${req.params.id}`),
         req.api.get(`/api/bids/${req.params.id}/status-history`),
         req.api.get(`/api/bids/${req.params.id}/activity`),
         req.api.get('/api/deal-registrations'),
+        req.api.get('/api/delay-reason-codes'),
       ]);
       const dealRegistrations = allDealRegistrations.filter((r) => r.bidId === bid.id);
       // Most-recent-first for display - the API returns it oldest-first (insertion order).
@@ -211,7 +214,59 @@ function buildBidsRouter() {
       res.render('bids/detail', {
         title: bid.title, user: req.session.user, bid, history, activity, dealRegistrations, statusOptions: STATUS_OPTIONS,
         daysUntilClosing, closingUrgent, historyLimit: HISTORY_LIMIT,
+        delayReasonCodes: delayReasonCodes.filter((c) => c.active),
+        waitingOnOptions: WAITING_ON_OPTIONS,
       });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/:id/deal360', async (req, res, next) => {
+    try {
+      const [bid, allOpportunities, allDealRegistrations, allContracts, allTargets] = await Promise.all([
+        req.api.get(`/api/bids/${req.params.id}`),
+        req.api.get('/api/opportunities'),
+        req.api.get('/api/deal-registrations'),
+        req.api.get('/api/contracts'),
+        req.api.get('/api/stage-targets'),
+      ]);
+      const opportunity = allOpportunities.find((o) => o.convertedBidId === bid.id) || null;
+      const dealRegistrations = allDealRegistrations.filter((r) => r.bidId === bid.id);
+      const contract = allContracts.find((c) => c.bidId === bid.id) || null;
+      const logistics = contract ? await req.api.get(`/api/logistics?contractId=${contract.id}`) : [];
+
+      const now = new Date();
+      const targetsFor = (entityType) => allTargets.filter((t) => t.entityType === entityType);
+
+      const rows = [];
+      if (opportunity) {
+        const history = await req.api.get(`/api/stage-history?entityType=OPPORTUNITY&entityId=${opportunity.id}`);
+        rows.push({ kind: 'Opportunity', label: opportunity.title, href: `/opportunities/${opportunity.id}`,
+          segments: buildSegments(history.filter((h) => h.stageField === 'stage'), targetsFor('OPPORTUNITY'), now) });
+      }
+      for (const reg of dealRegistrations) {
+        const history = await req.api.get(`/api/stage-history?entityType=DEAL_REGISTRATION&entityId=${reg.id}`);
+        rows.push({ kind: 'Deal Registration', label: reg.oem.name, href: `/deal-registrations/${reg.id}`,
+          segments: buildSegments(history.filter((h) => h.stageField === 'status'), targetsFor('DEAL_REGISTRATION'), now) });
+      }
+      for (const lot of bid.lots) {
+        const history = await req.api.get(`/api/stage-history?entityType=LOT&entityId=${lot.id}`);
+        rows.push({ kind: 'Bid Lot', label: lot.lotLabel, href: `/bids/${bid.id}`,
+          segments: buildSegments(history.filter((h) => h.stageField === 'status'), targetsFor('LOT'), now) });
+      }
+      if (contract) {
+        const history = await req.api.get(`/api/stage-history?entityType=CONTRACT&entityId=${contract.id}`);
+        rows.push({ kind: 'Contract', label: contract.contractNumber || 'Contract', href: null,
+          segments: buildSegments(history.filter((h) => h.stageField === 'status'), targetsFor('CONTRACT'), now) });
+      }
+      for (const shipment of logistics) {
+        const history = await req.api.get(`/api/stage-history?entityType=LOGISTICS&entityId=${shipment.id}`);
+        rows.push({ kind: 'Logistics', label: `${shipment.shipmentMode} shipment`, href: null,
+          segments: buildSegments(history.filter((h) => h.stageField === 'status'), targetsFor('LOGISTICS'), now) });
+      }
+
+      res.render('bids/deal360', { title: `Deal 360 - ${bid.title}`, user: req.session.user, bid, opportunity, dealRegistrations, contract, logistics, rows });
     } catch (err) {
       next(err);
     }
@@ -222,6 +277,18 @@ function buildBidsRouter() {
       await req.api.post(`/api/bids/${req.params.id}/status`, { newStatus: req.body.newStatus, reason: req.body.reason || null });
       setFlash(req, 'success', `Status changed to ${req.body.newStatus}.`);
       res.redirect(`/bids/${req.params.id}`);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/lots/:lotId/waiting-on', async (req, res, next) => {
+    try {
+      await req.api.put(`/api/waiting-on?entityType=LOT&entityId=${req.params.lotId}`, {
+        partyType: req.body.partyType, personId: req.body.personId || null, note: req.body.note || null,
+      });
+      setFlash(req, 'success', 'Waiting-on updated.');
+      res.redirect(`/bids/${req.body.bidId}`);
     } catch (err) {
       next(err);
     }
@@ -238,7 +305,9 @@ function buildBidsRouter() {
 
   router.post('/lots/:lotId/status', async (req, res, next) => {
     try {
-      await req.api.post(`/api/lots/${req.params.lotId}/status`, { newStatus: req.body.newStatus, reason: req.body.reason || null });
+      await req.api.post(`/api/lots/${req.params.lotId}/status`, {
+        newStatus: req.body.newStatus, reason: req.body.reason || null, delayReasonCode: req.body.delayReasonCode || null,
+      });
       setFlash(req, 'success', `Lot status changed to ${req.body.newStatus}.`);
       res.redirect(`/bids/${req.body.bidId}`);
     } catch (err) {

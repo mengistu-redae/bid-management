@@ -6,6 +6,7 @@
   <a class="btn secondary" href="/bids/kanban">Kanban</a>
   <a class="btn secondary" href="/bids/calendar">Calendar</a>
   <span class="muted" hx-boost="false" style="margin-left:auto;">Jump to:
+    <a href="#delays">Delays</a> &middot;
     <a href="#closing-this-week">Closing</a> &middot;
     <a href="#pipeline-value">Pipeline</a> &middot;
     <a href="#win-rate">Win rate</a> &middot;
@@ -44,7 +45,40 @@
     <span class="stat-value"><%= data.expiringDealRegistrations.length %></span>
     <span class="stat-label">Deal regs expiring soon</span>
   </a>
+  <a class="stat-card<%= (data.delaySummary.redCount + data.delaySummary.criticalCount) > 0 ? ' danger' : (data.delaySummary.amberCount > 0 ? ' warn' : '') %>" href="#delays">
+    <span class="stat-icon"><%- include('partials/icon', { name: 'alert' }) %></span>
+    <span class="stat-value"><%= data.delaySummary.amberCount + data.delaySummary.redCount + data.delaySummary.criticalCount %></span>
+    <span class="stat-label">Lots behind target</span>
+  </a>
 </div>
+
+<h2 id="delays" class="mt-1"><%- include('partials/icon', { name: 'alert' }) %> Delays</h2>
+<div class="row" style="gap:0.5rem; margin-bottom:0.5rem;">
+  <span class="badge indicator-amber">Amber <%= data.delaySummary.amberCount %></span>
+  <span class="badge indicator-red">Red <%= data.delaySummary.redCount %></span>
+  <span class="badge indicator-critical">Critical <%= data.delaySummary.criticalCount %></span>
+  <span class="badge stale">Stale <%= data.delaySummary.staleCount %></span>
+</div>
+<% if (data.delaySummary.topDelayed.length === 0) { %>
+  <p class="muted">No lots are currently amber, red or critical against their stage target.</p>
+<% } else { %>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Bid</th><th>Lot</th><th>Division</th><th>Level</th><th>% of target</th></tr></thead>
+    <tbody>
+      <% data.delaySummary.topDelayed.forEach(row => { %>
+        <tr>
+          <td><a href="/bids/<%= row.bidId %>"><%= row.bidTitle %></a></td>
+          <td><%= row.lotLabel %></td>
+          <td><%= row.divisionName || '-' %></td>
+          <td><span class="badge <%= indicatorBadgeClass(row.level) %>"><%= row.level %></span></td>
+          <td><%= row.percentUsed !== null ? Math.round(row.percentUsed) + '%' : '-' %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+<% } %>
 
 <%
   function viewAllLink(range) {

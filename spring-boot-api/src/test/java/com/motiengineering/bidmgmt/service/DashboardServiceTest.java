@@ -43,7 +43,11 @@ class DashboardServiceTest {
         when(dealRegistrationRepository.findAll()).thenReturn(List.of());
         ChecklistService checklistService = mock(ChecklistService.class);
         when(checklistService.progressPercent(org.mockito.ArgumentMatchers.any())).thenReturn(50);
-        service = new DashboardService(bidRepository, lotAccountOfficerRepository, appUserRepository, dealRegistrationRepository, checklistService);
+        IndicatorService indicatorService = mock(IndicatorService.class);
+        when(indicatorService.compute(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new IndicatorService.IndicatorResult(com.motiengineering.bidmgmt.domain.enums.IndicatorLevel.NO_TARGET, null, null, null, true, false));
+        service = new DashboardService(bidRepository, lotAccountOfficerRepository, appUserRepository, dealRegistrationRepository, checklistService, indicatorService);
     }
 
     private Organization org(String name) {

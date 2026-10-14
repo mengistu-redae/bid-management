@@ -15,5 +15,6 @@ public record DashboardDto(
         List<OutstandingBondRowDto> outstandingBonds,
         BigDecimal outstandingBondTotalEtb,
         BigDecimal outstandingBondTotalUsd,
-        List<ExpiringDealRegistrationRowDto> expiringDealRegistrations) {
+        List<ExpiringDealRegistrationRowDto> expiringDealRegistrations,
+        DelaySummaryDto delaySummary) {
 }

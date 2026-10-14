@@ -15,7 +15,12 @@
         <td><%= r.organization ? r.organization.name : '-' %></td>
         <td><%= r.oem ? r.oem.name : '-' %></td>
         <td><%= r.distributor || '-' %></td>
-        <td><span class="badge <%= r.status === 'REJECTED' || r.status === 'EXPIRED' ? 'lost' : (r.status === 'APPROVED' ? 'won' : '') %>"><%= r.status %></span></td>
+        <td>
+          <span class="badge <%= r.status === 'REJECTED' || r.status === 'EXPIRED' ? 'lost' : (r.status === 'APPROVED' ? 'won' : '') %>"><%= r.status %></span>
+          <% if (r.indicator && r.indicator.level !== 'NO_TARGET' && r.indicator.level !== 'UNKNOWN') { %>
+            <span class="badge <%= indicatorBadgeClass(r.indicator.level) %>" title="<%= indicatorLabel(r.indicator) %>"><%= r.indicator.level %></span>
+          <% } %>
+        </td>
         <td><%= formatDate(r.expiryDate) %> <% if (r.expiringSoon) { %><span class="badge review">soon</span><% } %></td>
         <td><% if (r.conflictCount > 0) { %><span class="badge review"><%= r.conflictCount %> conflict<%= r.conflictCount > 1 ? 's' : '' %></span><% } %></td>
       </tr>

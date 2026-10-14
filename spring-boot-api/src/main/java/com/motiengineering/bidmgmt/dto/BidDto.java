@@ -26,6 +26,7 @@ public record BidDto(
         boolean canEdit,
         boolean redFlag,
         String redFlagReason,
+        IndicatorDto worstIndicator,
         Instant createdAt,
         Instant updatedAt) {
 }

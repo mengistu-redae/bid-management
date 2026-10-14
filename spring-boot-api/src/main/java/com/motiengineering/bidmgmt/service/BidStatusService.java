@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
@@ -48,6 +49,7 @@ public class BidStatusService {
     private final BidRepository bidRepository;
     private final BidStatusHistoryRepository historyRepository;
     private final StageHistoryService stageHistoryService;
+    private final IndicatorService indicatorService;
 
     public static boolean isAllowed(BidStatus from, BidStatus to) {
         return ALLOWED_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
@@ -65,7 +67,7 @@ public class BidStatusService {
         if (newStatus == BidStatus.DROPPED || newStatus == BidStatus.CANCELLED) {
             bid.setExitReason(reason);
         }
-        recordHistory(bid, null, oldStatus, newStatus, reason, actingUser);
+        recordHistory(bid, null, oldStatus, newStatus, reason, null, actingUser);
 
         for (BidLot lot : bid.getLots()) {
             if (lot.getStatus() == oldStatus) {
@@ -73,7 +75,7 @@ public class BidStatusService {
                 if (newStatus == BidStatus.DROPPED || newStatus == BidStatus.CANCELLED) {
                     lot.setExitReason(reason);
                 }
-                recordHistory(null, lot, oldStatus, newStatus, reason, actingUser);
+                recordHistory(null, lot, oldStatus, newStatus, reason, null, actingUser);
             }
         }
         return bidRepository.save(bid);
@@ -81,19 +83,35 @@ public class BidStatusService {
 
     /** A single lot diverging from its siblings (e.g. one lot dropped while the bid keeps preparing on the others). */
     @Transactional
-    public BidLot transitionLot(BidLot lot, BidStatus newStatus, String reason, AppUser actingUser) {
+    public BidLot transitionLot(BidLot lot, BidStatus newStatus, String reason, String delayReasonCode, AppUser actingUser) {
         BidStatus oldStatus = lot.getStatus();
         if (!isAllowed(oldStatus, newStatus)) {
             throw new IllegalStateException("Cannot move a lot from " + oldStatus + " to " + newStatus);
         }
         requireReasonForExit(newStatus, reason);
+        requireDelayReasonIfRedOrCritical(lot, delayReasonCode);
 
         lot.setStatus(newStatus);
         if (newStatus == BidStatus.DROPPED || newStatus == BidStatus.CANCELLED) {
             lot.setExitReason(reason);
         }
-        recordHistory(null, lot, oldStatus, newStatus, reason, actingUser);
+        recordHistory(null, lot, oldStatus, newStatus, reason, delayReasonCode, actingUser);
         return lot;
+    }
+
+    /** Red/critical is measured against the lot's CURRENT (about-to-be-exited) status, per the brief's "required when closing a stage that ended red." */
+    private void requireDelayReasonIfRedOrCritical(BidLot lot, String delayReasonCode) {
+        TargetContext context = new TargetContext(
+                lot.getDivision() == null ? null : lot.getDivision().getId(),
+                lot.getBid().getOrganization() == null ? null : lot.getBid().getOrganization().getSector(),
+                lot.getOemBrand(),
+                null);
+        Map<String, Instant> deadlineFields = IndicatorService.deadlineField("closingAt", lot.getBid().getClosingAt());
+        IndicatorService.IndicatorResult indicator = indicatorService.compute(
+                EntityType.LOT, lot.getId(), "status", lot.getStatus().name(), lot.getCreatedAt(), context, deadlineFields);
+        if (indicator.isRedOrCritical() && (delayReasonCode == null || delayReasonCode.isBlank())) {
+            throw new IllegalArgumentException("A delay reason is required when moving a lot out of a stage that is red or critical");
+        }
     }
 
     private void requireReasonForExit(BidStatus newStatus, String reason) {
@@ -102,7 +120,7 @@ public class BidStatusService {
         }
     }
 
-    private void recordHistory(Bid bid, BidLot lot, BidStatus from, BidStatus to, String reason, AppUser actingUser) {
+    private void recordHistory(Bid bid, BidLot lot, BidStatus from, BidStatus to, String reason, String delayReasonCode, AppUser actingUser) {
         BidStatusHistory history = new BidStatusHistory();
         history.setBid(bid);
         history.setLot(lot);
@@ -114,6 +132,6 @@ public class BidStatusService {
 
         EntityType entityType = lot != null ? EntityType.LOT : EntityType.BID;
         UUID entityId = lot != null ? lot.getId() : bid.getId();
-        stageHistoryService.record(entityType, entityId, "status", from == null ? null : from.name(), to.name(), reason, actingUser);
+        stageHistoryService.record(entityType, entityId, "status", from == null ? null : from.name(), to.name(), reason, delayReasonCode, actingUser);
     }
 }

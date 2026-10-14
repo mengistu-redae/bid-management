@@ -1,6 +1,9 @@
 <%- include('../partials/header', { title: title, user: user }) %>
 
-<div class="mt-0"><a href="/bids">&larr; Back to bids</a></div>
+<div class="mt-0 row" style="justify-content:space-between;">
+  <a href="/bids">&larr; Back to bids</a>
+  <a href="/bids/<%= bid.id %>/deal360" class="btn secondary btn-xs">Deal 360</a>
+</div>
 
 <div class="toolbar">
   <div>
@@ -13,6 +16,9 @@
     </span>
   <% } %>
   <span class="badge <%= statusBadgeClass(bid.status) %>" style="font-size:1rem;"><%= bid.status %></span>
+  <% if (bid.worstIndicator && bid.worstIndicator.level !== 'NO_TARGET' && bid.worstIndicator.level !== 'UNKNOWN') { %>
+    <span class="badge <%= indicatorBadgeClass(bid.worstIndicator.level) %>" style="font-size:1rem;" title="<%= indicatorLabel(bid.worstIndicator) %>"><%= bid.worstIndicator.level %></span>
+  <% } %>
 </div>
 
 <div class="card">
@@ -54,7 +60,35 @@
         <span class="muted"><%= lot.division ? lot.division.name : 'no division set' %></span>
         <% if (lot.needsReview) { %><span class="badge review">needs review</span><% } %>
       </div>
-      <span class="badge <%= statusBadgeClass(lot.status) %>"><%= lot.status %></span>
+      <div>
+        <span class="badge <%= statusBadgeClass(lot.status) %>"><%= lot.status %></span>
+        <% if (lot.indicator && lot.indicator.level !== 'NO_TARGET' && lot.indicator.level !== 'UNKNOWN') { %>
+          <span class="badge <%= indicatorBadgeClass(lot.indicator.level) %>" title="<%= indicatorLabel(lot.indicator) %>"><%= lot.indicator.level %></span>
+        <% } %>
+        <% if (lot.indicator && lot.indicator.stale) { %><span class="badge stale">stale</span><% } %>
+      </div>
+    </div>
+
+    <div class="row mt-1" style="font-size:0.85rem; align-items:center;">
+      <strong>Waiting on</strong>
+      <% if (lot.waitingOn) { %>
+        <span class="muted"><%= lot.waitingOn.partyType %><% if (lot.waitingOn.personName) { %> (<%= lot.waitingOn.personName %>)<% } %><% if (lot.waitingOn.note) { %> - <%= lot.waitingOn.note %><% } %></span>
+      <% } else { %>
+        <span class="muted">not set</span>
+      <% } %>
+      <% if (bid.canEdit) { %>
+        <details>
+          <summary class="muted">change</summary>
+          <form method="post" action="/bids/lots/<%= lot.id %>/waiting-on" class="row tight mt-1">
+            <input type="hidden" name="bidId" value="<%= bid.id %>">
+            <select name="partyType" class="w-auto">
+              <% waitingOnOptions.forEach(p => { %><option value="<%= p %>" <%= lot.waitingOn && lot.waitingOn.partyType === p ? 'selected' : '' %>><%= p %></option><% }) %>
+            </select>
+            <input name="note" placeholder="Note" value="<%= lot.waitingOn ? (lot.waitingOn.note || '') : '' %>" class="col">
+            <button type="submit" class="secondary btn-xs">Save</button>
+          </form>
+        </details>
+      <% } %>
     </div>
 
     <% if (lot.reviewNote) { %><div class="warning-box"><%= lot.reviewNote %></div><% } %>
@@ -142,7 +176,7 @@
       <button type="submit" class="secondary">Add</button>
     </form>
 
-    <details class="mt-2">
+    <details class="mt-2"<%= lot.indicator && (lot.indicator.level === 'RED' || lot.indicator.level === 'CRITICAL') ? ' open' : '' %>>
       <summary class="muted">Change this lot's status independently</summary>
       <form method="post" action="/bids/lots/<%= lot.id %>/status" class="row mt-1">
         <input type="hidden" name="bidId" value="<%= bid.id %>">
@@ -150,6 +184,10 @@
           <% statusOptions.forEach(s => { %><option value="<%= s %>" <%= s === lot.status ? 'selected' : '' %>><%= s %></option><% }) %>
         </select>
         <input name="reason" placeholder="Reason (if dropping/cancelling)" class="col">
+        <select name="delayReasonCode" class="w-auto">
+          <option value="">Delay reason (required if red/critical)</option>
+          <% delayReasonCodes.forEach(c => { %><option value="<%= c.code %>"><%= c.label %></option><% }) %>
+        </select>
         <button type="submit" class="secondary">Update lot status</button>
       </form>
     </details>

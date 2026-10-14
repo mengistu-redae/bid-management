@@ -16,6 +16,7 @@ public record ContractDto(
         String exitReason,
         String notes,
         boolean onHold,
+        IndicatorDto indicator,
         Instant createdAt,
         Instant updatedAt) {
 }
