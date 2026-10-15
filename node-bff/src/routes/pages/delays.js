@@ -37,7 +37,11 @@ function buildDelaysRouter() {
 
   router.post('/follow-up', async (req, res, next) => {
     try {
-      await req.api.post(`/api/follow-up?entityType=LOT&entityId=${req.body.lotId}`, {
+      // entityType/entityId are generic as of the Contract/Logistics board extension - req.body.lotId
+      // is kept as a fallback so nothing breaks if an older cached page form still submits it.
+      const entityType = req.body.entityType || 'LOT';
+      const entityId = req.body.entityId || req.body.lotId;
+      await req.api.post(`/api/follow-up?entityType=${entityType}&entityId=${entityId}`, {
         note: req.body.note || null,
         nextFollowUpDate: req.body.nextFollowUpDate || null,
         ownerId: req.body.ownerId || null,
@@ -51,7 +55,9 @@ function buildDelaysRouter() {
 
   router.post('/snooze', async (req, res, next) => {
     try {
-      await req.api.post(`/api/follow-up/snooze?entityType=LOT&entityId=${req.body.lotId}`, {
+      const entityType = req.body.entityType || 'LOT';
+      const entityId = req.body.entityId || req.body.lotId;
+      await req.api.post(`/api/follow-up/snooze?entityType=${entityType}&entityId=${entityId}`, {
         reason: req.body.reason, snoozedUntil: req.body.snoozedUntil || null,
       });
       setFlash(req, 'success', 'Snoozed.');

@@ -67,7 +67,7 @@ public class ContractController {
     public ContractDto changeStatus(@PathVariable UUID id, @Valid @RequestBody StatusChangeRequest request) {
         requireEdit(id);
         ContractStatus newStatus = ContractStatus.valueOf(request.newStatus().toUpperCase());
-        return contractMapper.toDto(contractService.transitionStatus(id, newStatus, request.reason(), CurrentUserContext.requireUser()));
+        return contractMapper.toDto(contractService.transitionStatus(id, newStatus, request.reason(), request.delayReasonCode(), CurrentUserContext.requireUser()));
     }
 
     private void requireEdit(UUID id) {

@@ -688,6 +688,65 @@ gate (Awarded/Terminated rejected, Signed/In Delivery allowed) and its
 existing status-transition guard; all 137 backend tests and all node-bff
 tests pass.
 
+## Delay tracking for Contract & Logistics
+
+A follow-on to the lifecycle-completeness work above: Contract and
+Logistics already computed their own Green/Amber/Red/Critical indicator
+(`ContractMapper`/`LogisticsMapper`, shipped back in stage-tracking phase
+2) and showed it as a badge on their own detail pages, but nothing
+*aggregated* across them the way BidLot's delays are aggregated - they
+never appeared on `/delays`, couldn't have a delay reason recorded when
+exiting a bad stage, and had no follow-up/snooze workflow. This closes
+that specific gap. Two things stay deliberately out of scope, noted
+below rather than silently absorbed into this change: the dashboard's
+own "Where deals are stuck" widget and "Behind stage target" stat card
+still only scan BidLot (they have their own separate, simpler
+`DelayRowDto`/`delaySummary()` in `DashboardService`, not shared with
+the board), and `MyFollowUpsService` still only surfaces LOT rows.
+
+- **`DelayBoardRowDto`** gained `entityType`/`entityId`/`detailHref` -
+  the generic identity a board row needs to point anywhere, not just at
+  a bid lot. `bidId`/`bidTitle`/`lotId`/`lotLabel` stay exactly as they
+  were for LOT rows (null for the other two) rather than being renamed,
+  so the only node-bff changes needed were switching the link and the
+  follow-up/snooze form's hidden fields from the old hardcoded
+  `/bids/<bidId>` and `entityType=LOT` to the new generic fields - the
+  rows' display logic (title/subtitle/badges) didn't need to change at
+  all.
+- **`DelaysBoardService`** now merges three sources per call: BidLot (as
+  before), every open Contract, and every open Logistics shipment -
+  `computeContractRow`/`computeLogisticsRow` mirror `ContractMapper`/
+  `LogisticsMapper`'s own indicator computation exactly (same
+  `TargetContext`, same deadline field), so the board and an entity's
+  own badge can never disagree. Contract/Logistics rows carry no
+  division, OEM, or account officers - those concepts live on BidLot,
+  not on their parent Contract, so those fields are simply null/empty
+  rather than guessed at.
+- **Delay-reason-on-exit enforcement** was extended to Contract and
+  Logistics, mirroring `BidStatusService.transitionLot`'s existing rule
+  exactly: exiting a Red/Critical stage now requires a
+  `delayReasonCode`, surfaced via the same dropdown (fed by
+  `/api/delay-reason-codes`) already used on the bid lot status form.
+  `ContractController`/`LogisticsController` already carried
+  `StatusChangeRequest.delayReasonCode()` through their `@Valid` request
+  body - it just wasn't being passed to the service layer yet.
+- Added `ContractServiceTest` (no test existed for this service before -
+  the creation gate, the transition table, and the new delay-reason
+  rule), extended `LogisticsServiceTest` with the same, and added
+  `DelaysBoardServiceTest` (no test existed for this service either) -
+  a Critical contract row, a Red logistics row linked back to its bid, a
+  Terminated contract correctly excluded, and a plain LOT row proving
+  the existing behavior is unaffected.
+
+Live-verified end to end against the real `bidmgmt` database: the
+`/delays` board rendered with no errors against real Contract/Logistics
+data (confirmed via server logs showing no exceptions from the new
+scanning code, exercised against actual JPA-loaded entities, not just
+mocks); the new "Delay reason" dropdown rendering correctly on both the
+Contract and Logistics status-update forms; and a real status transition
+on a live contract (Signed -> In Delivery) still succeeding exactly as
+before the change.
+
 ## Tests
 
 ```bash
@@ -782,6 +841,17 @@ creation gate (rejected for Awarded and Terminated, allowed for Signed
 and In Delivery) and the existing status-transition guard (skipped-stage
 rejection, the legal next-stage success path, and the right timestamp
 field getting stamped on each transition).
+
+The Contract/Logistics delay-tracking follow-on added `ContractServiceTest`
+(no test existed for this service before - the WON-bid/one-per-bid
+creation gate, the transition table, and the new delay-reason-on-exit
+rule), extended `LogisticsServiceTest` with the equivalent delay-reason
+case, and added `DelaysBoardServiceTest` (no test existed for this
+service either, despite it already backing a real page) - a Critical
+contract row with the right title/subtitle/link, a Red logistics row
+correctly linked back to its parent bid, a Terminated contract excluded
+from the board entirely, and a plain BidLot row proving the merge didn't
+change existing behavior.
 
 ## Deployment
 

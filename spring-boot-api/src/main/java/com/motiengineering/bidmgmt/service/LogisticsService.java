@@ -42,6 +42,7 @@ public class LogisticsService {
     private final LogisticsShipmentRepository logisticsShipmentRepository;
     private final ContractRepository contractRepository;
     private final StageHistoryService stageHistoryService;
+    private final IndicatorService indicatorService;
 
     public LogisticsShipment get(UUID id) {
         return logisticsShipmentRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Shipment not found: " + id));
@@ -99,12 +100,13 @@ public class LogisticsService {
     }
 
     @Transactional
-    public LogisticsShipment transitionStatus(UUID id, LogisticsStatus newStatus, String reason, AppUser actingUser) {
+    public LogisticsShipment transitionStatus(UUID id, LogisticsStatus newStatus, String reason, String delayReasonCode, AppUser actingUser) {
         LogisticsShipment shipment = get(id);
         LogisticsStatus oldStatus = shipment.getStatus();
         if (!ALLOWED_TRANSITIONS.getOrDefault(oldStatus, Set.of()).contains(newStatus)) {
             throw new IllegalStateException("Cannot move a shipment from " + oldStatus + " to " + newStatus);
         }
+        requireDelayReasonIfRedOrCritical(shipment, delayReasonCode);
 
         Instant now = Instant.now();
         shipment.setStatus(newStatus);
@@ -115,7 +117,17 @@ public class LogisticsService {
             case DELIVERED -> shipment.setDeliveredAt(now);
             default -> { /* PLANNING, IN_TRANSIT carry no extra timestamp */ }
         }
-        stageHistoryService.record(EntityType.LOGISTICS, shipment.getId(), "status", oldStatus.name(), newStatus.name(), reason, actingUser);
+        stageHistoryService.record(EntityType.LOGISTICS, shipment.getId(), "status", oldStatus.name(), newStatus.name(), reason, delayReasonCode, actingUser);
         return logisticsShipmentRepository.save(shipment);
+    }
+
+    /** Red/critical is measured against the shipment's CURRENT (about-to-be-exited) status - same rule as BidStatusService.transitionLot. */
+    private void requireDelayReasonIfRedOrCritical(LogisticsShipment shipment, String delayReasonCode) {
+        TargetContext context = new TargetContext(null, null, null, shipment.getShipmentMode());
+        IndicatorService.IndicatorResult indicator = indicatorService.compute(
+                EntityType.LOGISTICS, shipment.getId(), "status", shipment.getStatus().name(), shipment.getCreatedAt(), context, Map.of());
+        if (indicator.isRedOrCritical() && (delayReasonCode == null || delayReasonCode.isBlank())) {
+            throw new IllegalArgumentException("A delay reason is required when moving a shipment out of a stage that is red or critical");
+        }
     }
 }

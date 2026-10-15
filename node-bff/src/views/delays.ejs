@@ -42,8 +42,9 @@
   <div class="card" style="padding:0.75rem 1rem;">
     <div class="row" style="justify-content:space-between; align-items:flex-start; flex-wrap:wrap;">
       <div>
-        <a href="/bids/<%= row.bidId %>" style="font-weight:600;"><%= row.bidTitle %></a>
+        <a href="<%= row.detailHref %>" style="font-weight:600;"><%= row.bidTitle %></a>
         <span class="muted"> &middot; <%= row.lotLabel %></span>
+        <% if (row.entityType !== 'LOT') { %><span class="badge" style="margin-left:0.4rem;"><%= row.entityType %></span><% } %>
         <div class="muted" style="font-size:0.85rem;">
           <%= row.organizationName || '-' %><% if (row.divisionName) { %> &middot; <%= row.divisionName %><% } %><% if (row.oemBrand) { %> &middot; <%= row.oemBrand %><% } %>
         </div>
@@ -63,7 +64,8 @@
     <details class="mt-1">
       <summary class="muted" style="font-size:0.85rem;">Log follow-up / snooze</summary>
       <form method="post" action="/delays/follow-up" class="row tight mt-1">
-        <input type="hidden" name="lotId" value="<%= row.lotId %>">
+        <input type="hidden" name="entityType" value="<%= row.entityType %>">
+        <input type="hidden" name="entityId" value="<%= row.entityId %>">
         <input type="hidden" name="returnTo" value="/delays">
         <input name="note" placeholder="Follow-up note" class="col">
         <input type="date" name="nextFollowUpDate" class="w-auto">
@@ -74,7 +76,8 @@
         <button type="submit" class="secondary btn-xs">Save follow-up</button>
       </form>
       <form method="post" action="/delays/snooze" class="row tight mt-1">
-        <input type="hidden" name="lotId" value="<%= row.lotId %>">
+        <input type="hidden" name="entityType" value="<%= row.entityType %>">
+        <input type="hidden" name="entityId" value="<%= row.entityId %>">
         <input type="hidden" name="returnTo" value="/delays">
         <input name="reason" placeholder="Snooze reason (required)" class="col">
         <input type="date" name="snoozedUntil" class="w-auto">

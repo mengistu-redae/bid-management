@@ -57,12 +57,14 @@ function buildContractsRouter() {
 
   router.get('/:id', async (req, res, next) => {
     try {
-      const [contract, logistics] = await Promise.all([
+      const [contract, logistics, delayReasonCodes] = await Promise.all([
         req.api.get(`/api/contracts/${req.params.id}`),
         req.api.get(`/api/logistics?contractId=${req.params.id}`),
+        req.api.get('/api/delay-reason-codes'),
       ]);
       res.render('contracts/detail', {
         title: contract.contractNumber || 'Contract', user: req.session.user, contract, logistics, statusOptions: STATUS_OPTIONS,
+        delayReasonCodes: delayReasonCodes.filter((c) => c.active),
       });
     } catch (err) {
       next(err);
@@ -85,7 +87,9 @@ function buildContractsRouter() {
 
   router.post('/:id/status', async (req, res, next) => {
     try {
-      await req.api.put(`/api/contracts/${req.params.id}/status`, { newStatus: req.body.newStatus, reason: req.body.reason || null });
+      await req.api.put(`/api/contracts/${req.params.id}/status`, {
+        newStatus: req.body.newStatus, reason: req.body.reason || null, delayReasonCode: req.body.delayReasonCode || null,
+      });
       setFlash(req, 'success', `Status changed to ${req.body.newStatus}.`);
       res.redirect(`/contracts/${req.params.id}`);
     } catch (err) {

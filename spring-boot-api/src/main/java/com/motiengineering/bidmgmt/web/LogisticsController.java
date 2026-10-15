@@ -67,7 +67,7 @@ public class LogisticsController {
     public LogisticsShipmentDto changeStatus(@PathVariable UUID id, @Valid @RequestBody StatusChangeRequest request) {
         requireEdit(id);
         LogisticsStatus newStatus = LogisticsStatus.valueOf(request.newStatus().toUpperCase());
-        return logisticsMapper.toDto(logisticsService.transitionStatus(id, newStatus, request.reason(), CurrentUserContext.requireUser()));
+        return logisticsMapper.toDto(logisticsService.transitionStatus(id, newStatus, request.reason(), request.delayReasonCode(), CurrentUserContext.requireUser()));
     }
 
     private void requireEdit(UUID id) {

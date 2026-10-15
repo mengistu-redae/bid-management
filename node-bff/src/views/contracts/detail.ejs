@@ -44,6 +44,13 @@
       <label>Reason (required for Terminated)</label>
       <input name="reason" placeholder="Why?">
     </div>
+    <div style="flex:1; min-width:12rem;">
+      <label>Delay reason (required if red/critical)</label>
+      <select name="delayReasonCode">
+        <option value="">-</option>
+        <% delayReasonCodes.forEach(c => { %><option value="<%= c.code %>"><%= c.label %></option><% }) %>
+      </select>
+    </div>
     <div><button type="submit">Update</button></div>
   </form>
 </div>

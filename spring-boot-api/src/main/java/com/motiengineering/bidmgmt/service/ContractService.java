@@ -48,6 +48,7 @@ public class ContractService {
     private final ContractRepository contractRepository;
     private final BidRepository bidRepository;
     private final StageHistoryService stageHistoryService;
+    private final IndicatorService indicatorService;
 
     public Contract get(UUID id) {
         return contractRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Contract not found: " + id));
@@ -99,7 +100,7 @@ public class ContractService {
     }
 
     @Transactional
-    public Contract transitionStatus(UUID id, ContractStatus newStatus, String reason, AppUser actingUser) {
+    public Contract transitionStatus(UUID id, ContractStatus newStatus, String reason, String delayReasonCode, AppUser actingUser) {
         Contract contract = get(id);
         ContractStatus oldStatus = contract.getStatus();
         if (!ALLOWED_TRANSITIONS.getOrDefault(oldStatus, Set.of()).contains(newStatus)) {
@@ -108,6 +109,7 @@ public class ContractService {
         if (newStatus == ContractStatus.TERMINATED && (reason == null || reason.isBlank())) {
             throw new IllegalArgumentException("TERMINATED requires a reason");
         }
+        requireDelayReasonIfRedOrCritical(contract, delayReasonCode);
 
         contract.setStatus(newStatus);
         if (newStatus == ContractStatus.SIGNED) {
@@ -119,7 +121,21 @@ public class ContractService {
         if (newStatus == ContractStatus.TERMINATED) {
             contract.setExitReason(reason);
         }
-        stageHistoryService.record(EntityType.CONTRACT, contract.getId(), "status", oldStatus.name(), newStatus.name(), reason, actingUser);
+        stageHistoryService.record(EntityType.CONTRACT, contract.getId(), "status", oldStatus.name(), newStatus.name(), reason, delayReasonCode, actingUser);
         return contractRepository.save(contract);
+    }
+
+    /** Red/critical is measured against the contract's CURRENT (about-to-be-exited) status - same rule as BidStatusService.transitionLot. */
+    private void requireDelayReasonIfRedOrCritical(Contract contract, String delayReasonCode) {
+        TargetContext context = new TargetContext(null,
+                contract.getBid().getOrganization() == null ? null : contract.getBid().getOrganization().getSector(), null, null);
+        Instant deliveryDeadline = contract.getDeliveryDeadline() == null ? null
+                : contract.getDeliveryDeadline().atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+        Map<String, Instant> deadlineFields = IndicatorService.deadlineField("deliveryDeadline", deliveryDeadline);
+        IndicatorService.IndicatorResult indicator = indicatorService.compute(
+                EntityType.CONTRACT, contract.getId(), "status", contract.getStatus().name(), contract.getCreatedAt(), context, deadlineFields);
+        if (indicator.isRedOrCritical() && (delayReasonCode == null || delayReasonCode.isBlank())) {
+            throw new IllegalArgumentException("A delay reason is required when moving a contract out of a stage that is red or critical");
+        }
     }
 }

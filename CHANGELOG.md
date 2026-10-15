@@ -187,3 +187,21 @@
   has had, covering the new creation gate and its existing status guard.
 
 All four phases of the lifecycle-completeness initiative are now done.
+
+### Delay tracking for Contract & Logistics
+
+- `DelaysBoardService` now merges BidLot, Contract, and Logistics rows
+  into one board - previously `/delays` only ever showed bid lots, even
+  though Contract/Logistics already computed their own Green/Amber/Red/
+  Critical indicator. `DelayBoardRowDto` gained generic
+  `entityType`/`entityId`/`detailHref` fields so a row can point anywhere,
+  not just at a bid.
+- Extended delay-reason-on-exit enforcement (previously BidLot-only) to
+  Contract and Logistics status transitions, with the same dropdown UI
+  already used for bid lots.
+- Added `ContractServiceTest` and `DelaysBoardServiceTest` (neither
+  service had any test coverage before this), and extended
+  `LogisticsServiceTest` with the new delay-reason case.
+- Deliberately out of scope, not silently absorbed: the dashboard's own
+  "Where deals are stuck" widget/stat card and `MyFollowUpsService` both
+  still only cover BidLot.

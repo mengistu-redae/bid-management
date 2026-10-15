@@ -2,29 +2,39 @@ package com.motiengineering.bidmgmt.service;
 
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
+import com.motiengineering.bidmgmt.domain.Contract;
 import com.motiengineering.bidmgmt.domain.FollowUpState;
+import com.motiengineering.bidmgmt.domain.LogisticsShipment;
 import com.motiengineering.bidmgmt.domain.LotAccountOfficer;
 import com.motiengineering.bidmgmt.domain.WaitingOnState;
 import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.dto.DelayBoardRowDto;
 import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.repository.BidRepository;
+import com.motiengineering.bidmgmt.repository.ContractRepository;
+import com.motiengineering.bidmgmt.repository.LogisticsShipmentRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 /**
- * All currently amber/red/critical open lots, for managers/the Director to
- * triage - a live, filterable superset of the dashboard's "Delays"
- * section (which only shows the top 10). Scoped to BidLot, same as the
- * rest of this phase's alerting.
+ * Every currently amber/red/critical open Bid lot, Contract or Logistics
+ * shipment, for managers/the Director to triage - a live, filterable
+ * superset of the dashboard's "Delays" section (which only shows the top
+ * 10, and - as of this writing - BidLot only; extending the dashboard
+ * widget the same way this board was extended is a reasonable next step,
+ * not yet done). Contract/Logistics rows carry no division or OEM (those
+ * concepts live on BidLot, not their parent Contract) and no account
+ * officers (no equivalent of lot_account_officers exists for them yet),
+ * so those fields are simply null/empty on those rows rather than guessed.
  */
 @Service
 @RequiredArgsConstructor
@@ -32,6 +42,8 @@ import java.util.UUID;
 public class DelaysBoardService {
 
     private final BidRepository bidRepository;
+    private final ContractRepository contractRepository;
+    private final LogisticsShipmentRepository logisticsShipmentRepository;
     private final LotAccountOfficerRepository lotAccountOfficerRepository;
     private final AppUserRepository appUserRepository;
     private final IndicatorService indicatorService;
@@ -43,9 +55,28 @@ public class DelaysBoardService {
     }
 
     public List<DelayBoardRowDto> list(Filter filter) {
-        return bidRepository.findAll().stream()
-                .flatMap(bid -> bid.getLots().stream().map(lot -> computeRow(bid, lot)))
-                .filter(java.util.Objects::nonNull)
+        List<DelayBoardRowDto> rows = new ArrayList<>();
+        for (Bid bid : bidRepository.findAll()) {
+            for (BidLot lot : bid.getLots()) {
+                DelayBoardRowDto row = computeRow(bid, lot);
+                if (row != null) {
+                    rows.add(row);
+                }
+            }
+        }
+        for (Contract contract : contractRepository.findAll()) {
+            DelayBoardRowDto row = computeContractRow(contract);
+            if (row != null) {
+                rows.add(row);
+            }
+        }
+        for (LogisticsShipment shipment : logisticsShipmentRepository.findAll()) {
+            DelayBoardRowDto row = computeLogisticsRow(shipment);
+            if (row != null) {
+                rows.add(row);
+            }
+        }
+        return rows.stream()
                 .filter(row -> isShowable(row) && matches(row, filter))
                 .sorted(Comparator.comparing((DelayBoardRowDto r) -> r.percentUsed() == null ? 0.0 : r.percentUsed()).reversed())
                 .toList();
@@ -76,6 +107,7 @@ public class DelaysBoardService {
                 .toList();
 
         return new DelayBoardRowDto(
+                "LOT", lot.getId(), "/bids/" + bid.getId(),
                 bid.getId(), bid.getTitle(), lot.getId(), lot.getLotLabel(),
                 bid.getOrganization() == null ? null : bid.getOrganization().getId(),
                 bid.getOrganization() == null ? null : bid.getOrganization().getName(),
@@ -85,6 +117,65 @@ public class DelaysBoardService {
                 result.level().name(), result.percentUsed(), result.daysUsed(), result.targetDays(), result.stale(),
                 waitingOn == null || waitingOn.getPartyType() == null ? null : waitingOn.getPartyType().name(),
                 officerNames,
+                followUp == null ? null : followUp.getNextFollowUpDate(),
+                followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName());
+    }
+
+    /** Mirrors ContractMapper.indicatorFor exactly, so the board and the contract's own badge never disagree. */
+    private DelayBoardRowDto computeContractRow(Contract contract) {
+        if (contract.getStatus() == null || contract.getStatus().isTerminal()) {
+            return null;
+        }
+        Bid bid = contract.getBid();
+        TargetContext context = new TargetContext(null,
+                bid.getOrganization() == null ? null : bid.getOrganization().getSector(), null, null);
+        Instant deliveryDeadline = contract.getDeliveryDeadline() == null ? null
+                : contract.getDeliveryDeadline().atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+        Map<String, Instant> deadlineFields = IndicatorService.deadlineField("deliveryDeadline", deliveryDeadline);
+        IndicatorService.IndicatorResult result = indicatorService.compute(
+                EntityType.CONTRACT, contract.getId(), "status", contract.getStatus().name(), contract.getCreatedAt(), context, deadlineFields);
+
+        WaitingOnState waitingOn = waitingOnService.get(EntityType.CONTRACT, contract.getId()).orElse(null);
+        FollowUpState followUp = followUpService.get(EntityType.CONTRACT, contract.getId()).orElse(null);
+
+        return new DelayBoardRowDto(
+                "CONTRACT", contract.getId(), "/contracts/" + contract.getId(),
+                null, contract.getContractNumber() != null ? contract.getContractNumber() : "Contract", null, bid.getTitle(),
+                bid.getOrganization() == null ? null : bid.getOrganization().getId(),
+                bid.getOrganization() == null ? null : bid.getOrganization().getName(),
+                null, null,
+                contract.getStatus().name(), null,
+                result.level().name(), result.percentUsed(), result.daysUsed(), result.targetDays(), result.stale(),
+                waitingOn == null || waitingOn.getPartyType() == null ? null : waitingOn.getPartyType().name(),
+                List.of(),
+                followUp == null ? null : followUp.getNextFollowUpDate(),
+                followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName());
+    }
+
+    /** Mirrors LogisticsMapper.indicatorFor exactly, so the board and the shipment's own badge never disagree. */
+    private DelayBoardRowDto computeLogisticsRow(LogisticsShipment shipment) {
+        if (shipment.getStatus() == null || shipment.getStatus().isTerminal()) {
+            return null;
+        }
+        Contract contract = shipment.getContract();
+        Bid bid = contract.getBid();
+        TargetContext context = new TargetContext(null, null, null, shipment.getShipmentMode());
+        IndicatorService.IndicatorResult result = indicatorService.compute(
+                EntityType.LOGISTICS, shipment.getId(), "status", shipment.getStatus().name(), shipment.getCreatedAt(), context, Map.of());
+
+        WaitingOnState waitingOn = waitingOnService.get(EntityType.LOGISTICS, shipment.getId()).orElse(null);
+        FollowUpState followUp = followUpService.get(EntityType.LOGISTICS, shipment.getId()).orElse(null);
+
+        return new DelayBoardRowDto(
+                "LOGISTICS", shipment.getId(), "/logistics/" + shipment.getId(),
+                null, shipment.getShipmentMode().name() + " shipment", null, bid.getTitle(),
+                bid.getOrganization() == null ? null : bid.getOrganization().getId(),
+                bid.getOrganization() == null ? null : bid.getOrganization().getName(),
+                null, null,
+                shipment.getStatus().name(), null,
+                result.level().name(), result.percentUsed(), result.daysUsed(), result.targetDays(), result.stale(),
+                waitingOn == null || waitingOn.getPartyType() == null ? null : waitingOn.getPartyType().name(),
+                List.of(),
                 followUp == null ? null : followUp.getNextFollowUpDate(),
                 followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName());
     }
@@ -106,7 +197,7 @@ public class DelaysBoardService {
             return false;
         }
         if (filter.officerId() != null) {
-            boolean hasOfficer = lotAccountOfficerRepository.findById_LotId(row.lotId()).stream()
+            boolean hasOfficer = row.lotId() != null && lotAccountOfficerRepository.findById_LotId(row.lotId()).stream()
                     .anyMatch(loa -> loa.getId().getUserId().equals(filter.officerId()));
             if (!hasOfficer) {
                 return false;
