@@ -5,24 +5,41 @@ import com.motiengineering.bidmgmt.domain.AlertStateId;
 import com.motiengineering.bidmgmt.domain.AppUser;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
+import com.motiengineering.bidmgmt.domain.Contract;
+import com.motiengineering.bidmgmt.domain.DealRegistration;
 import com.motiengineering.bidmgmt.domain.Division;
 import com.motiengineering.bidmgmt.domain.FollowUpState;
+import com.motiengineering.bidmgmt.domain.LogisticsShipment;
 import com.motiengineering.bidmgmt.domain.LotAccountOfficer;
 import com.motiengineering.bidmgmt.domain.LotAccountOfficerId;
+import com.motiengineering.bidmgmt.domain.Oem;
+import com.motiengineering.bidmgmt.domain.Opportunity;
+import com.motiengineering.bidmgmt.domain.OpportunityDivision;
+import com.motiengineering.bidmgmt.domain.OpportunityDivisionId;
 import com.motiengineering.bidmgmt.domain.Organization;
 import com.motiengineering.bidmgmt.domain.UserDivision;
 import com.motiengineering.bidmgmt.domain.UserDivisionId;
 import com.motiengineering.bidmgmt.domain.enums.AlertKind;
 import com.motiengineering.bidmgmt.domain.enums.BidStatus;
+import com.motiengineering.bidmgmt.domain.enums.ContractStatus;
+import com.motiengineering.bidmgmt.domain.enums.DealRegistrationStatus;
 import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.domain.enums.IndicatorLevel;
+import com.motiengineering.bidmgmt.domain.enums.LogisticsStatus;
+import com.motiengineering.bidmgmt.domain.enums.OpportunityStage;
 import com.motiengineering.bidmgmt.domain.enums.ReminderType;
 import com.motiengineering.bidmgmt.domain.enums.Role;
 import com.motiengineering.bidmgmt.domain.enums.Sector;
+import com.motiengineering.bidmgmt.domain.enums.ShipmentMode;
 import com.motiengineering.bidmgmt.repository.AlertStateRepository;
 import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.repository.BidRepository;
+import com.motiengineering.bidmgmt.repository.ContractRepository;
+import com.motiengineering.bidmgmt.repository.DealRegistrationRepository;
+import com.motiengineering.bidmgmt.repository.LogisticsShipmentRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
+import com.motiengineering.bidmgmt.repository.OpportunityDivisionRepository;
+import com.motiengineering.bidmgmt.repository.OpportunityRepository;
 import com.motiengineering.bidmgmt.repository.UserDivisionRepository;
 import com.motiengineering.bidmgmt.service.FollowUpService;
 import com.motiengineering.bidmgmt.service.IndicatorService;
@@ -48,6 +65,11 @@ import static org.mockito.Mockito.when;
 class DelayAlertSchedulerServiceTest {
 
     private BidRepository bidRepository;
+    private ContractRepository contractRepository;
+    private LogisticsShipmentRepository logisticsShipmentRepository;
+    private OpportunityRepository opportunityRepository;
+    private OpportunityDivisionRepository opportunityDivisionRepository;
+    private DealRegistrationRepository dealRegistrationRepository;
     private LotAccountOfficerRepository lotAccountOfficerRepository;
     private UserDivisionRepository userDivisionRepository;
     private AppUserRepository appUserRepository;
@@ -66,6 +88,16 @@ class DelayAlertSchedulerServiceTest {
     @BeforeEach
     void setUp() throws Exception {
         bidRepository = mock(BidRepository.class);
+        contractRepository = mock(ContractRepository.class);
+        when(contractRepository.findAll()).thenReturn(List.of());
+        logisticsShipmentRepository = mock(LogisticsShipmentRepository.class);
+        when(logisticsShipmentRepository.findAll()).thenReturn(List.of());
+        opportunityRepository = mock(OpportunityRepository.class);
+        when(opportunityRepository.findAll()).thenReturn(List.of());
+        opportunityDivisionRepository = mock(OpportunityDivisionRepository.class);
+        when(opportunityDivisionRepository.findById_OpportunityId(any())).thenReturn(List.of());
+        dealRegistrationRepository = mock(DealRegistrationRepository.class);
+        when(dealRegistrationRepository.findAll()).thenReturn(List.of());
         lotAccountOfficerRepository = mock(LotAccountOfficerRepository.class);
         userDivisionRepository = mock(UserDivisionRepository.class);
         appUserRepository = mock(AppUserRepository.class);
@@ -74,8 +106,10 @@ class DelayAlertSchedulerServiceTest {
         followUpService = mock(FollowUpService.class);
         notificationService = mock(NotificationService.class);
 
-        service = new DelayAlertSchedulerService(bidRepository, lotAccountOfficerRepository, userDivisionRepository,
-                appUserRepository, alertStateRepository, indicatorService, followUpService, notificationService);
+        service = new DelayAlertSchedulerService(bidRepository, contractRepository, logisticsShipmentRepository,
+                opportunityRepository, opportunityDivisionRepository, dealRegistrationRepository,
+                lotAccountOfficerRepository, userDivisionRepository, appUserRepository, alertStateRepository,
+                indicatorService, followUpService, notificationService);
         setField(service, "directorEmail", "director@example.com");
         setField(service, "appBaseUrl", "http://localhost:3002");
 
@@ -119,6 +153,10 @@ class DelayAlertSchedulerServiceTest {
         when(userDivisionRepository.findById_DivisionId(division.getId())).thenReturn(List.of(userDivision));
         when(appUserRepository.findById(manager.getId())).thenReturn(Optional.of(manager));
         when(appUserRepository.findByEmailIgnoreCase("director@example.com")).thenReturn(Optional.of(director));
+
+        // Default so tests about a different entity type don't also need to stub the LOT
+        // fixture's indicator - every LOT-specific test below overrides this with its own call.
+        indicatorReturns(IndicatorLevel.GREEN, false);
     }
 
     private AppUser userWithRole(Role role, String email) {
@@ -246,6 +284,119 @@ class DelayAlertSchedulerServiceTest {
         service.run();
 
         verify(notificationService).sendIfNotAlreadySent(eq(ReminderType.FOLLOWUP_DUE), eq(EntityType.LOT), eq(lot.getId()), eq(officer), any());
+    }
+
+    private Bid wonBid() {
+        Bid b = new Bid();
+        b.setId(UUID.randomUUID());
+        b.setTitle("Won Bid");
+        b.setOrganization(new Organization("Test Bank", Sector.BANK));
+        return b;
+    }
+
+    @Test
+    void criticalContractNotifiesItsCreatorAndTheDirectorButNoManager() {
+        Bid contractBid = wonBid();
+        Contract contract = new Contract();
+        contract.setId(UUID.randomUUID());
+        contract.setBid(contractBid);
+        contract.setStatus(ContractStatus.AWARDED);
+        contract.setCreatedBy(officer);
+        contract.setCreatedAt(Instant.now());
+        when(contractRepository.findAll()).thenReturn(List.of(contract));
+        when(indicatorService.compute(eq(EntityType.CONTRACT), eq(contract.getId()), any(), any(), any(), any(), any()))
+                .thenReturn(new IndicatorService.IndicatorResult(IndicatorLevel.CRITICAL, 180.0, 12.0, 5.0, true, false));
+        when(alertStateRepository.findById(any())).thenReturn(Optional.empty());
+
+        service.run();
+
+        verify(notificationService).sendIfNotAlreadySent(eq(ReminderType.DELAY_CRITICAL), eq(EntityType.CONTRACT), eq(contract.getId()), eq(officer), any());
+        verify(notificationService).sendIfNotAlreadySent(eq(ReminderType.DELAY_CRITICAL), eq(EntityType.CONTRACT), eq(contract.getId()), eq(director), any());
+        verify(notificationService, never()).sendIfNotAlreadySent(eq(ReminderType.DELAY_CRITICAL), eq(EntityType.CONTRACT), eq(contract.getId()), eq(manager), any());
+    }
+
+    @Test
+    void redLogisticsShipmentNotifiesItsCreatorOnly() {
+        Bid contractBid = wonBid();
+        Contract contract = new Contract();
+        contract.setId(UUID.randomUUID());
+        contract.setBid(contractBid);
+        contract.setStatus(ContractStatus.SIGNED);
+
+        LogisticsShipment shipment = new LogisticsShipment();
+        shipment.setId(UUID.randomUUID());
+        shipment.setContract(contract);
+        shipment.setShipmentMode(ShipmentMode.SEA);
+        shipment.setStatus(LogisticsStatus.IN_TRANSIT);
+        shipment.setCreatedBy(officer);
+        shipment.setCreatedAt(Instant.now());
+        when(logisticsShipmentRepository.findAll()).thenReturn(List.of(shipment));
+        when(indicatorService.compute(eq(EntityType.LOGISTICS), eq(shipment.getId()), any(), any(), any(), any(), any()))
+                .thenReturn(new IndicatorService.IndicatorResult(IndicatorLevel.RED, 150.0, 10.0, 5.0, true, false));
+        when(alertStateRepository.findById(any())).thenReturn(Optional.empty());
+
+        service.run();
+
+        verify(notificationService).sendIfNotAlreadySent(eq(ReminderType.DELAY_RED), eq(EntityType.LOGISTICS), eq(shipment.getId()), eq(officer), any());
+        verify(notificationService, never()).sendIfNotAlreadySent(eq(ReminderType.DELAY_RED), eq(EntityType.LOGISTICS), eq(shipment.getId()), eq(director), any());
+    }
+
+    @Test
+    void redOpportunityNotifiesItsOwnerAndDivisionManager() {
+        Opportunity opportunity = new Opportunity();
+        opportunity.setId(UUID.randomUUID());
+        opportunity.setTitle("Test Opportunity");
+        opportunity.setOwner(officer);
+        opportunity.setStage(OpportunityStage.QUALIFIED);
+        opportunity.setCreatedAt(Instant.now());
+        when(opportunityRepository.findAll()).thenReturn(List.of(opportunity));
+
+        UUID divisionId = UUID.randomUUID();
+        OpportunityDivision od = new OpportunityDivision(new OpportunityDivisionId(opportunity.getId(), divisionId));
+        when(opportunityDivisionRepository.findById_OpportunityId(opportunity.getId())).thenReturn(List.of(od));
+        UserDivision userDivision = new UserDivision(new UserDivisionId(manager.getId(), divisionId), true);
+        when(userDivisionRepository.findById_DivisionId(divisionId)).thenReturn(List.of(userDivision));
+
+        when(indicatorService.compute(eq(EntityType.OPPORTUNITY), eq(opportunity.getId()), any(), any(), any(), any(), any()))
+                .thenReturn(new IndicatorService.IndicatorResult(IndicatorLevel.RED, 150.0, 10.0, 5.0, true, false));
+        when(alertStateRepository.findById(any())).thenReturn(Optional.empty());
+
+        service.run();
+
+        verify(notificationService).sendIfNotAlreadySent(eq(ReminderType.DELAY_RED), eq(EntityType.OPPORTUNITY), eq(opportunity.getId()), eq(officer), any());
+        verify(notificationService).sendIfNotAlreadySent(eq(ReminderType.DELAY_RED), eq(EntityType.OPPORTUNITY), eq(opportunity.getId()), eq(manager), any());
+    }
+
+    @Test
+    void criticalDealRegistrationNotifiesCreatorAndDirector() {
+        DealRegistration reg = new DealRegistration();
+        reg.setId(UUID.randomUUID());
+        reg.setOem(new Oem("Fortinet"));
+        reg.setOrganization(new Organization("Test Bank", Sector.BANK));
+        reg.setStatus(DealRegistrationStatus.SUBMITTED);
+        reg.setCreatedBy(officer);
+        reg.setCreatedAt(Instant.now());
+        when(dealRegistrationRepository.findAll()).thenReturn(List.of(reg));
+        when(indicatorService.compute(eq(EntityType.DEAL_REGISTRATION), eq(reg.getId()), any(), any(), any(), any(), any()))
+                .thenReturn(new IndicatorService.IndicatorResult(IndicatorLevel.CRITICAL, 180.0, 12.0, 5.0, true, false));
+        when(alertStateRepository.findById(any())).thenReturn(Optional.empty());
+
+        service.run();
+
+        verify(notificationService).sendIfNotAlreadySent(eq(ReminderType.DELAY_CRITICAL), eq(EntityType.DEAL_REGISTRATION), eq(reg.getId()), eq(officer), any());
+        verify(notificationService).sendIfNotAlreadySent(eq(ReminderType.DELAY_CRITICAL), eq(EntityType.DEAL_REGISTRATION), eq(reg.getId()), eq(director), any());
+    }
+
+    @Test
+    void anApprovedDealRegistrationIsNeverScanned() {
+        DealRegistration reg = new DealRegistration();
+        reg.setId(UUID.randomUUID());
+        reg.setStatus(DealRegistrationStatus.APPROVED);
+        when(dealRegistrationRepository.findAll()).thenReturn(List.of(reg));
+
+        service.run();
+
+        verify(indicatorService, never()).compute(eq(EntityType.DEAL_REGISTRATION), any(), any(), any(), any(), any(), any());
     }
 
     private static java.time.ZoneId ZoneIdAddis() {

@@ -1055,6 +1055,79 @@ codebase, reserved by an earlier phase but never wired to a sender.
   recipients, email content inputs, and once-ever dedup behavior
   directly instead.
 
+## Proactive delay alerts for Contract, Logistics, Opportunity & Deal Registration
+
+The last piece of the stage-tracking initiative still BidLot-only after
+everything else - the Delays board, dashboard widget, My Follow-ups, and
+delay-reason enforcement - had already been generalized to all five
+entity types. This was explicitly left open pending a decision from the
+user: BidLot's escalation already has a 3-tier recipient model
+(assigned officer -> division manager -> Director), but Contract,
+Logistics, and DealRegistration have no assigned-officer or division
+concept of their own, so there was no default to guess at for who
+should receive their alerts. The user's answer - "Director, division
+managers, and other users assigned the role" - is exactly BidLot's
+existing 3-tier model, generalized with each entity's closest available
+stand-in for "the assigned user."
+
+- `DelayAlertSchedulerService.run()` now scans all five entity types
+  every `alert-cron` tick (30 min by default), not just BidLot.
+  `evaluateIndicator`/`evaluateStale`/`evaluateFollowUpDue` were
+  generalized to operate on `(EntityType, UUID, ...)` rather than a
+  `BidLot` parameter directly - the escalation rules themselves
+  (amber/red/critical tiers, stale vs. double-stale, follow-up-due) are
+  completely unchanged, just no longer hardcoded to one entity type. A
+  small `evaluateLot`/`evaluateContract`/`evaluateLogistics`/
+  `evaluateOpportunity`/`evaluateDealRegistration` wrapper per entity
+  type computes that entity's own `AlertItemDto`, indicator context, and
+  recipient sets, then calls the shared logic - mirroring the exact
+  pattern `DelaysBoardService`'s `compute*Row` methods and
+  `KeyDateChangeNotificationService`'s `notifyFor*` methods already
+  established for this kind of per-entity-type dispatch.
+- **Officer tier** (gated behind `amberImmediate` at Amber, always
+  notified at Red/Critical): BidLot keeps its existing
+  `LotAccountOfficer`-resolved recipients unchanged. Opportunity's
+  officer tier is its `owner` field. Contract, Logistics, and
+  DealRegistration have no assigned-user field of their own, so their
+  officer tier is `createdBy` - the identical stand-in already used for
+  DealRegistration's recipients in the key-date-change-notification work
+  above, now applied consistently to all three.
+- **Division-manager tier** (Red/Critical only): only applies where a
+  division concept exists at all - BidLot (via its lot's division) and
+  Opportunity (via its linked `OpportunityDivision` rows, aggregated
+  across however many it has). Contract/Logistics/DealRegistration have
+  no division field, so this tier is simply empty for them - the same
+  call already made everywhere else in this codebase for these three
+  entity types (the Delays board, My Follow-ups, and the dashboard
+  widget all already treat "no division" as "no division-scoped
+  recipients" rather than guessing one).
+- **Director tier** (Critical only): unchanged, universal across all
+  five entity types - this part never needed a per-entity decision.
+- Added 6 new `DelayAlertSchedulerServiceTest` cases (one critical/red
+  case per new entity type - Contract, Logistics, Opportunity,
+  DealRegistration - plus one confirming DealRegistration's APPROVED
+  status is still excluded from scanning entirely, matching the same
+  exclusion `DelaysBoardService`/`MyFollowUpsService` already apply).
+  All 8 pre-existing BidLot test cases pass completely unmodified,
+  confirming the refactor didn't change BidLot's own escalation
+  behavior at all. 178 backend tests pass in total.
+- Live-verified: the app starts and the generalized scheduler bean wires
+  up cleanly with no errors. The scheduler's actual cron firing against
+  real Contract/Logistics/Opportunity/DealRegistration data was not
+  exercised via a live 30-minute wait - the same situation the
+  key-date-change-notification work above was in, and for the same
+  reason (no on-demand trigger exists for a `@Scheduled` job in this
+  app) - the 14 passing unit tests (8 original + 6 new) substitute for
+  that, asserting exact recipients and escalation behavior directly per
+  entity type.
+- **Deliberately out of scope, not silently absorbed**:
+  `DelayAnalyticsService` (the 7-section bottleneck/Excel-export report)
+  remains BidLot-only. This was a separate, larger piece of the original
+  "proactive alerts + bottleneck analytics" ask and wasn't blocked on the
+  recipient-policy question that was specifically answered here, so
+  extending it is left as its own follow-up rather than bundled into
+  this change.
+
 ## Tests
 
 ```bash

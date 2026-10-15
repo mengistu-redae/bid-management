@@ -390,3 +390,47 @@ All four phases of the lifecycle-completeness initiative are now done.
   cron wait - same situation `DelayAlertSchedulerService` was in per its
   own test file's convention - its 5 passing unit tests substitute for
   that, asserting the exact recipients and dedup behavior directly.
+
+### Proactive delay alerts for Contract, Logistics, Opportunity & Deal Registration
+
+- `DelayAlertSchedulerService` (indicator/stale/follow-up-due escalation
+  emails, every `alert-cron`) extended from BidLot-only to scan all five
+  entity types - the one piece of the stage-tracking initiative still
+  BidLot-only after everything else (Delays board, dashboard widget, My
+  Follow-ups, delay-reason enforcement) had already been generalized.
+  `evaluateIndicator`/`evaluateStale`/`evaluateFollowUpDue` were
+  generalized to take `(EntityType, UUID, ...)` instead of a `BidLot`
+  directly, with a small `evaluate{Lot,Contract,Logistics,Opportunity,
+  DealRegistration}` wrapper per entity type computing its own
+  `AlertItemDto`/`IndicatorService.IndicatorResult`/recipient sets and
+  calling the shared logic - the escalation rules themselves
+  (amber/red/critical tiers, stale/double-stale, follow-up-due) are
+  unchanged and still BidLot-identical.
+- **Recipient policy, per the user's explicit answer** (Director +
+  division managers + "other users assigned the role"): BidLot keeps its
+  existing `LotAccountOfficer`-resolved officer tier; Opportunity's
+  officer tier is its `owner` field; Contract/Logistics/DealRegistration
+  have no assigned-user concept of their own, so their officer tier is
+  `createdBy` - the same stand-in already used for DealRegistration's
+  recipients in the key-date-change work above. The division-manager
+  tier only applies where a division concept exists at all (BidLot,
+  Opportunity) - Contract/Logistics/DealRegistration have none, so that
+  tier is simply empty for them, consistent with every other place in
+  this codebase that already made that call. The Director tier (critical
+  only) is unchanged and universal.
+- Added 6 new `DelayAlertSchedulerServiceTest` cases (one critical/red
+  case per new entity type, one for DealRegistration's APPROVED
+  exclusion) alongside the 8 existing BidLot cases, all passing
+  unmodified - confirming the refactor didn't change BidLot's own
+  behavior. 178 backend tests pass; node-bff unaffected (no UI changes -
+  this is a backend-only scheduler).
+- Live-verified: the app starts cleanly with the generalized scheduler
+  wired (no bean-creation errors); the scheduler's actual cron firing
+  against real Contract/Logistics/Opportunity/DealRegistration data was
+  not exercised via a real 30-minute wait, same precedent as the
+  key-date-change work above - the 14 passing unit tests (8 original + 6
+  new) substitute for that.
+- Bottleneck analytics (`DelayAnalyticsService`) remains BidLot-only -
+  this was a separate, larger piece of the original ask and wasn't
+  blocked on the recipient-policy question that *was* answered, so it's
+  left as its own follow-up rather than bundled in here.
