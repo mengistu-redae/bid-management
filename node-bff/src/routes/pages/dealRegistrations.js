@@ -99,6 +99,10 @@ function buildDealRegistrationsRouter() {
       setFlash(req, 'success', 'Saved.');
       res.redirect(`/deal-registrations/${req.params.id}`);
     } catch (err) {
+      if (err.status === 409 || err.status === 400) {
+        setFlash(req, 'error', err.message);
+        return res.redirect(`/deal-registrations/${req.params.id}`);
+      }
       next(err);
     }
   });

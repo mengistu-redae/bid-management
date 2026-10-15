@@ -130,3 +130,22 @@
   `.next-week-item` links read in the wrong color once visited, because
   a plain class selector loses to `a:visited` at equal specificity - the
   same class of bug the earlier bid-card redesign already worked around.
+
+### Lifecycle enforcement (Opportunity & Deal Registration) - Phase 1
+
+- Added a guarded transition table to `OpportunityService` (Lead ->
+  Qualified -> RFI/Proposal -> Expecting tender, Lost/Closed as a side
+  exit requiring a reason from any non-terminal stage) - same pattern as
+  `BidStatusService`. Converted to Bid stays reachable only via
+  `convertToBid()`, not the generic update, so it can never be set
+  without the Bid it's supposed to link to actually existing.
+- Added the equivalent table to `DealRegistrationService` (Draft ->
+  Submitted -> Approved or Rejected, Approved -> Expired) and a new
+  `DealRegistrationStatus.isTerminal()`, which the existing conflict
+  check now uses instead of its own inline logic.
+- Added `GlobalExceptionHandler` so a rejected transition (on Bid, too)
+  actually surfaces its real message instead of a bare, message-less 500
+  - Spring Boot's default error handling doesn't include it otherwise.
+  node-bff's bid/lot/opportunity/deal-registration status routes now
+  flash that message back to the same page instead of bouncing to the
+  generic error page.

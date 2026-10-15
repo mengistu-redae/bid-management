@@ -278,6 +278,10 @@ function buildBidsRouter() {
       setFlash(req, 'success', `Status changed to ${req.body.newStatus}.`);
       res.redirect(`/bids/${req.params.id}`);
     } catch (err) {
+      if (err.status === 409 || err.status === 400) {
+        setFlash(req, 'error', err.message);
+        return res.redirect(`/bids/${req.params.id}`);
+      }
       next(err);
     }
   });
@@ -311,6 +315,10 @@ function buildBidsRouter() {
       setFlash(req, 'success', `Lot status changed to ${req.body.newStatus}.`);
       res.redirect(`/bids/${req.body.bidId}`);
     } catch (err) {
+      if (err.status === 409 || err.status === 400) {
+        setFlash(req, 'error', err.message);
+        return res.redirect(`/bids/${req.body.bidId}`);
+      }
       next(err);
     }
   });

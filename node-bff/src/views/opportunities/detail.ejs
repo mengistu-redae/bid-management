@@ -26,7 +26,7 @@
   <% if (opportunity.lostReason) { %><p class="mt-2"><strong>Lost reason:</strong> <%= opportunity.lostReason %></p><% } %>
 </div>
 
-<% if (opportunity.canEdit && opportunity.stage !== 'CONVERTED_TO_BID') { %>
+<% if (opportunity.canEdit && opportunity.stage !== 'CONVERTED_TO_BID' && opportunity.stage !== 'LOST_CLOSED') { %>
 <div class="card">
   <h2 class="mt-0">Update stage</h2>
   <form method="post" action="/opportunities/<%= opportunity.id %>/update" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">

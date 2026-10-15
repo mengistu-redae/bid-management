@@ -5,5 +5,9 @@ public enum DealRegistrationStatus {
     SUBMITTED,
     APPROVED,
     REJECTED,
-    EXPIRED
+    EXPIRED;
+
+    public boolean isTerminal() {
+        return this == REJECTED || this == EXPIRED;
+    }
 }

@@ -2,6 +2,7 @@ package com.motiengineering.bidmgmt.service;
 
 import com.motiengineering.bidmgmt.domain.DealRegistration;
 import com.motiengineering.bidmgmt.domain.enums.DealRegistrationStatus;
+import com.motiengineering.bidmgmt.dto.UpdateDealRegistrationRequest;
 import com.motiengineering.bidmgmt.repository.BidRepository;
 import com.motiengineering.bidmgmt.repository.DealRegistrationRepository;
 import com.motiengineering.bidmgmt.repository.OemRepository;
@@ -11,9 +12,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -80,5 +83,39 @@ class DealRegistrationServiceTest {
         List<DealRegistration> conflicts = service.conflictsFor(orgId, oemId, UUID.randomUUID());
 
         assertThat(conflicts).isEmpty();
+    }
+
+    @Test
+    void rejectsSkippingSubmittedDirectlyFromDraftToApproved() {
+        DealRegistration draft = registrationWithStatus(DealRegistrationStatus.DRAFT);
+        when(dealRegistrationRepository.findById(draft.getId())).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> service.update(draft.getId(),
+                new UpdateDealRegistrationRequest(null, null, null, "APPROVED", null, null, null, null, null), null))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("DRAFT")
+                .hasMessageContaining("APPROVED");
+    }
+
+    @Test
+    void allowsSubmittedToApproved() {
+        DealRegistration submitted = registrationWithStatus(DealRegistrationStatus.SUBMITTED);
+        when(dealRegistrationRepository.findById(submitted.getId())).thenReturn(Optional.of(submitted));
+        when(dealRegistrationRepository.save(submitted)).thenReturn(submitted);
+
+        DealRegistration updated = service.update(submitted.getId(),
+                new UpdateDealRegistrationRequest(null, null, null, "APPROVED", null, null, null, null, null), null);
+
+        assertThat(updated.getStatus()).isEqualTo(DealRegistrationStatus.APPROVED);
+    }
+
+    @Test
+    void rejectedAndExpiredHaveNoOutgoingTransitions() {
+        DealRegistration rejected = registrationWithStatus(DealRegistrationStatus.REJECTED);
+        when(dealRegistrationRepository.findById(rejected.getId())).thenReturn(Optional.of(rejected));
+
+        assertThatThrownBy(() -> service.update(rejected.getId(),
+                new UpdateDealRegistrationRequest(null, null, null, "DRAFT", null, null, null, null, null), null))
+                .isInstanceOf(IllegalStateException.class);
     }
 }

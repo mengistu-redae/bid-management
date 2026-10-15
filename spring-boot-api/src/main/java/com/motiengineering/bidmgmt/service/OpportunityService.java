@@ -31,13 +31,37 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class OpportunityService {
+
+    /**
+     * Lead -&gt; Qualified -&gt; RFI/Proposal -&gt; Expecting tender -&gt; Converted
+     * to Bid, with Lost/Closed as a side exit reachable from any
+     * non-terminal stage - same guarded-transition pattern as
+     * BidStatusService. CONVERTED_TO_BID is deliberately NOT reachable from
+     * here: it's only ever set by convertToBid(), which also creates the
+     * Bid and links convertedBid - setting the stage alone through this
+     * generic update() would leave that link dangling.
+     */
+    private static final Map<OpportunityStage, Set<OpportunityStage>> ALLOWED_TRANSITIONS = new EnumMap<>(OpportunityStage.class);
+
+    static {
+        ALLOWED_TRANSITIONS.put(OpportunityStage.LEAD, EnumSet.of(OpportunityStage.QUALIFIED, OpportunityStage.LOST_CLOSED));
+        ALLOWED_TRANSITIONS.put(OpportunityStage.QUALIFIED, EnumSet.of(OpportunityStage.RFI_PROPOSAL, OpportunityStage.LOST_CLOSED));
+        ALLOWED_TRANSITIONS.put(OpportunityStage.RFI_PROPOSAL, EnumSet.of(OpportunityStage.EXPECTING_TENDER, OpportunityStage.LOST_CLOSED));
+        ALLOWED_TRANSITIONS.put(OpportunityStage.EXPECTING_TENDER, EnumSet.of(OpportunityStage.LOST_CLOSED));
+        ALLOWED_TRANSITIONS.put(OpportunityStage.CONVERTED_TO_BID, EnumSet.noneOf(OpportunityStage.class));
+        ALLOWED_TRANSITIONS.put(OpportunityStage.LOST_CLOSED, EnumSet.noneOf(OpportunityStage.class));
+    }
 
     private final OpportunityRepository opportunityRepository;
     private final OpportunityDivisionRepository opportunityDivisionRepository;
@@ -98,16 +122,22 @@ public class OpportunityService {
             auditService.recordIfChanged("OPPORTUNITY", opportunity.getId(), "expectedTenderDate", opportunity.getExpectedTenderDate(), request.expectedTenderDate(), actingUser);
             opportunity.setExpectedTenderDate(request.expectedTenderDate());
         }
+        if (request.lostReason() != null) {
+            opportunity.setLostReason(request.lostReason());
+        }
         if (request.stage() != null) {
             OpportunityStage oldStage = opportunity.getStage();
             OpportunityStage newStage = OpportunityStage.valueOf(request.stage().toUpperCase());
             if (oldStage != newStage) {
+                if (!ALLOWED_TRANSITIONS.getOrDefault(oldStage, Set.of()).contains(newStage)) {
+                    throw new IllegalStateException("Cannot move an opportunity from " + oldStage + " to " + newStage);
+                }
+                if (newStage == OpportunityStage.LOST_CLOSED && (opportunity.getLostReason() == null || opportunity.getLostReason().isBlank())) {
+                    throw new IllegalArgumentException("Lost/Closed requires a reason");
+                }
                 stageHistoryService.record(EntityType.OPPORTUNITY, opportunity.getId(), "stage", oldStage.name(), newStage.name(), null, actingUser);
             }
             opportunity.setStage(newStage);
-        }
-        if (request.lostReason() != null) {
-            opportunity.setLostReason(request.lostReason());
         }
         if (request.ownerId() != null) {
             appUserRepository.findById(request.ownerId()).ifPresent(opportunity::setOwner);

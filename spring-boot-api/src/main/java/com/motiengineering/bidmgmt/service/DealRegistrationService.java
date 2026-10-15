@@ -18,13 +18,34 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class DealRegistrationService {
+
+    /**
+     * Draft -&gt; Submitted -&gt; Approved or Rejected, Approved -&gt; Expired once
+     * its expiry date passes - same guarded-transition pattern as
+     * BidStatusService. Rejected/Expired have no outgoing transitions,
+     * matching isTerminal() and the conflict check below, which already
+     * treated both as closed.
+     */
+    private static final Map<DealRegistrationStatus, Set<DealRegistrationStatus>> ALLOWED_TRANSITIONS = new EnumMap<>(DealRegistrationStatus.class);
+
+    static {
+        ALLOWED_TRANSITIONS.put(DealRegistrationStatus.DRAFT, EnumSet.of(DealRegistrationStatus.SUBMITTED));
+        ALLOWED_TRANSITIONS.put(DealRegistrationStatus.SUBMITTED, EnumSet.of(DealRegistrationStatus.APPROVED, DealRegistrationStatus.REJECTED));
+        ALLOWED_TRANSITIONS.put(DealRegistrationStatus.APPROVED, EnumSet.of(DealRegistrationStatus.EXPIRED));
+        ALLOWED_TRANSITIONS.put(DealRegistrationStatus.REJECTED, EnumSet.noneOf(DealRegistrationStatus.class));
+        ALLOWED_TRANSITIONS.put(DealRegistrationStatus.EXPIRED, EnumSet.noneOf(DealRegistrationStatus.class));
+    }
 
     private final DealRegistrationRepository dealRegistrationRepository;
     private final OrganizationRepository organizationRepository;
@@ -48,7 +69,7 @@ public class DealRegistrationService {
     public List<DealRegistration> conflictsFor(UUID organizationId, UUID oemId, UUID excludingId) {
         return dealRegistrationRepository.findByOrganization_IdAndOem_Id(organizationId, oemId).stream()
                 .filter(r -> !r.getId().equals(excludingId))
-                .filter(r -> r.getStatus() != DealRegistrationStatus.REJECTED && r.getStatus() != DealRegistrationStatus.EXPIRED)
+                .filter(r -> !r.getStatus().isTerminal())
                 .toList();
     }
 
@@ -96,6 +117,9 @@ public class DealRegistrationService {
             DealRegistrationStatus oldStatus = reg.getStatus();
             DealRegistrationStatus newStatus = DealRegistrationStatus.valueOf(request.status().toUpperCase());
             if (oldStatus != newStatus) {
+                if (!ALLOWED_TRANSITIONS.getOrDefault(oldStatus, Set.of()).contains(newStatus)) {
+                    throw new IllegalStateException("Cannot move a deal registration from " + oldStatus + " to " + newStatus);
+                }
                 stageHistoryService.record(EntityType.DEAL_REGISTRATION, reg.getId(), "status", oldStatus.name(), newStatus.name(), null, actingUser);
             }
             reg.setStatus(newStatus);

@@ -75,7 +75,10 @@ async function call(req, method, path, accessToken, body) {
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
   if (!response.ok) {
-    const error = new Error(`API ${method} ${path} failed: ${response.status}`);
+    // GlobalExceptionHandler puts the real business-rule message (e.g. "Cannot
+    // move a bid from X to Y") in data.message - fall back to a generic string
+    // for errors it doesn't cover (validation errors, 401/403, etc).
+    const error = new Error((data && data.message) || `API ${method} ${path} failed: ${response.status}`);
     error.status = response.status;
     error.data = data;
     throw error;

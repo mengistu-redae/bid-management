@@ -79,6 +79,10 @@ function buildOpportunitiesRouter() {
       setFlash(req, 'success', 'Saved.');
       res.redirect(`/opportunities/${req.params.id}`);
     } catch (err) {
+      if (err.status === 409 || err.status === 400) {
+        setFlash(req, 'error', err.message);
+        return res.redirect(`/opportunities/${req.params.id}`);
+      }
       next(err);
     }
   });
@@ -89,6 +93,10 @@ function buildOpportunitiesRouter() {
       setFlash(req, 'success', 'Converted to a bid.');
       res.redirect(`/bids/${bid.id}`);
     } catch (err) {
+      if (err.status === 409 || err.status === 400) {
+        setFlash(req, 'error', err.message);
+        return res.redirect(`/opportunities/${req.params.id}`);
+      }
       next(err);
     }
   });

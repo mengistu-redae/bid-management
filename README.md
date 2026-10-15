@@ -554,6 +554,55 @@ themselves stayed stable, the search bar returning the correct bids,
 dark theme readability, and the visited-link color bug caught and fixed
 before calling this done.
 
+## Lifecycle enforcement (Opportunity & Deal Registration)
+
+A lifecycle evaluation of the five-stage pipeline (Opportunity -> Deal
+Registration -> Bid -> Contract -> Logistics) found that Bid, Contract,
+and Logistics each enforce a guarded transition table, but Opportunity
+and Deal Registration didn't - `stage`/`status` were plain fields
+settable to any value through the generic `update()` endpoint. This is
+phase 1 of closing that gap (phases 2-4 - Contract and Logistics
+management UI, then the smaller remaining gaps - are tracked separately,
+not yet built):
+
+- **`OpportunityService`** gained the same `EnumMap<OpportunityStage,
+  Set<OpportunityStage>>` guarded-transition pattern `BidStatusService`
+  already uses: Lead -> Qualified -> RFI/Proposal -> Expecting tender,
+  with Lost/Closed as a side exit from any non-terminal stage (now
+  requiring a reason, same as Bid's Dropped/Cancelled). Converted to Bid
+  is deliberately *not* reachable through this guard - it stays exclusive
+  to `convertToBid()`, which also creates the Bid and links
+  `convertedBid`; allowing it through the generic update would let
+  someone claim an opportunity converted without an actual Bid behind it.
+- **`DealRegistrationService`** gained the equivalent table: Draft ->
+  Submitted -> Approved or Rejected, Approved -> Expired. Rejected and
+  Expired have no outgoing transitions, matching a new
+  `DealRegistrationStatus.isTerminal()` (added for consistency with every
+  other lifecycle enum in this codebase) - the existing conflict-check
+  logic (`conflictsFor`) was refactored to use it instead of its own
+  inline rejected/expired check.
+- **A related, previously-broken piece of UX got fixed as part of this**:
+  a rejected guarded transition (on Bid too, not just the two new ones)
+  used to surface as a bare, message-less 500 - Spring Boot's default
+  error handling doesn't include the exception message in the response
+  body unless something explicitly puts it there, and nothing did. Added
+  `GlobalExceptionHandler` (`@RestControllerAdvice`) mapping
+  `IllegalStateException` -> 409, `IllegalArgumentException` -> 400, and
+  `NoSuchElementException` -> 404, each with the real message in the
+  body. node-bff's `apiClient.js` now prefers that message over its own
+  generic "API call failed" string, and the three status-change routes
+  (bid, lot, opportunity, deal registration) catch a 400/409 and flash
+  the real message back to the same page instead of bouncing to the
+  generic error page.
+
+Live-verified end to end: an illegal opportunity stage transition (Qualified
+-> Expecting tender, skipping RFI/Proposal) rejected with a clear flash
+message and the stage unchanged; the legal next step succeeding; Lost/Closed
+correctly requiring a reason and then succeeding once one was supplied;
+a terminal-stage opportunity correctly rejecting any further transition;
+and the same illegal/legal/terminal sequence repeated for a deal
+registration (Approved -> Draft rejected, Approved -> Expired succeeding).
+
 ## Tests
 
 ```bash
@@ -633,6 +682,14 @@ while the division pills themselves keep reporting both divisions' real,
 unfiltered counts - the regression this test caught during development:
 the pills were silently empty because the test's `DivisionRepository`
 mock hadn't been given the test's own `Division` objects).
+
+The lifecycle-enforcement work added a new `OpportunityServiceTest`
+(pure-Mockito, mirroring `BidStatusServiceTest`'s pattern) covering
+skipped-stage rejection, the legal next-stage success path, Converted-to-
+Bid being unreachable through the generic guard, Lost/Closed's required-
+reason rule both failing and succeeding, and a terminal stage rejecting
+any further move - and extended `DealRegistrationServiceTest` with the
+equivalent three cases for its own transition table.
 
 ## Deployment
 
