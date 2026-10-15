@@ -1,0 +1,42 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<h1>New shipment</h1>
+
+<div class="card">
+  <% if (contract) { %>
+    <p class="mt-0">For contract: <strong><%= contract.contractNumber || 'Contract' %></strong> &middot; <%= contract.bidTitle %></p>
+    <form method="post" action="/logistics">
+      <input type="hidden" name="contractId" value="<%= contract.id %>">
+      <label>Shipment mode</label>
+      <select name="shipmentMode">
+        <% modeOptions.forEach(m => { %><option value="<%= m %>"><%= m %></option><% }) %>
+      </select>
+      <label>ETA</label>
+      <input type="date" name="etaAt">
+      <label>Notes</label>
+      <textarea name="notes"></textarea>
+      <button type="submit" class="mt-2">Create shipment</button>
+    </form>
+  <% } else { %>
+    <form method="post" action="/logistics">
+      <label>Contract</label>
+      <select name="contractId" required>
+        <option value="">Select a contract...</option>
+        <% contracts.forEach(c => { %>
+          <option value="<%= c.id %>"><%= c.contractNumber || 'Contract' %> &middot; <%= c.bidTitle %></option>
+        <% }) %>
+      </select>
+      <label>Shipment mode</label>
+      <select name="shipmentMode">
+        <% modeOptions.forEach(m => { %><option value="<%= m %>"><%= m %></option><% }) %>
+      </select>
+      <label>ETA</label>
+      <input type="date" name="etaAt">
+      <label>Notes</label>
+      <textarea name="notes"></textarea>
+      <button type="submit" class="mt-2" <%= contracts.length === 0 ? 'disabled' : '' %>>Create shipment</button>
+      <% if (contracts.length === 0) { %><p class="muted mt-1">No contracts yet - create one from a WON bid first.</p><% } %>
+    </form>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

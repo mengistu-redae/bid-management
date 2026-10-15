@@ -1,0 +1,35 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<div class="row" style="justify-content:space-between;">
+  <h1 class="mt-0">Logistics</h1>
+  <a class="btn" href="/logistics/new">+ New shipment</a>
+</div>
+
+<% if (shipments.length === 0) { %>
+  <p class="muted">No shipments yet - a shipment is added from a contract's detail page.</p>
+<% } else { %>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Contract</th><th>Mode</th><th>Status</th><th>ETA</th><th>Indicator</th></tr></thead>
+    <tbody>
+      <% shipments.forEach(s => { %>
+        <tr onclick="window.location='/logistics/<%= s.id %>'" style="cursor:pointer;">
+          <td>
+            <a href="/logistics/<%= s.id %>"><%= s.contract ? (s.contract.contractNumber || s.contract.bidTitle) : '-' %></a>
+            <% if (s.contract && s.contract.bidTitle) { %><div class="muted" style="font-size:0.8rem;"><%= s.contract.bidTitle %></div><% } %>
+          </td>
+          <td><%= s.shipmentMode %></td>
+          <td><span class="badge <%= statusBadgeClass(s.status) %>"><%= s.status %></span><% if (s.onHold) { %> <span class="badge stale">On hold</span><% } %></td>
+          <td><%= s.etaAt ? formatDate(s.etaAt) : '-' %></td>
+          <td>
+            <% if (s.indicator && s.indicator.level !== 'NO_TARGET') { %>
+              <span class="badge <%= indicatorBadgeClass(s.indicator.level) %>"><%= s.indicator.level %></span>
+            <% } else { %><span class="muted">-</span><% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+<% } %>
+
+<%- include('../partials/footer') %>

@@ -61,7 +61,10 @@
   </form>
 </div>
 
-<h2>Logistics</h2>
+<div class="row" style="justify-content:space-between;">
+  <h2 class="mt-0">Logistics</h2>
+  <a class="btn secondary w-auto" href="/logistics/new?contractId=<%= contract.id %>">+ Add shipment</a>
+</div>
 <% if (logistics.length === 0) { %>
   <p class="muted">No shipments yet.</p>
 <% } else { %>
@@ -70,8 +73,8 @@
     <thead><tr><th>Mode</th><th>Status</th><th>ETA</th><th>Dispatched</th><th>Delivered</th></tr></thead>
     <tbody>
       <% logistics.forEach(s => { %>
-        <tr>
-          <td><%= s.shipmentMode %></td>
+        <tr onclick="window.location='/logistics/<%= s.id %>'" style="cursor:pointer;">
+          <td><a href="/logistics/<%= s.id %>"><%= s.shipmentMode %></a></td>
           <td><span class="badge <%= statusBadgeClass(s.status) %>"><%= s.status %></span></td>
           <td><%= s.etaAt ? formatDate(s.etaAt) : '-' %></td>
           <td><%= s.dispatchedAt ? formatDate(s.dispatchedAt) : '-' %></td>

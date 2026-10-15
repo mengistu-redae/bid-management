@@ -562,10 +562,10 @@ of gap: Opportunity and Deal Registration had no guarded transitions
 (stage/status were plain fields, settable to anything), while Contract
 and Logistics had a fully guarded backend and REST API but no node-bff UI
 at all - reachable only through direct API calls. A 4-phase plan closes
-both: phase 1 (lifecycle enforcement) and phase 2 (Contract UI) are done;
-phase 3 (Logistics UI) and phase 4 (the smaller remaining gaps - gating
-Logistics creation on contract status, making `Bid.goNoGoDecision`
-editable) are tracked separately, not yet built.
+both: phases 1-3 (lifecycle enforcement, Contract UI, Logistics UI) are
+done; phase 4 (the smaller remaining gaps - gating Logistics creation on
+contract status, making `Bid.goNoGoDecision` editable) is tracked
+separately, not yet built.
 
 **Phase 1** - guarded transitions for Opportunity and Deal Registration:
 
@@ -637,6 +637,32 @@ same way phase 1's bid/opportunity/deal-registration transitions are,
 and the legal next step (Awarded -> Signed) succeeding with `signedAt`
 auto-populated - all reflected correctly on both the list page and the
 originating bid's detail page.
+
+**Phase 3** - Logistics management UI, mirroring phase 2's pattern
+exactly since Logistics' backend (guarded transition table, REST API)
+was already just as complete as Contract's:
+
+- New `/logistics` (list across every contract - fetches each contract's
+  shipments and flattens them, since there's no single "all shipments"
+  endpoint), `/logistics/new` (creates for a contract - pre-selected via
+  `?contractId=` from that contract's own detail page, or picked from a
+  dropdown of all contracts, since unlike Contract-to-Bid a contract can
+  have more than one shipment), and `/logistics/:id` (detail - the same
+  status-transition-plus-edit-form shape as Contract's). Again, no
+  backend changes needed.
+- The Contract detail page's Logistics section (stubbed in phase 2) now
+  has a working "+ Add shipment" link, and its shipment rows link out to
+  their own detail pages.
+- Added "5 Logistics" to the sidebar's Lifecycle group, completing it.
+
+Live-verified end to end: created a shipment from a real contract's
+detail page, confirmed it pre-filled and locked the contract; an illegal
+status transition (Planning -> Delivered, skipping four stages) rejected
+with a clear message; the legal next step (Planning -> Dispatched)
+succeeding with `dispatchedAt` auto-populated; and the result reflected
+correctly across all three surfaces - the shipment's own detail page, the
+flat `/logistics` list (joined back to its contract), and the originating
+contract's embedded Logistics table.
 
 ## Tests
 

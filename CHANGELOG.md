@@ -163,3 +163,14 @@
 - Added "4 Contracts" to the sidebar's Lifecycle group.
 - Extended `statusBadgeClass` (node-bff) to color-code Contract and
   Logistics statuses, not just Bid's.
+
+### Lifecycle completeness (closing the pipeline gaps) - Phase 3
+
+- Added Logistics' first-ever node-bff UI, mirroring Phase 2's pattern:
+  `/logistics` (list across every contract), `/logistics/new` (create
+  for a contract, pre-selected via `?contractId=` or picked from a
+  dropdown), and `/logistics/:id` (detail - status transitions, edit
+  form). No backend changes needed.
+- Gave the Contract detail page's Logistics section (stubbed empty in
+  Phase 2) a working "+ Add shipment" link and linked its shipment rows.
+- Added "5 Logistics" to the sidebar's Lifecycle group, completing it.
