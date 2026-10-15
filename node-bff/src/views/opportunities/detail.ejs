@@ -7,7 +7,8 @@
   </div>
   <span class="badge <%= opportunity.stage === 'LOST_CLOSED' ? 'lost' : (opportunity.stage === 'CONVERTED_TO_BID' ? 'won' : '') %>" style="font-size:1rem;"><%= opportunity.stage %></span>
   <% if (opportunity.indicator && opportunity.indicator.level !== 'NO_TARGET' && opportunity.indicator.level !== 'UNKNOWN') { %>
-    <span class="badge <%= indicatorBadgeClass(opportunity.indicator.level) %>" style="font-size:1rem;" title="<%= indicatorLabel(opportunity.indicator) %>"><%= opportunity.indicator.level %></span>
+    <a class="badge <%= indicatorBadgeClass(opportunity.indicator.level) %>" style="font-size:1rem;" title="<%= indicatorLabel(opportunity.indicator) %>"
+       href="<%= stageHistoryHref('OPPORTUNITY', opportunity.id, { title: opportunity.title, subtitle: opportunity.organization ? opportunity.organization.name : null, backHref: '/opportunities/' + opportunity.id, backLabel: 'Back to opportunity' }) %>"><%= opportunity.indicator.level %></a>
   <% } %>
 </div>
 

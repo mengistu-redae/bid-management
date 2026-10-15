@@ -434,3 +434,50 @@ All four phases of the lifecycle-completeness initiative are now done.
   this was a separate, larger piece of the original ask and wasn't
   blocked on the recipient-policy question that *was* answered, so it's
   left as its own follow-up rather than bundled in here.
+
+### Indicator badges: hover tooltip + clickable stage history
+
+Every GREEN/AMBER/RED/CRITICAL badge across the app (bid/lot, contract,
+logistics, opportunity, deal registration, dashboard widget, Delays
+board, My Follow-ups) now shows a hover tooltip and links to a new
+generic `/stage-history` page - "why is this record this color."
+
+- New node-bff route `/stage-history?entityType=&entityId=&stageField=`
+  reuses the existing `/api/stage-history` + `/api/stage-targets`
+  endpoints and Deal 360's own `buildSegments()` timeline math (now
+  shared rather than Deal-360-only), scoped to one entity instead of a
+  whole deal chain - the same proportional timeline bar plus a plain
+  newest-first change log (from/to value, who, when, backfilled flag).
+  Entirely display-context is passed in via query params (title,
+  subtitle, back link) by the calling badge, since the calling page
+  already has all of it - the route itself stays entity-agnostic.
+- New `stageHistoryHref(entityType, entityId, options)` view helper
+  centralizes the entityType -> stageField mapping (`OPPORTUNITY` tracks
+  `stage`, everything else `status`) and query-string encoding so no
+  view has to duplicate either.
+- **Bid-level rollup badges deliberately excluded**: the Bid's own
+  `worstIndicator` (max-of-its-lots) doesn't correspond to one entity's
+  real stage history, so it was left as tooltip-only on the bid detail
+  page, and left alone entirely on `kanban.ejs`/`bidRow.ejs` where the
+  whole card/row is already a link or `onclick` to the bid page -
+  wrapping the badge in a second, identically-targeted link there would
+  be redundant (`bidRow.ejs`) or invalid HTML (`kanban.ejs`, whose card
+  is already one `<a>` - nested anchors are invalid and behave
+  unpredictably).
+- **List rows with their own `onclick="window.location=..."`**
+  (contracts/logistics/deal-registrations/opportunities lists) needed
+  `event.stopPropagation()` added to the badge link - without it, the
+  row's own handler fires on the same click and overwrites the
+  navigation before the badge's own `href` takes effect. Live-verified
+  specifically: clicking the badge on the Opportunities list landed on
+  `/stage-history`, not the opportunity's own detail page.
+- `a.badge` CSS added (`text-decoration:none`, hover/visited handling) -
+  `.badge` was never previously used on an anchor element.
+- No backend changes - `/api/stage-history` and `/api/stage-targets`
+  already existed and were sufficient; this is a node-bff-only change.
+- Live-verified against the real `bidmgmt` database across list and
+  detail pages, the dashboard widget, and the Delays board: tooltips
+  show real day-count/target text, every tested badge navigates to the
+  correct stage-history page with correct title/subtitle/back-link, and
+  the `stopPropagation` fix was specifically confirmed on the
+  Opportunities list. No errors in either service's logs throughout.

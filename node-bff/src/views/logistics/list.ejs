@@ -22,7 +22,8 @@
           <td><%= s.etaAt ? formatDate(s.etaAt) : '-' %></td>
           <td>
             <% if (s.indicator && s.indicator.level !== 'NO_TARGET') { %>
-              <span class="badge <%= indicatorBadgeClass(s.indicator.level) %>"><%= s.indicator.level %></span>
+              <a class="badge <%= indicatorBadgeClass(s.indicator.level) %>" title="<%= indicatorLabel(s.indicator) %>" onclick="event.stopPropagation()"
+                 href="<%= stageHistoryHref('LOGISTICS', s.id, { title: s.shipmentMode + ' shipment', subtitle: s.contract ? s.contract.bidTitle : null, backHref: '/logistics', backLabel: 'Back to logistics' }) %>"><%= s.indicator.level %></a>
             <% } else { %><span class="muted">-</span><% } %>
           </td>
         </tr>

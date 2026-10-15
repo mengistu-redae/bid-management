@@ -97,7 +97,8 @@
       <div>
         <span class="badge <%= statusBadgeClass(lot.status) %>"><%= lot.status %></span>
         <% if (lot.indicator && lot.indicator.level !== 'NO_TARGET' && lot.indicator.level !== 'UNKNOWN') { %>
-          <span class="badge <%= indicatorBadgeClass(lot.indicator.level) %>" title="<%= indicatorLabel(lot.indicator) %>"><%= lot.indicator.level %></span>
+          <a class="badge <%= indicatorBadgeClass(lot.indicator.level) %>" title="<%= indicatorLabel(lot.indicator) %>"
+             href="<%= stageHistoryHref('LOT', lot.id, { title: lot.lotLabel, subtitle: bid.title, backHref: '/bids/' + bid.id, backLabel: 'Back to bid' }) %>"><%= lot.indicator.level %></a>
         <% } %>
         <% if (lot.indicator && lot.indicator.stale) { %><span class="badge stale">stale</span><% } %>
       </div>

@@ -15,7 +15,8 @@ function renderRow(row, borderColor) {
       </div>
       <div class="row" style="gap:0.4rem;">
         <span class="badge <%= statusBadgeClass(row.status) %>"><%= row.status %></span>
-        <span class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>"><%= row.indicatorLevel %></span>
+        <a class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>"
+           href="<%= stageHistoryHref(row.entityType, row.entityId, { title: row.bidTitle, subtitle: row.lotLabel, backHref: '/my-follow-ups', backLabel: 'Back to My Follow-ups' }) %>"><%= row.indicatorLevel %></a>
         <% if (row.stale) { %><span class="badge stale">stale</span><% } %>
       </div>
     </div>

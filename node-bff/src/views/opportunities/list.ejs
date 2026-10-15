@@ -17,7 +17,8 @@
         <td>
           <span class="badge <%= o.stage === 'LOST_CLOSED' ? 'lost' : (o.stage === 'CONVERTED_TO_BID' ? 'won' : '') %>"><%= o.stage %></span>
           <% if (o.indicator && o.indicator.level !== 'NO_TARGET' && o.indicator.level !== 'UNKNOWN') { %>
-            <span class="badge <%= indicatorBadgeClass(o.indicator.level) %>" title="<%= indicatorLabel(o.indicator) %>"><%= o.indicator.level %></span>
+            <a class="badge <%= indicatorBadgeClass(o.indicator.level) %>" title="<%= indicatorLabel(o.indicator) %>" onclick="event.stopPropagation()"
+               href="<%= stageHistoryHref('OPPORTUNITY', o.id, { title: o.title, subtitle: o.organization ? o.organization.name : null, backHref: '/opportunities', backLabel: 'Back to opportunities' }) %>"><%= o.indicator.level %></a>
           <% } %>
         </td>
         <td><%= formatMoney(o.estimatedValue, o.estimatedValueCurrency) %></td>

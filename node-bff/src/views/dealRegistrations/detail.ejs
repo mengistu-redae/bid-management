@@ -7,7 +7,8 @@
   </div>
   <span class="badge <%= registration.status === 'REJECTED' || registration.status === 'EXPIRED' ? 'lost' : (registration.status === 'APPROVED' ? 'won' : '') %>" style="font-size:1rem;"><%= registration.status %></span>
   <% if (registration.indicator && registration.indicator.level !== 'NO_TARGET' && registration.indicator.level !== 'UNKNOWN') { %>
-    <span class="badge <%= indicatorBadgeClass(registration.indicator.level) %>" style="font-size:1rem;" title="<%= indicatorLabel(registration.indicator) %>"><%= registration.indicator.level %></span>
+    <a class="badge <%= indicatorBadgeClass(registration.indicator.level) %>" style="font-size:1rem;" title="<%= indicatorLabel(registration.indicator) %>"
+       href="<%= stageHistoryHref('DEAL_REGISTRATION', registration.id, { title: registration.oem.name, subtitle: registration.organization.name, backHref: '/deal-registrations/' + registration.id, backLabel: 'Back to registration' }) %>"><%= registration.indicator.level %></a>
   <% } %>
 </div>
 

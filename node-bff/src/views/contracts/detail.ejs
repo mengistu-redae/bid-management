@@ -23,7 +23,8 @@
     <% if (contract.indicator && contract.indicator.level !== 'NO_TARGET') { %>
       <div>
         <div class="muted" style="font-size:0.85rem;">Indicator</div>
-        <div><span class="badge <%= indicatorBadgeClass(contract.indicator.level) %>"><%= contract.indicator.level %></span></div>
+        <div><a class="badge <%= indicatorBadgeClass(contract.indicator.level) %>" title="<%= indicatorLabel(contract.indicator) %>"
+                href="<%= stageHistoryHref('CONTRACT', contract.id, { title: contract.contractNumber || 'Contract', subtitle: contract.bidTitle, backHref: '/contracts/' + contract.id, backLabel: 'Back to contract' }) %>"><%= contract.indicator.level %></a></div>
       </div>
     <% } %>
   </div>

@@ -1,0 +1,43 @@
+<%- include('partials/header', { title: title, user: user }) %>
+<% if (backHref) { %><div class="mt-0"><a href="<%= backHref %>">&larr; <%= backLabel %></a></div><% } %>
+
+<h1 class="mt-1"><%= pageTitle || 'Stage history' %></h1>
+<% if (subtitle) { %><p class="muted mt-0"><%= subtitle %></p><% } %>
+<p class="muted" style="font-size:0.85rem;">Every <%= stageField %> change recorded for this record - the same data behind its indicator badge. Segment color: green = within target, red = over target, grey = no target set (or the current/ongoing stage).</p>
+
+<div class="card">
+  <% if (segments.length === 0) { %>
+    <p class="muted">No stage history recorded yet.</p>
+  <% } else { %>
+    <div class="timeline-bar">
+      <% segments.forEach(seg => { %>
+        <div class="timeline-segment <%= seg.ongoing ? 'ongoing' : (seg.overTarget ? 'over' : (seg.targetDays !== null ? 'under' : 'no-target')) %>"
+             style="width: <%= seg.widthPercent %>%;"
+             title="<%= seg.value %> - <%= seg.durationDays.toFixed(1) %>d<%= seg.targetDays !== null ? ' (target ' + seg.targetDays + 'd)' : '' %><%= seg.ongoing ? ' - ongoing' : '' %>">
+          <span class="timeline-segment-label"><%= seg.value %></span>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<h2 class="mt-3">Change log</h2>
+<div class="card">
+  <% if (history.length === 0) { %>
+    <p class="muted">No changes recorded yet.</p>
+  <% } %>
+  <% history.forEach(entry => { %>
+    <div class="row tight" style="justify-content:space-between; align-items:baseline; padding:0.4rem 0; border-bottom:1px solid var(--border);">
+      <div>
+        <strong><%= entry.fromValue || '(created)' %> &rarr; <%= entry.toValue %></strong>
+        <% if (entry.note) { %><div class="muted" style="font-size:0.85rem;"><%= entry.note %></div><% } %>
+      </div>
+      <div class="muted" style="font-size:0.8rem; text-align:right;">
+        <%= formatDateTime(entry.changedAt) %><br>
+        <%= entry.changedByName || (entry.backfilled ? 'backfilled' : 'system') %>
+      </div>
+    </div>
+  <% }) %>
+</div>
+
+<%- include('partials/footer') %>

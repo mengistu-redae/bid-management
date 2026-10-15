@@ -1128,6 +1128,60 @@ stand-in for "the assigned user."
   extending it is left as its own follow-up rather than bundled into
   this change.
 
+## Indicator badges: hover tooltip + clickable stage history
+
+Every GREEN/AMBER/RED/CRITICAL indicator badge across the app - bid/lot,
+contract, logistics, opportunity, deal registration, the dashboard's
+"Where deals are stuck" widget, the Delays board, and My Follow-ups -
+now shows a hover tooltip with the underlying day-count/target numbers
+and links to a new generic "why is this record this color" page,
+instead of being a plain, inert label.
+
+- New node-bff route `/stage-history?entityType=&entityId=&stageField=`
+  reuses the existing `/api/stage-history` and `/api/stage-targets`
+  endpoints - no backend changes were needed - plus Deal 360's own
+  `buildSegments()` timeline-bar math, now shared instead of
+  Deal-360-only, scoped to a single entity instead of a whole deal
+  chain: the same proportional timeline bar, plus a plain newest-first
+  change log (from value, to value, who changed it, when, whether it
+  was a backfilled synthetic entry). The calling badge passes all
+  display context (title, subtitle, back link) as query params, since
+  the page it's on already has all of that - the route itself stays
+  completely entity-agnostic.
+- New `stageHistoryHref(entityType, entityId, options)` view helper
+  centralizes the one piece of entity-specific knowledge needed
+  (Opportunity tracks its field as `stage`, every other entity type as
+  `status`) and the query-string encoding, so no individual view has to
+  duplicate either.
+- **Bid-level rollup badges were deliberately left alone**: a Bid's own
+  `worstIndicator` is the max across its lots, not one entity's real
+  stage history, so linking it anywhere wouldn't show "why" accurately.
+  On the bid's own detail page it stays tooltip-only; on `kanban.ejs`
+  and `bidRow.ejs` the whole card/row is already a link or `onclick` to
+  the bid page, so wrapping the badge in its own identical link would
+  either be redundant or (for kanban's card, already one `<a>`) invalid
+  HTML - nested anchors behave unpredictably across browsers.
+- **A real interaction bug caught and fixed during this work**: list
+  rows that navigate via `onclick="window.location=...'"` (contracts,
+  logistics, deal registrations, and opportunities lists) needed
+  `event.stopPropagation()` added to the badge's own link - without it,
+  the row's click handler fires on the same click and overwrites the
+  navigation before the badge's `href` takes effect, silently sending
+  the user to the row's own page instead of the stage-history page they
+  actually clicked toward. Live-verified specifically on the
+  Opportunities list: clicking the badge correctly landed on
+  `/stage-history`, confirming the fix actually works rather than just
+  looking right in the markup.
+- Added `a.badge` CSS (`text-decoration: none`, a subtle hover/visited
+  treatment) - `.badge` had never been applied to an anchor element
+  before this.
+- Live-verified end to end against the real `bidmgmt` database across
+  every affected page type: the Delays board, the dashboard widget, a
+  contract list row, an opportunity list row, and a bid's own lot badge
+  all correctly showed a tooltip and navigated to a correctly-titled,
+  correctly-linked-back stage-history page, with zero errors in either
+  service's logs throughout.
+
 ## Tests
 
 ```bash

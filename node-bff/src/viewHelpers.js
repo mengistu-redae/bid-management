@@ -67,4 +67,34 @@ function indicatorLabel(indicator) {
   return `${used}${unit} / ${target}${unit} target`;
 }
 
-module.exports = { formatDate, formatDateTime, formatMoney, statusBadgeClass, barWidth, indicatorBadgeClass, indicatorLabel };
+/** OPPORTUNITY tracks its "status"-equivalent indicator field as `stage`, not `status` like everything else - see IndicatorService.compute's call sites. */
+const STAGE_FIELD_BY_ENTITY_TYPE = { OPPORTUNITY: 'stage' };
+
+/**
+ * URL for the generic /stage-history page behind every indicator badge -
+ * centralizes the entityType -> stageField mapping (so each view doesn't
+ * have to know it) and the query-string encoding (so nothing double-
+ * encodes or forgets to encode a title/subtitle that happens to contain
+ * special characters). Returns null when there's no entity to link to
+ * (e.g. a Bid-level rollup indicator that isn't really one entity's own
+ * history - see bidRow.ejs/kanban.ejs, which link to the bid page instead).
+ */
+function stageHistoryHref(entityType, entityId, options) {
+  if (!entityType || !entityId) return null;
+  const opts = options || {};
+  const params = new URLSearchParams({
+    entityType,
+    entityId,
+    stageField: opts.stageField || STAGE_FIELD_BY_ENTITY_TYPE[entityType] || 'status',
+  });
+  if (opts.title) params.set('title', opts.title);
+  if (opts.subtitle) params.set('subtitle', opts.subtitle);
+  if (opts.backHref) params.set('backHref', opts.backHref);
+  if (opts.backLabel) params.set('backLabel', opts.backLabel);
+  return `/stage-history?${params.toString()}`;
+}
+
+module.exports = {
+  formatDate, formatDateTime, formatMoney, statusBadgeClass, barWidth, indicatorBadgeClass, indicatorLabel,
+  stageHistoryHref,
+};

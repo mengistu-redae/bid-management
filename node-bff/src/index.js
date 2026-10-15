@@ -20,6 +20,7 @@ const buildMyFollowUpsRouter = require('./routes/pages/myFollowUps');
 const buildContractsRouter = require('./routes/pages/contracts');
 const buildLogisticsRouter = require('./routes/pages/logistics');
 const buildSettingsRouter = require('./routes/pages/settings');
+const buildStageHistoryRouter = require('./routes/pages/stageHistory');
 
 async function main() {
   const app = express();
@@ -90,6 +91,7 @@ async function main() {
   app.use('/contracts', buildContractsRouter());
   app.use('/logistics', buildLogisticsRouter());
   app.use('/settings', buildSettingsRouter());
+  app.use('/stage-history', buildStageHistoryRouter());
   app.use('/import', buildImportRouter());
 
   app.use((req, res) => res.status(404).render('error', { message: 'Page not found', user: req.session.user }));

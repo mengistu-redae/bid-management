@@ -18,7 +18,8 @@
         <td>
           <span class="badge <%= r.status === 'REJECTED' || r.status === 'EXPIRED' ? 'lost' : (r.status === 'APPROVED' ? 'won' : '') %>"><%= r.status %></span>
           <% if (r.indicator && r.indicator.level !== 'NO_TARGET' && r.indicator.level !== 'UNKNOWN') { %>
-            <span class="badge <%= indicatorBadgeClass(r.indicator.level) %>" title="<%= indicatorLabel(r.indicator) %>"><%= r.indicator.level %></span>
+            <a class="badge <%= indicatorBadgeClass(r.indicator.level) %>" title="<%= indicatorLabel(r.indicator) %>" onclick="event.stopPropagation()"
+               href="<%= stageHistoryHref('DEAL_REGISTRATION', r.id, { title: r.oem ? r.oem.name : 'Deal registration', subtitle: r.organization ? r.organization.name : null, backHref: '/deal-registrations', backLabel: 'Back to deal registrations' }) %>"><%= r.indicator.level %></a>
           <% } %>
         </td>
         <td><%= formatDate(r.expiryDate) %> <% if (r.expiringSoon) { %><span class="badge review">soon</span><% } %></td>

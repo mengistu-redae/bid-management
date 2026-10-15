@@ -19,7 +19,8 @@
           <td><%= c.deliveryDeadline ? formatDate(c.deliveryDeadline) : '-' %></td>
           <td>
             <% if (c.indicator && c.indicator.level !== 'NO_TARGET') { %>
-              <span class="badge <%= indicatorBadgeClass(c.indicator.level) %>"><%= c.indicator.level %></span>
+              <a class="badge <%= indicatorBadgeClass(c.indicator.level) %>" title="<%= indicatorLabel(c.indicator) %>" onclick="event.stopPropagation()"
+                 href="<%= stageHistoryHref('CONTRACT', c.id, { title: c.contractNumber || 'Contract', subtitle: c.bidTitle, backHref: '/contracts', backLabel: 'Back to contracts' }) %>"><%= c.indicator.level %></a>
             <% } else { %><span class="muted">-</span><% } %>
           </td>
         </tr>

@@ -163,7 +163,9 @@
                 <div class="bid-card-title"><%= row.bidTitle %><% if (row.entityType !== 'LOT') { %> <span class="badge" style="margin-left:0.4rem;"><%= row.entityType %></span><% } %></div>
                 <div class="muted" style="font-size:0.8rem;"><%= row.lotLabel %><% if (row.divisionName) { %> &middot; <%= row.divisionName %><% } %></div>
               </div>
-              <span class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>"><%= row.indicatorLevel %><% if (row.percentUsed !== null) { %> &middot; <%= Math.round(row.percentUsed) %>%<% } %></span>
+              <a class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>" onclick="event.stopPropagation()"
+                 <% if (row.daysUsed !== null && row.targetDays !== null) { %>title="<%= row.daysUsed.toFixed(1) %>d / <%= row.targetDays.toFixed(1) %>d target"<% } %>
+                 href="<%= stageHistoryHref(row.entityType, row.entityId, { title: row.bidTitle, subtitle: row.lotLabel, backHref: row.detailHref, backLabel: 'Back' }) %>"><%= row.indicatorLevel %><% if (row.percentUsed !== null) { %> &middot; <%= Math.round(row.percentUsed) %>%<% } %></a>
             </div>
             <div class="progress-bar mt-1"><div style="width:<%= Math.min(100, row.percentUsed || 0) %>%; background:<%= row.indicatorLevel === 'CRITICAL' || row.indicatorLevel === 'RED' ? 'var(--danger)' : 'var(--warn)' %>;"></div></div>
             <div class="row tight mt-1" style="font-size:0.78rem;">

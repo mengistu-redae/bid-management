@@ -51,7 +51,9 @@
       </div>
       <div class="row" style="gap:0.4rem;">
         <span class="badge <%= statusBadgeClass(row.status) %>"><%= row.status %></span>
-        <span class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>"><%= row.indicatorLevel %></span>
+        <a class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>"
+           <% if (row.daysUsed !== null && row.targetDays !== null) { %>title="<%= row.daysUsed.toFixed(1) %>d / <%= row.targetDays.toFixed(1) %>d target"<% } %>
+           href="<%= stageHistoryHref(row.entityType, row.entityId, { title: row.bidTitle, subtitle: row.lotLabel, backHref: '/delays', backLabel: 'Back to Delays' }) %>"><%= row.indicatorLevel %></a>
         <% if (row.stale) { %><span class="badge stale">stale</span><% } %>
       </div>
     </div>
