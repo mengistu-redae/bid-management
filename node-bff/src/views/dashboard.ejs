@@ -157,15 +157,15 @@
     <% } else { %>
       <div class="stack mt-2">
         <% data.delaySummary.topDelayed.slice(0, 5).forEach(row => { %>
-          <div class="card delay-item" onclick="window.location='/bids/<%= row.bidId %>'">
+          <div class="card delay-item" onclick="window.location='<%= row.detailHref %>'">
             <div class="row" style="justify-content:space-between; align-items:flex-start;">
               <div>
-                <div class="bid-card-title"><%= row.bidTitle %></div>
+                <div class="bid-card-title"><%= row.bidTitle %><% if (row.entityType !== 'LOT') { %> <span class="badge" style="margin-left:0.4rem;"><%= row.entityType %></span><% } %></div>
                 <div class="muted" style="font-size:0.8rem;"><%= row.lotLabel %><% if (row.divisionName) { %> &middot; <%= row.divisionName %><% } %></div>
               </div>
-              <span class="badge <%= indicatorBadgeClass(row.level) %>"><%= row.level %><% if (row.percentUsed !== null) { %> &middot; <%= Math.round(row.percentUsed) %>%<% } %></span>
+              <span class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>"><%= row.indicatorLevel %><% if (row.percentUsed !== null) { %> &middot; <%= Math.round(row.percentUsed) %>%<% } %></span>
             </div>
-            <div class="progress-bar mt-1"><div style="width:<%= Math.min(100, row.percentUsed || 0) %>%; background:<%= row.level === 'CRITICAL' || row.level === 'RED' ? 'var(--danger)' : 'var(--warn)' %>;"></div></div>
+            <div class="progress-bar mt-1"><div style="width:<%= Math.min(100, row.percentUsed || 0) %>%; background:<%= row.indicatorLevel === 'CRITICAL' || row.indicatorLevel === 'RED' ? 'var(--danger)' : 'var(--warn)' %>;"></div></div>
             <div class="row tight mt-1" style="font-size:0.78rem;">
               <span class="muted"><% if (row.daysUsed !== null && row.targetDays !== null) { %><%= Math.round(row.daysUsed) %>d in stage &middot; target <%= Math.round(row.targetDays) %>d<% } %></span>
               <% if (row.waitingOnParty) { %><span class="muted">Waiting on <strong><%= row.waitingOnParty %></strong></span><% } %>

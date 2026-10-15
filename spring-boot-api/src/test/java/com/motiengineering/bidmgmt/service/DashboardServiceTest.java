@@ -55,14 +55,11 @@ class DashboardServiceTest {
         when(lotScopeTypeRepository.findById_LotId(org.mockito.ArgumentMatchers.any())).thenReturn(List.of());
         ChecklistService checklistService = mock(ChecklistService.class);
         when(checklistService.progressPercent(org.mockito.ArgumentMatchers.any())).thenReturn(50);
-        IndicatorService indicatorService = mock(IndicatorService.class);
-        when(indicatorService.compute(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
-                .thenReturn(new IndicatorService.IndicatorResult(com.motiengineering.bidmgmt.domain.enums.IndicatorLevel.NO_TARGET, null, null, null, true, false));
-        WaitingOnService waitingOnService = mock(WaitingOnService.class);
-        when(waitingOnService.get(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Optional.empty());
+        DelaysBoardService delaysBoardService = mock(DelaysBoardService.class);
+        when(delaysBoardService.summary(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(new com.motiengineering.bidmgmt.dto.DelaySummaryDto(0, 0, 0, 0, 0, List.of()));
         service = new DashboardService(bidRepository, lotAccountOfficerRepository, appUserRepository, dealRegistrationRepository,
-                divisionRepository, lotScopeTypeRepository, checklistService, indicatorService, waitingOnService);
+                divisionRepository, lotScopeTypeRepository, checklistService, delaysBoardService);
     }
 
     private Organization org(String name) {

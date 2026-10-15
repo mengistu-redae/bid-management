@@ -10,14 +10,11 @@ import com.motiengineering.bidmgmt.domain.enums.BidBondForm;
 import com.motiengineering.bidmgmt.domain.enums.BidStatus;
 import com.motiengineering.bidmgmt.domain.enums.Currency;
 import com.motiengineering.bidmgmt.domain.enums.DealRegistrationStatus;
-import com.motiengineering.bidmgmt.domain.enums.EntityType;
-import com.motiengineering.bidmgmt.domain.enums.IndicatorLevel;
 import com.motiengineering.bidmgmt.domain.enums.Outcome;
 import com.motiengineering.bidmgmt.dto.ClarificationRowDto;
 import com.motiengineering.bidmgmt.dto.ClosingSoonRowDto;
 import com.motiengineering.bidmgmt.dto.DashboardDto;
 import com.motiengineering.bidmgmt.dto.DealRegistrationSummaryDto;
-import com.motiengineering.bidmgmt.dto.DelayRowDto;
 import com.motiengineering.bidmgmt.dto.DelaySummaryDto;
 import com.motiengineering.bidmgmt.dto.DivisionPillDto;
 import com.motiengineering.bidmgmt.dto.ExpiringDealRegistrationRowDto;
@@ -76,8 +73,7 @@ public class DashboardService {
     private final DivisionRepository divisionRepository;
     private final LotScopeTypeRepository lotScopeTypeRepository;
     private final ChecklistService checklistService;
-    private final IndicatorService indicatorService;
-    private final WaitingOnService waitingOnService;
+    private final DelaysBoardService delaysBoardService;
 
     private static final int TOP_DELAYED_LIMIT = 10;
 
@@ -115,7 +111,7 @@ public class DashboardService {
                 sumBondsByCurrency(scoped, Currency.ETB),
                 sumBondsByCurrency(scoped, Currency.USD),
                 expiringRegs,
-                delaySummary(scoped),
+                delaySummary(divisionFilter),
                 missingReadiness(scoped),
                 lifecycleStageSummary(scoped),
                 bidsPastOpeningNoResult(scoped, now),
@@ -127,57 +123,26 @@ public class DashboardService {
 
     /** Same delay summary the dashboard embeds, exposed standalone for the weekly bottleneck email. */
     public DelaySummaryDto delaySummary() {
-        return delaySummary(bidRepository.findAll());
+        return delaySummary(null);
     }
 
-    /** Green/amber/red/critical/stale counts plus the worst-offending open lots - same all-in-memory approach as the rest of this service. */
-    private DelaySummaryDto delaySummary(List<Bid> allBids) {
-        int green = 0;
-        int amber = 0;
-        int red = 0;
-        int critical = 0;
-        int stale = 0;
-        List<DelayRowDto> rows = new ArrayList<>();
-        for (Bid bid : allBids) {
-            for (BidLot lot : bid.getLots()) {
-                if (lot.getStatus() == null || lot.getStatus().isTerminal()) {
-                    continue;
-                }
-                TargetContext context = new TargetContext(
-                        lot.getDivision() == null ? null : lot.getDivision().getId(),
-                        bid.getOrganization() == null ? null : bid.getOrganization().getSector(),
-                        lot.getOemBrand(), null);
-                Map<String, Instant> deadlineFields = IndicatorService.deadlineField("closingAt", bid.getClosingAt());
-                IndicatorService.IndicatorResult result = indicatorService.compute(
-                        EntityType.LOT, lot.getId(), "status", lot.getStatus().name(), lot.getCreatedAt(), context, deadlineFields);
-                if (result.stale()) {
-                    stale++;
-                }
-                if (result.level() == IndicatorLevel.GREEN) {
-                    green++;
-                }
-                if (result.level() == IndicatorLevel.AMBER) {
-                    amber++;
-                } else if (result.level() == IndicatorLevel.RED) {
-                    red++;
-                } else if (result.level() == IndicatorLevel.CRITICAL) {
-                    critical++;
-                }
-                if (result.level() == IndicatorLevel.AMBER || result.level() == IndicatorLevel.RED || result.level() == IndicatorLevel.CRITICAL) {
-                    String waitingOnParty = waitingOnService.get(EntityType.LOT, lot.getId())
-                            .map(w -> w.getPartyType() == null ? null : w.getPartyType().name())
-                            .orElse(null);
-                    rows.add(new DelayRowDto(bid.getId(), bid.getTitle(), lot.getLotLabel(),
-                            lot.getDivision() == null ? null : lot.getDivision().getName(),
-                            result.level().name(), result.percentUsed(), result.daysUsed(), result.targetDays(), waitingOnParty));
-                }
+    /**
+     * Green/amber/red/critical/stale counts plus the worst-offending open lots, contracts and
+     * shipments - delegates to DelaysBoardService so this and the real /delays board can never
+     * disagree. divisionFilter is null/blank for "all divisions", the literal "none" for the
+     * no-division bucket, or a division's UUID string, same as build(String).
+     */
+    private DelaySummaryDto delaySummary(String divisionFilter) {
+        UUID divisionId = null;
+        boolean noDivisionOnly = false;
+        if (divisionFilter != null && !divisionFilter.isBlank()) {
+            if ("none".equals(divisionFilter)) {
+                noDivisionOnly = true;
+            } else {
+                divisionId = UUID.fromString(divisionFilter);
             }
         }
-        List<DelayRowDto> top = rows.stream()
-                .sorted((a, b) -> Double.compare(b.percentUsed() == null ? 0 : b.percentUsed(), a.percentUsed() == null ? 0 : a.percentUsed()))
-                .limit(TOP_DELAYED_LIMIT)
-                .toList();
-        return new DelaySummaryDto(green, amber, red, critical, stale, top);
+        return delaysBoardService.summary(divisionId, noDivisionOnly, TOP_DELAYED_LIMIT);
     }
 
     private List<ExpiringDealRegistrationRowDto> expiringDealRegistrations(LocalDate today) {

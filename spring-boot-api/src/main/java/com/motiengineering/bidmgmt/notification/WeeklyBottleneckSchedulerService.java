@@ -6,7 +6,7 @@ import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.domain.enums.ReminderType;
 import com.motiengineering.bidmgmt.domain.enums.Role;
 import com.motiengineering.bidmgmt.dto.AlertItemDto;
-import com.motiengineering.bidmgmt.dto.DelayRowDto;
+import com.motiengineering.bidmgmt.dto.DelayBoardRowDto;
 import com.motiengineering.bidmgmt.dto.DelaySummaryDto;
 import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.repository.UserDivisionRepository;
@@ -65,8 +65,8 @@ public class WeeklyBottleneckSchedulerService {
                 .toList();
 
         Map<String, Long> stageRedCounts = summary.topDelayed().stream()
-                .filter(r -> "RED".equals(r.level()) || "CRITICAL".equals(r.level()))
-                .collect(Collectors.groupingBy(DelayRowDto::level, LinkedHashMap::new, Collectors.counting()));
+                .filter(r -> "RED".equals(r.indicatorLevel()) || "CRITICAL".equals(r.indicatorLevel()))
+                .collect(Collectors.groupingBy(DelayBoardRowDto::indicatorLevel, LinkedHashMap::new, Collectors.counting()));
 
         Map<String, Long> waitingOnTotals = waitingOnStateRepository.findById_EntityType(EntityType.LOT).stream()
                 .collect(Collectors.groupingBy(w -> w.getPartyType() == null ? "UNSET" : w.getPartyType().name(), LinkedHashMap::new, Collectors.counting()));
@@ -89,8 +89,8 @@ public class WeeklyBottleneckSchedulerService {
         log.info("Weekly bottleneck summary sent to {} recipient(s)", sent);
     }
 
-    private AlertItemDto toAlertItem(DelayRowDto row) {
+    private AlertItemDto toAlertItem(DelayBoardRowDto row) {
         return new AlertItemDto(row.bidTitle(), row.lotLabel() + (row.divisionName() != null ? " - " + row.divisionName() : ""),
-                "/bids/" + row.bidId(), row.level() + (row.percentUsed() != null ? ", " + Math.round(row.percentUsed()) + "%" : ""));
+                row.detailHref(), row.indicatorLevel() + (row.percentUsed() != null ? ", " + Math.round(row.percentUsed()) + "%" : ""));
     }
 }

@@ -205,3 +205,20 @@ All four phases of the lifecycle-completeness initiative are now done.
 - Deliberately out of scope, not silently absorbed: the dashboard's own
   "Where deals are stuck" widget/stat card and `MyFollowUpsService` both
   still only cover BidLot.
+
+### Extending the dashboard's delay widget to Contract & Logistics
+
+- The dashboard's "Where deals are stuck" widget and "Behind stage
+  target" stat card now scan BidLot, Contract, and Logistics, reusing
+  `DelaysBoardService`'s existing merged scan via a new `summary(UUID
+  divisionId, boolean noDivisionOnly, int topLimit)` method instead of
+  duplicating a third scanning loop - previously BidLot-only, via a
+  separate `DelayRowDto`/`delaySummary()` in `DashboardService`.
+- Deleted `DelayRowDto`; `DelaySummaryDto.topDelayed` is now
+  `List<DelayBoardRowDto>`. `DashboardService` no longer depends on
+  `IndicatorService`/`WaitingOnService` directly.
+- `WeeklyBottleneckSchedulerService`'s weekly email now links each item
+  via `detailHref` instead of a hardcoded bid URL, so Contract/Logistics
+  entries link correctly.
+- Added three `DelaysBoardServiceTest` cases for `summary()` (overall
+  tally, division scope, "no division" bucket).

@@ -697,12 +697,11 @@ Logistics already computed their own Green/Amber/Red/Critical indicator
 *aggregated* across them the way BidLot's delays are aggregated - they
 never appeared on `/delays`, couldn't have a delay reason recorded when
 exiting a bad stage, and had no follow-up/snooze workflow. This closes
-that specific gap. Two things stay deliberately out of scope, noted
-below rather than silently absorbed into this change: the dashboard's
-own "Where deals are stuck" widget and "Behind stage target" stat card
-still only scan BidLot (they have their own separate, simpler
-`DelayRowDto`/`delaySummary()` in `DashboardService`, not shared with
-the board), and `MyFollowUpsService` still only surfaces LOT rows.
+that specific gap. One thing stays deliberately out of scope, noted
+below rather than silently absorbed into this change: `MyFollowUpsService`
+still only surfaces LOT rows. (The dashboard's own "Where deals are
+stuck" widget was extended to Contract/Logistics too - see the next
+section.)
 
 - **`DelayBoardRowDto`** gained `entityType`/`entityId`/`detailHref` -
   the generic identity a board row needs to point anywhere, not just at
@@ -746,6 +745,64 @@ mocks); the new "Delay reason" dropdown rendering correctly on both the
 Contract and Logistics status-update forms; and a real status transition
 on a live contract (Signed -> In Delivery) still succeeding exactly as
 before the change.
+
+## Extending the dashboard's delay widget to Contract & Logistics
+
+A direct follow-on to the above: the dashboard's "Where deals are stuck"
+widget and "Behind stage target" stat card had their own separate,
+BidLot-only `DelayRowDto`/`delaySummary()` in `DashboardService`, called
+out at the time as the one deliberately-deferred piece of the `/delays`
+board extension. This closes that gap by having the dashboard reuse
+`DelaysBoardService` instead of duplicating a third scanning loop.
+
+- **`DelaysBoardService`** gained a private `allRows()` helper (the
+  BidLot/Contract/Logistics scan `list(Filter)` already did, now shared)
+  and a new `summary(UUID divisionId, boolean noDivisionOnly, int
+  topLimit)` method, returning the same green/amber/red/critical/stale
+  tally and top-N-by-`percentUsed` list the dashboard has always shown,
+  now sourced from all three entity types instead of BidLot alone.
+  `divisionId` scopes to one division (Contract/Logistics rows carry no
+  division, so they're naturally excluded - same as the real `/delays`
+  board's own filter already behaves); `noDivisionOnly` is a dashboard-only
+  concept (the "No division" pill) with no equivalent on the real board,
+  satisfied by any row with a null `divisionId` - which includes every
+  Contract/Logistics row, since they have no division to exclude them
+  either way.
+- **`DelaySummaryDto.topDelayed`** changed from `List<DelayRowDto>` to
+  `List<DelayBoardRowDto>`, and `DelayRowDto` was deleted outright - its
+  only two consumers (`DashboardService`, `WeeklyBottleneckSchedulerService`)
+  are both migrated. `DashboardService` no longer scans bids itself for
+  this; `delaySummary(String divisionFilter)` just translates the
+  dashboard's three-state division-filter string (blank/`"none"`/UUID,
+  the same parsing `applyDivisionFilter` already does for every other
+  widget) into `DelaysBoardService.summary(...)`'s parameters.
+  `IndicatorService` and `WaitingOnService` are no longer dependencies of
+  `DashboardService` at all - both were only ever used inside the method
+  just deleted.
+- **`WeeklyBottleneckSchedulerService`** (the Monday-morning top-10 email)
+  now points `toAlertItem` at `DelayBoardRowDto.detailHref()` instead of a
+  hardcoded `"/bids/" + row.bidId()`, so a Contract or Logistics entry
+  in the weekly digest now links to its own page instead of a bid page
+  that may not even be the right one.
+- **`dashboard.ejs`**'s delay-item cards switched from `row.bidId`/
+  `row.level` to `row.detailHref`/`row.indicatorLevel`, with an
+  `entityType` badge next to the title for non-LOT rows - the same
+  minimal-diff pattern the `/delays` board template already used.
+- Added three tests to `DelaysBoardServiceTest` for the new `summary()`
+  method (a Contract counted alongside a Lot in the overall tally and
+  ranking, a specific-division scope excluding both the Contract and a
+  differently-divisioned Lot, and the "no division" bucket including both
+  the Contract and an undivided Lot), and updated `DashboardServiceTest`'s
+  setup for the new `DelaysBoardService` dependency. All 152 backend
+  tests pass.
+
+Live-verified against the real `bidmgmt` database: the dashboard's stat
+card and widget render real counts (55 critical / 69 stale across all
+divisions at verification time), the "No division" pill correctly folds
+in the system's two live Contracts (both GREEN/UNKNOWN, so invisible in
+the "stuck" view, but present in the on-track tally), the "Security"
+division pill correctly excludes those same Contracts, and clicking a
+delay card's link navigated to the correct bid detail page.
 
 ## Tests
 

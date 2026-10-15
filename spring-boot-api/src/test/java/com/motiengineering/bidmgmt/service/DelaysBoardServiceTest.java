@@ -3,6 +3,7 @@ package com.motiengineering.bidmgmt.service;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
 import com.motiengineering.bidmgmt.domain.Contract;
+import com.motiengineering.bidmgmt.domain.Division;
 import com.motiengineering.bidmgmt.domain.LogisticsShipment;
 import com.motiengineering.bidmgmt.domain.Organization;
 import com.motiengineering.bidmgmt.domain.enums.BidStatus;
@@ -12,6 +13,7 @@ import com.motiengineering.bidmgmt.domain.enums.LogisticsStatus;
 import com.motiengineering.bidmgmt.domain.enums.Sector;
 import com.motiengineering.bidmgmt.domain.enums.ShipmentMode;
 import com.motiengineering.bidmgmt.dto.DelayBoardRowDto;
+import com.motiengineering.bidmgmt.dto.DelaySummaryDto;
 import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.repository.BidRepository;
 import com.motiengineering.bidmgmt.repository.ContractRepository;
@@ -157,5 +159,94 @@ class DelaysBoardServiceTest {
         assertThat(rows.get(0).entityType()).isEqualTo("LOT");
         assertThat(rows.get(0).bidId()).isEqualTo(bid.getId());
         assertThat(rows.get(0).lotLabel()).isEqualTo("Lot 1");
+    }
+
+    @Test
+    void summaryCountsAndRanksAContractAlongsideALot() {
+        Bid bid = wonBid();
+        bid.setStatus(BidStatus.PREPARING);
+        BidLot lot = new BidLot();
+        lot.setId(UUID.randomUUID());
+        lot.setBid(bid);
+        lot.setLotLabel("Lot 1");
+        lot.setStatus(BidStatus.PREPARING);
+        bid.setLots(List.of(lot));
+        when(bidRepository.findAll()).thenReturn(List.of(bid));
+
+        Contract contract = new Contract();
+        contract.setId(UUID.randomUUID());
+        contract.setBid(wonBid());
+        contract.setContractNumber("CN-002");
+        contract.setStatus(ContractStatus.AWARDED);
+        when(contractRepository.findAll()).thenReturn(List.of(contract));
+
+        when(indicatorService.compute(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new IndicatorService.IndicatorResult(IndicatorLevel.AMBER, 80.0, 4.0, 5.0, false, false))
+                .thenReturn(new IndicatorService.IndicatorResult(IndicatorLevel.CRITICAL, 180.0, 9.0, 5.0, false, true));
+
+        DelaySummaryDto summary = service.summary(null, false, 10);
+
+        assertThat(summary.amberCount()).isEqualTo(1);
+        assertThat(summary.criticalCount()).isEqualTo(1);
+        assertThat(summary.staleCount()).isEqualTo(1);
+        assertThat(summary.topDelayed()).hasSize(2);
+        assertThat(summary.topDelayed().get(0).entityType()).isEqualTo("CONTRACT");
+        assertThat(summary.topDelayed().get(0).detailHref()).isEqualTo("/contracts/" + contract.getId());
+    }
+
+    @Test
+    void summaryScopedToADivisionExcludesContractsAndOtherDivisions() {
+        Division security = new Division();
+        security.setId(UUID.randomUUID());
+        security.setName("Security");
+
+        Bid bid = wonBid();
+        bid.setStatus(BidStatus.PREPARING);
+        BidLot lot = new BidLot();
+        lot.setId(UUID.randomUUID());
+        lot.setBid(bid);
+        lot.setLotLabel("Lot 1");
+        lot.setStatus(BidStatus.PREPARING);
+        lot.setDivision(security);
+        bid.setLots(List.of(lot));
+        when(bidRepository.findAll()).thenReturn(List.of(bid));
+
+        Contract contract = new Contract();
+        contract.setId(UUID.randomUUID());
+        contract.setBid(wonBid());
+        contract.setStatus(ContractStatus.AWARDED);
+        when(contractRepository.findAll()).thenReturn(List.of(contract));
+        stubIndicator(IndicatorLevel.CRITICAL);
+
+        DelaySummaryDto summary = service.summary(security.getId(), false, 10);
+
+        assertThat(summary.criticalCount()).isEqualTo(1);
+        assertThat(summary.topDelayed()).hasSize(1);
+        assertThat(summary.topDelayed().get(0).entityType()).isEqualTo("LOT");
+    }
+
+    @Test
+    void summaryNoDivisionBucketIncludesContractsAndUndividedLots() {
+        Bid bid = wonBid();
+        bid.setStatus(BidStatus.PREPARING);
+        BidLot lot = new BidLot();
+        lot.setId(UUID.randomUUID());
+        lot.setBid(bid);
+        lot.setLotLabel("Lot 1");
+        lot.setStatus(BidStatus.PREPARING);
+        bid.setLots(List.of(lot));
+        when(bidRepository.findAll()).thenReturn(List.of(bid));
+
+        Contract contract = new Contract();
+        contract.setId(UUID.randomUUID());
+        contract.setBid(wonBid());
+        contract.setStatus(ContractStatus.AWARDED);
+        when(contractRepository.findAll()).thenReturn(List.of(contract));
+        stubIndicator(IndicatorLevel.RED);
+
+        DelaySummaryDto summary = service.summary(null, true, 10);
+
+        assertThat(summary.redCount()).isEqualTo(2);
+        assertThat(summary.topDelayed()).hasSize(2);
     }
 }

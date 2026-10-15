@@ -9,6 +9,7 @@ import com.motiengineering.bidmgmt.domain.LotAccountOfficer;
 import com.motiengineering.bidmgmt.domain.WaitingOnState;
 import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.dto.DelayBoardRowDto;
+import com.motiengineering.bidmgmt.dto.DelaySummaryDto;
 import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.repository.BidRepository;
 import com.motiengineering.bidmgmt.repository.ContractRepository;
@@ -55,6 +56,50 @@ public class DelaysBoardService {
     }
 
     public List<DelayBoardRowDto> list(Filter filter) {
+        return allRows().stream()
+                .filter(row -> isShowable(row) && matches(row, filter))
+                .sorted(Comparator.comparing((DelayBoardRowDto r) -> r.percentUsed() == null ? 0.0 : r.percentUsed()).reversed())
+                .toList();
+    }
+
+    /**
+     * Same green/amber/red/critical/stale counts and top-delayed list the dashboard has always shown,
+     * now sourced from every BidLot, Contract and Logistics row instead of BidLot alone. divisionId
+     * scopes to one division (BidLot rows only - Contract/Logistics carry no division); noDivisionOnly
+     * scopes to BidLot rows with no division plus every Contract/Logistics row (neither has a division
+     * to exclude it); both null/false means no scoping at all.
+     */
+    public DelaySummaryDto summary(UUID divisionId, boolean noDivisionOnly, int topLimit) {
+        List<DelayBoardRowDto> scoped = allRows().stream()
+                .filter(row -> noDivisionOnly ? row.divisionId() == null : (divisionId == null || divisionId.equals(row.divisionId())))
+                .toList();
+
+        int green = 0;
+        int amber = 0;
+        int red = 0;
+        int critical = 0;
+        int stale = 0;
+        for (DelayBoardRowDto row : scoped) {
+            if (row.stale()) {
+                stale++;
+            }
+            switch (row.indicatorLevel()) {
+                case "GREEN" -> green++;
+                case "AMBER" -> amber++;
+                case "RED" -> red++;
+                case "CRITICAL" -> critical++;
+                default -> { }
+            }
+        }
+        List<DelayBoardRowDto> top = scoped.stream()
+                .filter(row -> "AMBER".equals(row.indicatorLevel()) || "RED".equals(row.indicatorLevel()) || "CRITICAL".equals(row.indicatorLevel()))
+                .sorted(Comparator.comparing((DelayBoardRowDto r) -> r.percentUsed() == null ? 0.0 : r.percentUsed()).reversed())
+                .limit(topLimit)
+                .toList();
+        return new DelaySummaryDto(green, amber, red, critical, stale, top);
+    }
+
+    private List<DelayBoardRowDto> allRows() {
         List<DelayBoardRowDto> rows = new ArrayList<>();
         for (Bid bid : bidRepository.findAll()) {
             for (BidLot lot : bid.getLots()) {
@@ -76,10 +121,7 @@ public class DelaysBoardService {
                 rows.add(row);
             }
         }
-        return rows.stream()
-                .filter(row -> isShowable(row) && matches(row, filter))
-                .sorted(Comparator.comparing((DelayBoardRowDto r) -> r.percentUsed() == null ? 0.0 : r.percentUsed()).reversed())
-                .toList();
+        return rows;
     }
 
     private boolean isShowable(DelayBoardRowDto row) {
