@@ -222,3 +222,28 @@ All four phases of the lifecycle-completeness initiative are now done.
   entries link correctly.
 - Added three `DelaysBoardServiceTest` cases for `summary()` (overall
   tally, division scope, "no division" bucket).
+
+### Extending My Follow-ups to Contract & Logistics
+
+- `MyFollowUpsService` now includes Contract and Logistics rows the
+  current user owns the follow-up for - previously BidLot-only, called
+  out as deliberately deferred in the Delays board extension above.
+  Neither entity has an account-officer concept, so follow-up ownership
+  alone gates all four buckets (overdue/due-today/turning-amber-soon/
+  stale) for them, versus BidLot's existing officer-or-follow-up-owner
+  split.
+- `DelaysBoardService.computeContractRow`/`computeLogisticsRow` made
+  public (mirroring `computeRow`) so `MyFollowUpsService` reuses the
+  exact same row computation as the Delays board.
+- node-bff's `myFollowUps.ejs`/`myFollowUps.js` switched from
+  `lotId`-only forms to the generic `entityType`/`entityId` pair already
+  used by the Delays board, with an entity-type badge and `detailHref`
+  link for non-LOT rows.
+- Added `MyFollowUpsServiceTest` (no prior test coverage).
+- **Real bug found via live browser verification**: `activity_log` and
+  `attachments` were created in `V1__init.sql` before `CHECKLIST_ITEM`,
+  `CONTRACT` and `LOGISTICS` existed, and their `CHECK` constraints on
+  `entity_type` were never widened when every other polymorphic table's
+  was (V8/V10/V12). Logging a follow-up note against a Contract (now
+  reachable from the Delays board's generalized form) 500'd on insert.
+  Fixed with `V13__widen_activity_log_and_attachments_entity_types.sql`.

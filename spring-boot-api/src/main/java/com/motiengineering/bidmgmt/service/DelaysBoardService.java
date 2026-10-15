@@ -163,8 +163,11 @@ public class DelaysBoardService {
                 followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName());
     }
 
-    /** Mirrors ContractMapper.indicatorFor exactly, so the board and the contract's own badge never disagree. */
-    private DelayBoardRowDto computeContractRow(Contract contract) {
+    /**
+     * Mirrors ContractMapper.indicatorFor exactly, so the board and the contract's own badge never disagree.
+     * Public (like computeRow) so MyFollowUpsService can reuse it for the follow-up-owner's own view.
+     */
+    public DelayBoardRowDto computeContractRow(Contract contract) {
         if (contract.getStatus() == null || contract.getStatus().isTerminal()) {
             return null;
         }
@@ -194,8 +197,11 @@ public class DelaysBoardService {
                 followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName());
     }
 
-    /** Mirrors LogisticsMapper.indicatorFor exactly, so the board and the shipment's own badge never disagree. */
-    private DelayBoardRowDto computeLogisticsRow(LogisticsShipment shipment) {
+    /**
+     * Mirrors LogisticsMapper.indicatorFor exactly, so the board and the shipment's own badge never disagree.
+     * Public (like computeRow) so MyFollowUpsService can reuse it for the follow-up-owner's own view.
+     */
+    public DelayBoardRowDto computeLogisticsRow(LogisticsShipment shipment) {
         if (shipment.getStatus() == null || shipment.getStatus().isTerminal()) {
             return null;
         }

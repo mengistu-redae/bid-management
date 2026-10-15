@@ -3,10 +3,14 @@ package com.motiengineering.bidmgmt.service;
 import com.motiengineering.bidmgmt.domain.AppUser;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
+import com.motiengineering.bidmgmt.domain.Contract;
 import com.motiengineering.bidmgmt.domain.FollowUpState;
+import com.motiengineering.bidmgmt.domain.LogisticsShipment;
 import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.dto.DelayBoardRowDto;
 import com.motiengineering.bidmgmt.repository.BidRepository;
+import com.motiengineering.bidmgmt.repository.ContractRepository;
+import com.motiengineering.bidmgmt.repository.LogisticsShipmentRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,6 +32,8 @@ public class MyFollowUpsService {
     private static final BigDecimal AMBER_SOON_BUFFER_PERCENT = BigDecimal.valueOf(15);
 
     private final BidRepository bidRepository;
+    private final ContractRepository contractRepository;
+    private final LogisticsShipmentRepository logisticsShipmentRepository;
     private final LotAccountOfficerRepository lotAccountOfficerRepository;
     private final DelaysBoardService delaysBoardService;
     private final FollowUpService followUpService;
@@ -64,25 +70,67 @@ public class MyFollowUpsService {
                 if (row == null) {
                     continue;
                 }
-
-                if (isFollowUpOwner && followUp.getNextFollowUpDate() != null && !followUp.isSnoozed(today)) {
-                    if (followUp.getNextFollowUpDate().isBefore(today)) {
-                        overdue.add(row);
-                    } else if (followUp.getNextFollowUpDate().isEqual(today)) {
-                        dueToday.add(row);
-                    }
-                }
-                if (isAssignedOfficer) {
-                    if ("GREEN".equals(row.indicatorLevel()) && row.percentUsed() != null
-                            && BigDecimal.valueOf(row.percentUsed()).compareTo(soonFloor) >= 0) {
-                        turningAmberSoon.add(row);
-                    }
-                    if (row.stale()) {
-                        stale.add(row);
-                    }
-                }
+                classify(row, isAssignedOfficer, isFollowUpOwner, followUp, today, soonFloor, overdue, dueToday, turningAmberSoon, stale);
             }
         }
+
+        // Contract/Logistics have no account-officer concept (no equivalent of lot_account_officers
+        // exists for them yet) - the follow-up owner is the sole stand-in for "the responsible person"
+        // on these two, so it gates both the date-based buckets AND the proactive turning-amber-soon/stale ones.
+        for (Contract contract : contractRepository.findAll()) {
+            if (contract.getStatus() == null || contract.getStatus().isTerminal()) {
+                continue;
+            }
+            FollowUpState followUp = followUpService.get(EntityType.CONTRACT, contract.getId()).orElse(null);
+            boolean isFollowUpOwner = followUp != null && followUp.getFollowUpOwner() != null && followUp.getFollowUpOwner().getId().equals(user.getId());
+            if (!isFollowUpOwner) {
+                continue;
+            }
+            DelayBoardRowDto row = delaysBoardService.computeContractRow(contract);
+            if (row == null) {
+                continue;
+            }
+            classify(row, isFollowUpOwner, isFollowUpOwner, followUp, today, soonFloor, overdue, dueToday, turningAmberSoon, stale);
+        }
+        for (LogisticsShipment shipment : logisticsShipmentRepository.findAll()) {
+            if (shipment.getStatus() == null || shipment.getStatus().isTerminal()) {
+                continue;
+            }
+            FollowUpState followUp = followUpService.get(EntityType.LOGISTICS, shipment.getId()).orElse(null);
+            boolean isFollowUpOwner = followUp != null && followUp.getFollowUpOwner() != null && followUp.getFollowUpOwner().getId().equals(user.getId());
+            if (!isFollowUpOwner) {
+                continue;
+            }
+            DelayBoardRowDto row = delaysBoardService.computeLogisticsRow(shipment);
+            if (row == null) {
+                continue;
+            }
+            classify(row, isFollowUpOwner, isFollowUpOwner, followUp, today, soonFloor, overdue, dueToday, turningAmberSoon, stale);
+        }
+
         return new MyFollowUpsDto(overdue, dueToday, turningAmberSoon, stale);
+    }
+
+    /** isProactivelyOwned gates turning-amber-soon/stale - the assigned officer for a LOT, the follow-up owner for everything else. */
+    private void classify(DelayBoardRowDto row, boolean isProactivelyOwned, boolean isFollowUpOwner, FollowUpState followUp,
+                           LocalDate today, BigDecimal soonFloor,
+                           List<DelayBoardRowDto> overdue, List<DelayBoardRowDto> dueToday,
+                           List<DelayBoardRowDto> turningAmberSoon, List<DelayBoardRowDto> stale) {
+        if (isFollowUpOwner && followUp.getNextFollowUpDate() != null && !followUp.isSnoozed(today)) {
+            if (followUp.getNextFollowUpDate().isBefore(today)) {
+                overdue.add(row);
+            } else if (followUp.getNextFollowUpDate().isEqual(today)) {
+                dueToday.add(row);
+            }
+        }
+        if (isProactivelyOwned) {
+            if ("GREEN".equals(row.indicatorLevel()) && row.percentUsed() != null
+                    && BigDecimal.valueOf(row.percentUsed()).compareTo(soonFloor) >= 0) {
+                turningAmberSoon.add(row);
+            }
+            if (row.stale()) {
+                stale.add(row);
+            }
+        }
     }
 }

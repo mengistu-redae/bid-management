@@ -804,6 +804,57 @@ the "stuck" view, but present in the on-track tally), the "Security"
 division pill correctly excludes those same Contracts, and clicking a
 delay card's link navigated to the correct bid detail page.
 
+## Extending My Follow-ups to Contract & Logistics
+
+The last of the deliberately-deferred gaps from the two sections above:
+`MyFollowUpsService` still only ever surfaced BidLot rows, even though
+Contract and Logistics can now have a follow-up owner assigned from the
+Delays board. This closes that gap.
+
+- Neither Contract nor Logistics has an account-officer concept (no
+  equivalent of `lot_account_officers` exists for them), so unlike
+  BidLot - where the officer-or-follow-up-owner split governs which rows
+  a user sees, and only the assigned officer sees the proactive
+  turning-amber-soon/stale buckets - for these two, follow-up ownership
+  alone gates all four buckets. A shared private `classify(...)` helper
+  takes a `isProactivelyOwned` flag (the assigned officer for a LOT, the
+  follow-up owner for everything else) so the BidLot branch's existing
+  behavior is untouched.
+- `DelaysBoardService.computeContractRow`/`computeLogisticsRow` were
+  made public (mirroring `computeRow`'s existing visibility) so
+  `MyFollowUpsService` reuses the identical row computation the Delays
+  board uses - the two can never disagree.
+- node-bff's `myFollowUps.ejs`/`myFollowUps.js` switched from the old
+  `lotId`-only link/form-field pattern to the generic
+  `entityType`/`entityId`/`detailHref` fields the Delays board already
+  uses, with an entity-type badge for non-LOT rows.
+- Added `MyFollowUpsServiceTest` (no test existed for this service
+  before) - an overdue Contract follow-up showing up for its owner, one
+  owned by someone else correctly excluded, a green Contract near the
+  amber threshold landing in "turning amber soon", and a stale Logistics
+  shipment landing in "stale".
+
+**Real bug found via live browser verification, not caught by any unit
+test**: `activity_log` and `attachments` were both created in
+`V1__init.sql`, before `CHECKLIST_ITEM`, `CONTRACT` and `LOGISTICS`
+existed in the `EntityType` enum, with a `CHECK (entity_type IN ('BID',
+'LOT', 'OPPORTUNITY', 'DEAL_REGISTRATION'))` constraint. Every other
+polymorphic table added since (`stage_history`, `hold_periods`,
+`stage_targets`, `waiting_on_state`, `follow_up_state`, `alert_state`,
+`stage_milestones`) had its constraint correctly widened in V8/V10/V12 -
+these two were missed, and nothing had ever tried to write a
+`CONTRACT`/`LOGISTICS` row through them until this change made it
+reachable: submitting a follow-up note against a Contract from the
+Delays board's already-shipped generalized form 500'd with
+`activity_log_entity_type_check` violated. Pure-Mockito unit tests
+(this one included) mock the repository layer entirely, so they have no
+way to catch a database constraint mismatch like this - only a real
+Postgres round-trip can. Fixed with
+`V13__widen_activity_log_and_attachments_entity_types.sql`, confirmed by
+re-running the same live follow-up submission end to end: it reached
+`/my-follow-ups`'s Overdue bucket with the correct entity badge, link,
+and status, and the Delays board's sidebar count updated accordingly.
+
 ## Tests
 
 ```bash
