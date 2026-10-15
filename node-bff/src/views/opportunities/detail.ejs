@@ -40,6 +40,13 @@
       <label>Lost reason (if moving to Lost/Closed)</label>
       <input name="lostReason" placeholder="Why?">
     </div>
+    <div style="flex:1; min-width:12rem;">
+      <label>Delay reason (required if red/critical)</label>
+      <select name="delayReasonCode">
+        <option value="">-</option>
+        <% delayReasonCodes.forEach(c => { %><option value="<%= c.code %>"><%= c.label %></option><% }) %>
+      </select>
+    </div>
     <div><button type="submit">Update</button></div>
   </form>
 

@@ -855,6 +855,77 @@ re-running the same live follow-up submission end to end: it reached
 `/my-follow-ups`'s Overdue bucket with the correct entity badge, link,
 and status, and the Delays board's sidebar count updated accordingly.
 
+## Extending delay/indicator coverage to Opportunity & Deal Registration
+
+The last non-BidLot gap from the stage-tracking initiative's original
+scope: Opportunity and DealRegistration already computed their own
+indicator badge (stage-tracking phase 2), but had no delay-reason
+enforcement on exit, no presence on the Delays board or dashboard
+widget, and no My Follow-ups coverage - all three BidLot/Contract/
+Logistics already had. This closes that gap the same way the Contract/
+Logistics work did, entity by entity.
+
+- **Delay-reason-on-exit**: `OpportunityService.update` and
+  `DealRegistrationService.update` each gained a
+  `requireDelayReasonIfRedOrCritical` helper - same rule as
+  `ContractService.transitionStatus`'s (moving out of a red/critical
+  stage needs a `delayReasonCode`), computed via the exact same
+  `IndicatorService.compute` call each entity's own mapper already makes
+  for its badge, so the enforcement and the badge can never disagree.
+  Both `UpdateOpportunityRequest` and `UpdateDealRegistrationRequest`
+  gained a `delayReasonCode` field (bound automatically, no controller
+  changes needed - same as Contract/Logistics before), and the node-bff
+  "Update stage"/status forms gained the same dropdown already used
+  everywhere else.
+- **Delays board**: `DelaysBoardService.computeOpportunityRow`/
+  `computeDealRegistrationRow` mirror `OpportunityMapper`/
+  `DealRegistrationMapper`'s `indicatorFor` exactly - including
+  DealRegistrationMapper's APPROVED exclusion (not technically terminal,
+  since it can still move to EXPIRED, but no longer "in progress," so it
+  shouldn't clutter a delay board). Since `DashboardService` already
+  delegates its "Where deals are stuck" widget to this board's
+  `summary()` (from the dashboard-widget extension above), the dashboard
+  picked up both new entity types automatically - no changes needed
+  there at all.
+- **My Follow-ups**: extended the same way Contract/Logistics were -
+  follow-up ownership alone gates all four buckets (neither Opportunity
+  nor DealRegistration has an account-officer concept). With this
+  extension, the Contract/Logistics/Opportunity/DealRegistration loops
+  became four copies of an identical pattern, so they were factored into
+  one generic `evaluateFollowUpOwnerOnly(entities, entityType, isOpen,
+  idOf, rowOf, ...)` helper instead of a fifth copy-pasted block.
+- **A real template gap surfaced by Opportunity specifically**: every
+  prior non-LOT row type (Contract, Logistics, Deal Registration) had a
+  natural "parent" to show as the row's subtitle (the bid title, or the
+  registration ID) - Opportunity doesn't, since it's the top of its own
+  chain. `DelayBoardRowDto.lotLabel()` is `null` for an Opportunity row,
+  which `delays.ejs`/`myFollowUps.ejs` previously rendered as the
+  literal string "null" (JavaScript's `String(null)`). Both templates
+  now skip the subtitle span entirely when `lotLabel` is falsy.
+- Added 2 new delay-reason tests each to `OpportunityServiceTest`/
+  `DealRegistrationServiceTest`, 4 new `DelaysBoardServiceTest` cases (a
+  critical Opportunity row, a converted-to-bid one excluded, a red Deal
+  Registration row reusing `oemBrand` for OEM-filter parity with LOT
+  rows, an approved one excluded), and 4 new `MyFollowUpsServiceTest`
+  cases mirroring the Contract/Logistics ones.
+- Live-verified end to end against the real `bidmgmt` database: created
+  a test Opportunity and a test Deal Registration, confirmed the new
+  delay-reason dropdown renders on both detail pages, a normal
+  (non-red/critical) stage/status transition still succeeds without a
+  delay reason, and a follow-up logged against each via the Delays
+  board's existing generic form shows up correctly in My Follow-ups
+  (right entity badge, title, link, date) and clears correctly - all
+  with zero errors in the server logs.
+- **Deliberately out of scope, not silently absorbed**:
+  `DelayAlertSchedulerService` (the proactive email/escalation alerts)
+  and `DelayAnalyticsService` (bottleneck reports) remain BidLot/
+  Contract/Logistics only. Opportunity has an `owner` field that could
+  plausibly receive alerts the way BidLot's account officers do, but
+  DealRegistration has neither an owner nor a division - who should
+  receive an Opportunity/DealRegistration alert is a product decision,
+  not something to guess at, so it's left as a follow-up for the user to
+  weigh in on rather than done here.
+
 ## Tests
 
 ```bash

@@ -56,6 +56,7 @@ public class DealRegistrationService {
     private final OemService oemService;
     private final AuditService auditService;
     private final StageHistoryService stageHistoryService;
+    private final IndicatorService indicatorService;
 
     public DealRegistration get(UUID id) {
         return dealRegistrationRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Deal registration not found: " + id));
@@ -120,7 +121,8 @@ public class DealRegistrationService {
                 if (!ALLOWED_TRANSITIONS.getOrDefault(oldStatus, Set.of()).contains(newStatus)) {
                     throw new IllegalStateException("Cannot move a deal registration from " + oldStatus + " to " + newStatus);
                 }
-                stageHistoryService.record(EntityType.DEAL_REGISTRATION, reg.getId(), "status", oldStatus.name(), newStatus.name(), null, actingUser);
+                requireDelayReasonIfRedOrCritical(reg, request.delayReasonCode());
+                stageHistoryService.record(EntityType.DEAL_REGISTRATION, reg.getId(), "status", oldStatus.name(), newStatus.name(), null, request.delayReasonCode(), actingUser);
             }
             reg.setStatus(newStatus);
         }
@@ -142,6 +144,21 @@ public class DealRegistrationService {
             reg.setNotes(request.notes());
         }
         return dealRegistrationRepository.save(reg);
+    }
+
+    /**
+     * Red/critical is measured against the registration's CURRENT (about-to-be-exited) status -
+     * same rule as BidStatusService.transitionLot/ContractService.transitionStatus. No division
+     * concept exists for a deal registration, matching DealRegistrationMapper.indicatorFor's
+     * target-resolution context exactly.
+     */
+    private void requireDelayReasonIfRedOrCritical(DealRegistration reg, String delayReasonCode) {
+        TargetContext context = new TargetContext(null, reg.getOrganization() == null ? null : reg.getOrganization().getSector(), null, null);
+        IndicatorService.IndicatorResult indicator = indicatorService.compute(
+                EntityType.DEAL_REGISTRATION, reg.getId(), "status", reg.getStatus().name(), reg.getCreatedAt(), context, Map.of());
+        if (indicator.isRedOrCritical() && (delayReasonCode == null || delayReasonCode.isBlank())) {
+            throw new IllegalArgumentException("A delay reason is required when moving a deal registration out of a stage that is red or critical");
+        }
     }
 
     private Oem resolveOem(UUID oemId, String oemName) {

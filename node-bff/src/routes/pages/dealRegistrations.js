@@ -72,11 +72,15 @@ function buildDealRegistrationsRouter() {
 
   router.get('/:id', async (req, res, next) => {
     try {
-      const [registration, activity] = await Promise.all([
+      const [registration, activity, delayReasonCodes] = await Promise.all([
         req.api.get(`/api/deal-registrations/${req.params.id}`),
         req.api.get(`/api/deal-registrations/${req.params.id}/activity`),
+        req.api.get('/api/delay-reason-codes'),
       ]);
-      res.render('dealRegistrations/detail', { title: registration.oem.name + ' - ' + registration.organization.name, user: req.session.user, registration, activity, statusOptions: STATUS_OPTIONS });
+      res.render('dealRegistrations/detail', {
+        title: registration.oem.name + ' - ' + registration.organization.name, user: req.session.user, registration, activity, statusOptions: STATUS_OPTIONS,
+        delayReasonCodes: delayReasonCodes.filter((c) => c.active),
+      });
     } catch (err) {
       next(err);
     }
@@ -95,6 +99,7 @@ function buildDealRegistrationsRouter() {
         protectedDiscountPercent: body.protectedDiscountPercent ? Number(body.protectedDiscountPercent) : null,
         specialPriceReference: body.specialPriceReference || null,
         notes: body.notes || null,
+        delayReasonCode: body.delayReasonCode || null,
       });
       setFlash(req, 'success', 'Saved.');
       res.redirect(`/deal-registrations/${req.params.id}`);

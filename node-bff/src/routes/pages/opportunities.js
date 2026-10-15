@@ -58,11 +58,15 @@ function buildOpportunitiesRouter() {
 
   router.get('/:id', async (req, res, next) => {
     try {
-      const [opportunity, activity] = await Promise.all([
+      const [opportunity, activity, delayReasonCodes] = await Promise.all([
         req.api.get(`/api/opportunities/${req.params.id}`),
         req.api.get(`/api/opportunities/${req.params.id}/activity`),
+        req.api.get('/api/delay-reason-codes'),
       ]);
-      res.render('opportunities/detail', { title: opportunity.title, user: req.session.user, opportunity, activity, stageOptions: STAGE_OPTIONS });
+      res.render('opportunities/detail', {
+        title: opportunity.title, user: req.session.user, opportunity, activity, stageOptions: STAGE_OPTIONS,
+        delayReasonCodes: delayReasonCodes.filter((c) => c.active),
+      });
     } catch (err) {
       next(err);
     }
@@ -75,6 +79,7 @@ function buildOpportunitiesRouter() {
         stage: body.stage || null,
         lostReason: body.lostReason || null,
         notes: body.notes || null,
+        delayReasonCode: body.delayReasonCode || null,
       });
       setFlash(req, 'success', 'Saved.');
       res.redirect(`/opportunities/${req.params.id}`);

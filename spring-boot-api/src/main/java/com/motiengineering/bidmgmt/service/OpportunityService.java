@@ -76,6 +76,7 @@ public class OpportunityService {
     private final BidService bidService;
     private final AuditService auditService;
     private final StageHistoryService stageHistoryService;
+    private final IndicatorService indicatorService;
 
     public Opportunity get(UUID id) {
         return opportunityRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Opportunity not found: " + id));
@@ -135,7 +136,8 @@ public class OpportunityService {
                 if (newStage == OpportunityStage.LOST_CLOSED && (opportunity.getLostReason() == null || opportunity.getLostReason().isBlank())) {
                     throw new IllegalArgumentException("Lost/Closed requires a reason");
                 }
-                stageHistoryService.record(EntityType.OPPORTUNITY, opportunity.getId(), "stage", oldStage.name(), newStage.name(), null, actingUser);
+                requireDelayReasonIfRedOrCritical(opportunity, request.delayReasonCode());
+                stageHistoryService.record(EntityType.OPPORTUNITY, opportunity.getId(), "stage", oldStage.name(), newStage.name(), null, request.delayReasonCode(), actingUser);
             }
             opportunity.setStage(newStage);
         }
@@ -152,6 +154,27 @@ public class OpportunityService {
             opportunity.setNotes(request.notes());
         }
         return opportunityRepository.save(opportunity);
+    }
+
+    /**
+     * Red/critical is measured against the opportunity's CURRENT (about-to-be-exited) stage -
+     * same rule as BidStatusService.transitionLot/ContractService.transitionStatus. Uses a single
+     * division when the opportunity has exactly one (null otherwise), matching
+     * OpportunityMapper.indicatorFor's target-resolution context exactly.
+     */
+    private void requireDelayReasonIfRedOrCritical(Opportunity opportunity, String delayReasonCode) {
+        List<UUID> divisionIds = opportunityDivisionRepository.findById_OpportunityId(opportunity.getId()).stream()
+                .map(od -> od.getId().getDivisionId())
+                .toList();
+        TargetContext context = new TargetContext(
+                divisionIds.size() == 1 ? divisionIds.get(0) : null,
+                opportunity.getOrganization() == null ? null : opportunity.getOrganization().getSector(),
+                null, null);
+        IndicatorService.IndicatorResult indicator = indicatorService.compute(
+                EntityType.OPPORTUNITY, opportunity.getId(), "stage", opportunity.getStage().name(), opportunity.getCreatedAt(), context, Map.of());
+        if (indicator.isRedOrCritical() && (delayReasonCode == null || delayReasonCode.isBlank())) {
+            throw new IllegalArgumentException("A delay reason is required when moving an opportunity out of a stage that is red or critical");
+        }
     }
 
     /**

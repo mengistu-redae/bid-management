@@ -45,6 +45,13 @@
           <% statusOptions.forEach(s => { %><option value="<%= s %>" <%= s === registration.status ? 'selected' : '' %>><%= s %></option><% }) %>
         </select>
       </div>
+      <div class="col">
+        <label>Delay reason (required if red/critical)</label>
+        <select name="delayReasonCode">
+          <option value="">-</option>
+          <% delayReasonCodes.forEach(c => { %><option value="<%= c.code %>"><%= c.label %></option><% }) %>
+        </select>
+      </div>
     </div>
     <div class="row">
       <div class="col">

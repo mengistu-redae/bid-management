@@ -3,13 +3,18 @@ package com.motiengineering.bidmgmt.service;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
 import com.motiengineering.bidmgmt.domain.Contract;
+import com.motiengineering.bidmgmt.domain.DealRegistration;
 import com.motiengineering.bidmgmt.domain.Division;
 import com.motiengineering.bidmgmt.domain.LogisticsShipment;
+import com.motiengineering.bidmgmt.domain.Oem;
+import com.motiengineering.bidmgmt.domain.Opportunity;
 import com.motiengineering.bidmgmt.domain.Organization;
 import com.motiengineering.bidmgmt.domain.enums.BidStatus;
 import com.motiengineering.bidmgmt.domain.enums.ContractStatus;
+import com.motiengineering.bidmgmt.domain.enums.DealRegistrationStatus;
 import com.motiengineering.bidmgmt.domain.enums.IndicatorLevel;
 import com.motiengineering.bidmgmt.domain.enums.LogisticsStatus;
+import com.motiengineering.bidmgmt.domain.enums.OpportunityStage;
 import com.motiengineering.bidmgmt.domain.enums.Sector;
 import com.motiengineering.bidmgmt.domain.enums.ShipmentMode;
 import com.motiengineering.bidmgmt.dto.DelayBoardRowDto;
@@ -17,8 +22,12 @@ import com.motiengineering.bidmgmt.dto.DelaySummaryDto;
 import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.repository.BidRepository;
 import com.motiengineering.bidmgmt.repository.ContractRepository;
+import com.motiengineering.bidmgmt.repository.DealRegistrationRepository;
+import com.motiengineering.bidmgmt.repository.DivisionRepository;
 import com.motiengineering.bidmgmt.repository.LogisticsShipmentRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
+import com.motiengineering.bidmgmt.repository.OpportunityDivisionRepository;
+import com.motiengineering.bidmgmt.repository.OpportunityRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -31,12 +40,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/** Covers DelaysBoardService now that it merges BidLot, Contract and Logistics rows into one board. */
+/** Covers DelaysBoardService now that it merges BidLot, Contract, Logistics, Opportunity and DealRegistration rows into one board. */
 class DelaysBoardServiceTest {
 
     private BidRepository bidRepository;
     private ContractRepository contractRepository;
     private LogisticsShipmentRepository logisticsShipmentRepository;
+    private OpportunityRepository opportunityRepository;
+    private OpportunityDivisionRepository opportunityDivisionRepository;
+    private DealRegistrationRepository dealRegistrationRepository;
+    private DivisionRepository divisionRepository;
     private IndicatorService indicatorService;
     private DelaysBoardService service;
 
@@ -48,6 +61,13 @@ class DelaysBoardServiceTest {
         when(contractRepository.findAll()).thenReturn(List.of());
         logisticsShipmentRepository = mock(LogisticsShipmentRepository.class);
         when(logisticsShipmentRepository.findAll()).thenReturn(List.of());
+        opportunityRepository = mock(OpportunityRepository.class);
+        when(opportunityRepository.findAll()).thenReturn(List.of());
+        opportunityDivisionRepository = mock(OpportunityDivisionRepository.class);
+        when(opportunityDivisionRepository.findById_OpportunityId(any())).thenReturn(List.of());
+        dealRegistrationRepository = mock(DealRegistrationRepository.class);
+        when(dealRegistrationRepository.findAll()).thenReturn(List.of());
+        divisionRepository = mock(DivisionRepository.class);
         LotAccountOfficerRepository lotAccountOfficerRepository = mock(LotAccountOfficerRepository.class);
         when(lotAccountOfficerRepository.findById_LotId(any())).thenReturn(List.of());
         AppUserRepository appUserRepository = mock(AppUserRepository.class);
@@ -57,6 +77,7 @@ class DelaysBoardServiceTest {
         FollowUpService followUpService = mock(FollowUpService.class);
         when(followUpService.get(any(), any())).thenReturn(Optional.empty());
         service = new DelaysBoardService(bidRepository, contractRepository, logisticsShipmentRepository,
+                opportunityRepository, opportunityDivisionRepository, dealRegistrationRepository, divisionRepository,
                 lotAccountOfficerRepository, appUserRepository, indicatorService, waitingOnService, followUpService);
     }
 
@@ -138,6 +159,78 @@ class DelaysBoardServiceTest {
         assertThat(row.bidTitle()).isEqualTo("SEA shipment");
         assertThat(row.lotLabel()).isEqualTo("Test bid");
         assertThat(row.organizationName()).isEqualTo("Test Org");
+    }
+
+    @Test
+    void includesACriticalOpportunityRow() {
+        Opportunity opportunity = new Opportunity();
+        opportunity.setId(UUID.randomUUID());
+        opportunity.setTitle("New data center deal");
+        opportunity.setOrganization(new Organization("Test Org", Sector.BANK));
+        opportunity.setStage(OpportunityStage.QUALIFIED);
+        when(opportunityRepository.findAll()).thenReturn(List.of(opportunity));
+        stubIndicator(IndicatorLevel.CRITICAL);
+
+        List<DelayBoardRowDto> rows = service.list(DelaysBoardService.Filter.EMPTY);
+
+        assertThat(rows).hasSize(1);
+        DelayBoardRowDto row = rows.get(0);
+        assertThat(row.entityType()).isEqualTo("OPPORTUNITY");
+        assertThat(row.entityId()).isEqualTo(opportunity.getId());
+        assertThat(row.detailHref()).isEqualTo("/opportunities/" + opportunity.getId());
+        assertThat(row.bidTitle()).isEqualTo("New data center deal");
+        assertThat(row.lotLabel()).isNull();
+        assertThat(row.indicatorLevel()).isEqualTo("CRITICAL");
+    }
+
+    @Test
+    void excludesAConvertedOpportunity() {
+        Opportunity opportunity = new Opportunity();
+        opportunity.setId(UUID.randomUUID());
+        opportunity.setStage(OpportunityStage.CONVERTED_TO_BID);
+        when(opportunityRepository.findAll()).thenReturn(List.of(opportunity));
+        stubIndicator(IndicatorLevel.CRITICAL);
+
+        List<DelayBoardRowDto> rows = service.list(DelaysBoardService.Filter.EMPTY);
+
+        assertThat(rows).isEmpty();
+    }
+
+    @Test
+    void includesARedDealRegistrationRow() {
+        DealRegistration reg = new DealRegistration();
+        reg.setId(UUID.randomUUID());
+        reg.setOem(new Oem("Fortinet"));
+        reg.setOrganization(new Organization("Test Org", Sector.BANK));
+        reg.setRegistrationId("DR-001");
+        reg.setStatus(DealRegistrationStatus.SUBMITTED);
+        when(dealRegistrationRepository.findAll()).thenReturn(List.of(reg));
+        stubIndicator(IndicatorLevel.RED);
+
+        List<DelayBoardRowDto> rows = service.list(DelaysBoardService.Filter.EMPTY);
+
+        assertThat(rows).hasSize(1);
+        DelayBoardRowDto row = rows.get(0);
+        assertThat(row.entityType()).isEqualTo("DEAL_REGISTRATION");
+        assertThat(row.detailHref()).isEqualTo("/deal-registrations/" + reg.getId());
+        assertThat(row.bidTitle()).isEqualTo("Fortinet");
+        assertThat(row.lotLabel()).isEqualTo("DR-001");
+        assertThat(row.oemBrand()).isEqualTo("Fortinet");
+    }
+
+    @Test
+    void excludesAnApprovedDealRegistration() {
+        DealRegistration reg = new DealRegistration();
+        reg.setId(UUID.randomUUID());
+        reg.setOem(new Oem("Fortinet"));
+        reg.setOrganization(new Organization("Test Org", Sector.BANK));
+        reg.setStatus(DealRegistrationStatus.APPROVED);
+        when(dealRegistrationRepository.findAll()).thenReturn(List.of(reg));
+        stubIndicator(IndicatorLevel.CRITICAL);
+
+        List<DelayBoardRowDto> rows = service.list(DelaysBoardService.Filter.EMPTY);
+
+        assertThat(rows).isEmpty();
     }
 
     @Test

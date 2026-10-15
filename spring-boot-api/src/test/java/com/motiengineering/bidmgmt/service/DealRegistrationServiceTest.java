@@ -2,6 +2,7 @@ package com.motiengineering.bidmgmt.service;
 
 import com.motiengineering.bidmgmt.domain.DealRegistration;
 import com.motiengineering.bidmgmt.domain.enums.DealRegistrationStatus;
+import com.motiengineering.bidmgmt.domain.enums.IndicatorLevel;
 import com.motiengineering.bidmgmt.dto.UpdateDealRegistrationRequest;
 import com.motiengineering.bidmgmt.repository.BidRepository;
 import com.motiengineering.bidmgmt.repository.DealRegistrationRepository;
@@ -17,6 +18,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -24,11 +26,15 @@ import static org.mockito.Mockito.when;
 class DealRegistrationServiceTest {
 
     private DealRegistrationRepository dealRegistrationRepository;
+    private IndicatorService indicatorService;
     private DealRegistrationService service;
 
     @BeforeEach
     void setUp() {
         dealRegistrationRepository = mock(DealRegistrationRepository.class);
+        indicatorService = mock(IndicatorService.class);
+        when(indicatorService.compute(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new IndicatorService.IndicatorResult(IndicatorLevel.GREEN, null, null, null, true, false));
         service = new DealRegistrationService(
                 dealRegistrationRepository,
                 mock(OrganizationRepository.class),
@@ -38,7 +44,8 @@ class DealRegistrationServiceTest {
                 mock(OrganizationResolutionService.class),
                 mock(OemService.class),
                 mock(AuditService.class),
-                mock(StageHistoryService.class));
+                mock(StageHistoryService.class),
+                indicatorService);
     }
 
     private DealRegistration registrationWithStatus(DealRegistrationStatus status) {
@@ -91,7 +98,7 @@ class DealRegistrationServiceTest {
         when(dealRegistrationRepository.findById(draft.getId())).thenReturn(Optional.of(draft));
 
         assertThatThrownBy(() -> service.update(draft.getId(),
-                new UpdateDealRegistrationRequest(null, null, null, "APPROVED", null, null, null, null, null), null))
+                new UpdateDealRegistrationRequest(null, null, null, "APPROVED", null, null, null, null, null, null), null))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("DRAFT")
                 .hasMessageContaining("APPROVED");
@@ -104,7 +111,7 @@ class DealRegistrationServiceTest {
         when(dealRegistrationRepository.save(submitted)).thenReturn(submitted);
 
         DealRegistration updated = service.update(submitted.getId(),
-                new UpdateDealRegistrationRequest(null, null, null, "APPROVED", null, null, null, null, null), null);
+                new UpdateDealRegistrationRequest(null, null, null, "APPROVED", null, null, null, null, null, null), null);
 
         assertThat(updated.getStatus()).isEqualTo(DealRegistrationStatus.APPROVED);
     }
@@ -115,7 +122,34 @@ class DealRegistrationServiceTest {
         when(dealRegistrationRepository.findById(rejected.getId())).thenReturn(Optional.of(rejected));
 
         assertThatThrownBy(() -> service.update(rejected.getId(),
-                new UpdateDealRegistrationRequest(null, null, null, "DRAFT", null, null, null, null, null), null))
+                new UpdateDealRegistrationRequest(null, null, null, "DRAFT", null, null, null, null, null, null), null))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void movingOutOfACriticalStatusWithoutADelayReasonIsRejected() {
+        DealRegistration submitted = registrationWithStatus(DealRegistrationStatus.SUBMITTED);
+        when(dealRegistrationRepository.findById(submitted.getId())).thenReturn(Optional.of(submitted));
+        when(indicatorService.compute(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new IndicatorService.IndicatorResult(IndicatorLevel.CRITICAL, 180.0, 12.0, 5.0, true, false));
+
+        assertThatThrownBy(() -> service.update(submitted.getId(),
+                new UpdateDealRegistrationRequest(null, null, null, "APPROVED", null, null, null, null, null, null), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("delay reason");
+    }
+
+    @Test
+    void movingOutOfACriticalStatusSucceedsWithADelayReason() {
+        DealRegistration submitted = registrationWithStatus(DealRegistrationStatus.SUBMITTED);
+        when(dealRegistrationRepository.findById(submitted.getId())).thenReturn(Optional.of(submitted));
+        when(dealRegistrationRepository.save(submitted)).thenReturn(submitted);
+        when(indicatorService.compute(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new IndicatorService.IndicatorResult(IndicatorLevel.CRITICAL, 180.0, 12.0, 5.0, true, false));
+
+        DealRegistration updated = service.update(submitted.getId(),
+                new UpdateDealRegistrationRequest(null, null, null, "APPROVED", null, null, null, null, null, "CUSTOMER_CLARIFICATION_PENDING"), null);
+
+        assertThat(updated.getStatus()).isEqualTo(DealRegistrationStatus.APPROVED);
     }
 }

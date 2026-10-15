@@ -13,5 +13,6 @@ public record UpdateDealRegistrationRequest(
         LocalDate expiryDate,
         BigDecimal protectedDiscountPercent,
         String specialPriceReference,
-        String notes) {
+        String notes,
+        String delayReasonCode) {
 }

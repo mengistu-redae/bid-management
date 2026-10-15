@@ -16,5 +16,6 @@ public record UpdateOpportunityRequest(
         List<String> divisionCodes,
         List<String> oemNames,
         UUID ownerId,
-        String notes) {
+        String notes,
+        String delayReasonCode) {
 }

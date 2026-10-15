@@ -1,6 +1,6 @@
 <%- include('partials/header', { title: title, user: user }) %>
 <h1>My Follow-ups</h1>
-<p class="muted">Follow-ups you own (bid lots, contracts, and logistics shipments), plus bid lots you're the assigned officer on that need attention.</p>
+<p class="muted">Follow-ups you own (bid lots, contracts, logistics shipments, opportunities, and deal registrations), plus bid lots you're the assigned officer on that need attention.</p>
 
 <%
 function renderRow(row, borderColor) {
@@ -9,7 +9,7 @@ function renderRow(row, borderColor) {
     <div class="row" style="justify-content:space-between; align-items:flex-start; flex-wrap:wrap;">
       <div>
         <a href="<%= row.detailHref %>" style="font-weight:600;"><%= row.bidTitle %></a>
-        <span class="muted"> &middot; <%= row.lotLabel %></span>
+        <% if (row.lotLabel) { %><span class="muted"> &middot; <%= row.lotLabel %></span><% } %>
         <% if (row.entityType !== 'LOT') { %><span class="badge" style="margin-left:0.4rem;"><%= row.entityType %></span><% } %>
         <div class="muted" style="font-size:0.85rem;"><%= row.organizationName || '-' %><% if (row.divisionName) { %> &middot; <%= row.divisionName %><% } %></div>
       </div>
@@ -61,7 +61,7 @@ function renderRow(row, borderColor) {
 </div>
 
 <h2 class="mt-3">Turning amber soon</h2>
-<p class="muted" style="font-size:0.85rem;">Bid lots you're the officer on, or contracts/logistics you own the follow-up for, that are still green but approaching the amber threshold.</p>
+<p class="muted" style="font-size:0.85rem;">Bid lots you're the officer on, or contracts/logistics/opportunities/deal registrations you own the follow-up for, that are still green but approaching the amber threshold.</p>
 <% if (data.turningAmberSoon.length === 0) { %><p class="muted">Nothing approaching its target yet.</p><% } %>
 <div class="col" style="gap:0.6rem;">
 <% data.turningAmberSoon.forEach(row => { renderRow(row); }) %>

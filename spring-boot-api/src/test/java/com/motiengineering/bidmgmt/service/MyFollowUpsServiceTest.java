@@ -3,20 +3,27 @@ package com.motiengineering.bidmgmt.service;
 import com.motiengineering.bidmgmt.domain.AppUser;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.Contract;
+import com.motiengineering.bidmgmt.domain.DealRegistration;
 import com.motiengineering.bidmgmt.domain.FollowUpState;
 import com.motiengineering.bidmgmt.domain.IndicatorConfig;
 import com.motiengineering.bidmgmt.domain.LogisticsShipment;
+import com.motiengineering.bidmgmt.domain.Oem;
+import com.motiengineering.bidmgmt.domain.Opportunity;
 import com.motiengineering.bidmgmt.domain.Organization;
 import com.motiengineering.bidmgmt.domain.enums.BidStatus;
 import com.motiengineering.bidmgmt.domain.enums.ContractStatus;
+import com.motiengineering.bidmgmt.domain.enums.DealRegistrationStatus;
 import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.domain.enums.LogisticsStatus;
+import com.motiengineering.bidmgmt.domain.enums.OpportunityStage;
 import com.motiengineering.bidmgmt.domain.enums.Sector;
 import com.motiengineering.bidmgmt.domain.enums.ShipmentMode;
 import com.motiengineering.bidmgmt.repository.BidRepository;
 import com.motiengineering.bidmgmt.repository.ContractRepository;
+import com.motiengineering.bidmgmt.repository.DealRegistrationRepository;
 import com.motiengineering.bidmgmt.repository.LogisticsShipmentRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
+import com.motiengineering.bidmgmt.repository.OpportunityRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -40,6 +47,8 @@ class MyFollowUpsServiceTest {
     private BidRepository bidRepository;
     private ContractRepository contractRepository;
     private LogisticsShipmentRepository logisticsShipmentRepository;
+    private OpportunityRepository opportunityRepository;
+    private DealRegistrationRepository dealRegistrationRepository;
     private LotAccountOfficerRepository lotAccountOfficerRepository;
     private DelaysBoardService delaysBoardService;
     private FollowUpService followUpService;
@@ -55,6 +64,10 @@ class MyFollowUpsServiceTest {
         when(contractRepository.findAll()).thenReturn(List.of());
         logisticsShipmentRepository = mock(LogisticsShipmentRepository.class);
         when(logisticsShipmentRepository.findAll()).thenReturn(List.of());
+        opportunityRepository = mock(OpportunityRepository.class);
+        when(opportunityRepository.findAll()).thenReturn(List.of());
+        dealRegistrationRepository = mock(DealRegistrationRepository.class);
+        when(dealRegistrationRepository.findAll()).thenReturn(List.of());
         lotAccountOfficerRepository = mock(LotAccountOfficerRepository.class);
         when(lotAccountOfficerRepository.findById_LotId(any())).thenReturn(List.of());
         delaysBoardService = mock(DelaysBoardService.class);
@@ -66,7 +79,8 @@ class MyFollowUpsServiceTest {
         when(indicatorService.indicatorConfig()).thenReturn(config);
 
         service = new MyFollowUpsService(bidRepository, contractRepository, logisticsShipmentRepository,
-                lotAccountOfficerRepository, delaysBoardService, followUpService, indicatorService);
+                opportunityRepository, dealRegistrationRepository, lotAccountOfficerRepository,
+                delaysBoardService, followUpService, indicatorService);
 
         me = new AppUser();
         me.setId(UUID.randomUUID());
@@ -156,6 +170,66 @@ class MyFollowUpsServiceTest {
 
         assertThat(result.stale()).hasSize(1);
         assertThat(result.stale().get(0).entityType()).isEqualTo("LOGISTICS");
+    }
+
+    @Test
+    void anOverdueOpportunityFollowUpShowsUpForItsOwner() {
+        Opportunity opportunity = new Opportunity();
+        opportunity.setId(UUID.randomUUID());
+        opportunity.setStage(OpportunityStage.QUALIFIED);
+        when(opportunityRepository.findAll()).thenReturn(List.of(opportunity));
+        FollowUpState followUp = ownedBy(me, LocalDate.now(ZONE).minusDays(1));
+        when(followUpService.get(EntityType.OPPORTUNITY, opportunity.getId())).thenReturn(Optional.of(followUp));
+        DelayBoardRowStub row = new DelayBoardRowStub("OPPORTUNITY", opportunity.getId(), "GREEN", 10.0, false);
+        when(delaysBoardService.computeOpportunityRow(opportunity)).thenReturn(row.toDto());
+
+        MyFollowUpsService.MyFollowUpsDto result = service.build(me);
+
+        assertThat(result.overdue()).hasSize(1);
+        assertThat(result.overdue().get(0).entityType()).isEqualTo("OPPORTUNITY");
+    }
+
+    @Test
+    void aConvertedOpportunityIsExcludedEvenWithAnOverdueFollowUp() {
+        Opportunity opportunity = new Opportunity();
+        opportunity.setId(UUID.randomUUID());
+        opportunity.setStage(OpportunityStage.CONVERTED_TO_BID);
+        when(opportunityRepository.findAll()).thenReturn(List.of(opportunity));
+
+        MyFollowUpsService.MyFollowUpsDto result = service.build(me);
+
+        assertThat(result.overdue()).isEmpty();
+    }
+
+    @Test
+    void aStaleDealRegistrationOwnedByMeShowsUpAsStale() {
+        DealRegistration reg = new DealRegistration();
+        reg.setId(UUID.randomUUID());
+        reg.setOem(new Oem("Fortinet"));
+        reg.setStatus(DealRegistrationStatus.SUBMITTED);
+        when(dealRegistrationRepository.findAll()).thenReturn(List.of(reg));
+        FollowUpState followUp = ownedBy(me, null);
+        when(followUpService.get(EntityType.DEAL_REGISTRATION, reg.getId())).thenReturn(Optional.of(followUp));
+        DelayBoardRowStub row = new DelayBoardRowStub("DEAL_REGISTRATION", reg.getId(), "GREEN", 10.0, true);
+        when(delaysBoardService.computeDealRegistrationRow(reg)).thenReturn(row.toDto());
+
+        MyFollowUpsService.MyFollowUpsDto result = service.build(me);
+
+        assertThat(result.stale()).hasSize(1);
+        assertThat(result.stale().get(0).entityType()).isEqualTo("DEAL_REGISTRATION");
+    }
+
+    @Test
+    void anApprovedDealRegistrationIsExcludedEvenWithAFollowUpOwner() {
+        DealRegistration reg = new DealRegistration();
+        reg.setId(UUID.randomUUID());
+        reg.setStatus(DealRegistrationStatus.APPROVED);
+        when(dealRegistrationRepository.findAll()).thenReturn(List.of(reg));
+
+        MyFollowUpsService.MyFollowUpsDto result = service.build(me);
+
+        assertThat(result.stale()).isEmpty();
+        assertThat(result.overdue()).isEmpty();
     }
 
     /** Builds a minimal DelayBoardRowDto without needing every one of its many fields spelled out per test. */

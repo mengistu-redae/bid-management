@@ -247,3 +247,55 @@ All four phases of the lifecycle-completeness initiative are now done.
   was (V8/V10/V12). Logging a follow-up note against a Contract (now
   reachable from the Delays board's generalized form) 500'd on insert.
   Fixed with `V13__widen_activity_log_and_attachments_entity_types.sql`.
+
+### Extending delay/indicator coverage to Opportunity & Deal Registration
+
+- Delay-reason-on-exit enforcement (BidLot, then Contract/Logistics)
+  extended to `OpportunityService.update`'s stage transitions and
+  `DealRegistrationService.update`'s status transitions - both gained a
+  `requireDelayReasonIfRedOrCritical` helper mirroring
+  `ContractService`'s exactly, reusing the same `IndicatorService.compute`
+  call each entity's own mapper already made for its badge.
+  `UpdateOpportunityRequest`/`UpdateDealRegistrationRequest` both gained a
+  `delayReasonCode` field; the node-bff forms gained the same dropdown
+  already used on Bid/Contract/Logistics status forms.
+- `DelaysBoardService` now also scans Opportunity and Deal Registration:
+  `computeOpportunityRow`/`computeDealRegistrationRow` mirror
+  `OpportunityMapper`/`DealRegistrationMapper`'s own indicator computation
+  exactly, including DealRegistrationMapper's APPROVED exclusion (not
+  technically terminal, since it can still move to EXPIRED, but no longer
+  "in progress"). Since `DashboardService` already delegates to this
+  board's `summary()`, the dashboard widget picked up the new entity
+  types with no changes of its own.
+- `MyFollowUpsService` extended the same way - follow-up ownership alone
+  gates all four buckets for these two (no account-officer concept, same
+  as Contract/Logistics). The four now-identical "follow-up-owner-only"
+  loops (Contract/Logistics/Opportunity/DealRegistration) were factored
+  into one generic `evaluateFollowUpOwnerOnly` helper rather than
+  copy-pasting a fifth near-identical block.
+- `DelayBoardRowDto`'s generic title/subtitle fields needed a real `null`
+  subtitle for the first time (Opportunity has no natural "parent" to
+  show, unlike Contract/Logistics' bid title) - `delays.ejs`/
+  `myFollowUps.ejs` now skip rendering the subtitle span entirely when
+  absent instead of printing the literal string "null".
+- Added 4 new `OpportunityServiceTest`/`DealRegistrationServiceTest`
+  cases for the delay-reason rule, 4 new `DelaysBoardServiceTest` cases
+  (a critical Opportunity row, a converted one excluded, a red Deal
+  Registration row, an approved one excluded), and 4 new
+  `MyFollowUpsServiceTest` cases mirroring the existing Contract/
+  Logistics ones.
+- Live-verified end to end: created a test Opportunity and Deal
+  Registration, confirmed the delay-reason dropdown renders on both
+  detail pages, a GREEN-path stage/status transition still succeeds with
+  no delay reason required, and a follow-up logged against each via the
+  Delays board's generic form shows up correctly in My Follow-ups
+  (right entity badge, title, link) and clears correctly - all against
+  the real `bidmgmt` database, no errors in either service's logs.
+- Deliberately out of scope, not silently absorbed: `DelayAlertSchedulerService`
+  (the proactive email/escalation alerts) and `DelayAnalyticsService`
+  (bottleneck reports) are still BidLot/Contract/Logistics only.
+  Opportunity has an `owner` field that could plausibly receive alerts
+  the way BidLot's account officers do, but DealRegistration has neither
+  an owner nor a division - extending alert-recipient resolution to
+  these two needs a recipient-policy decision from the user, not a guess,
+  so it's left as a follow-up rather than done here.

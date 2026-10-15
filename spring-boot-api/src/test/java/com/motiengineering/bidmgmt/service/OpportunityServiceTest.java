@@ -1,6 +1,7 @@
 package com.motiengineering.bidmgmt.service;
 
 import com.motiengineering.bidmgmt.domain.Opportunity;
+import com.motiengineering.bidmgmt.domain.enums.IndicatorLevel;
 import com.motiengineering.bidmgmt.domain.enums.OpportunityStage;
 import com.motiengineering.bidmgmt.dto.UpdateOpportunityRequest;
 import com.motiengineering.bidmgmt.repository.AppUserRepository;
@@ -14,6 +15,7 @@ import com.motiengineering.bidmgmt.repository.OrganizationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,15 +29,22 @@ import static org.mockito.Mockito.when;
 class OpportunityServiceTest {
 
     private OpportunityRepository opportunityRepository;
+    private OpportunityDivisionRepository opportunityDivisionRepository;
+    private IndicatorService indicatorService;
     private OpportunityService service;
 
     @BeforeEach
     void setUp() {
         opportunityRepository = mock(OpportunityRepository.class);
         when(opportunityRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        opportunityDivisionRepository = mock(OpportunityDivisionRepository.class);
+        when(opportunityDivisionRepository.findById_OpportunityId(any())).thenReturn(List.of());
+        indicatorService = mock(IndicatorService.class);
+        when(indicatorService.compute(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new IndicatorService.IndicatorResult(IndicatorLevel.GREEN, null, null, null, true, false));
         service = new OpportunityService(
                 opportunityRepository,
-                mock(OpportunityDivisionRepository.class),
+                opportunityDivisionRepository,
                 mock(OpportunityOemRepository.class),
                 mock(OrganizationRepository.class),
                 mock(DivisionRepository.class),
@@ -46,7 +55,8 @@ class OpportunityServiceTest {
                 mock(OemService.class),
                 mock(BidService.class),
                 mock(AuditService.class),
-                mock(StageHistoryService.class));
+                mock(StageHistoryService.class),
+                indicatorService);
     }
 
     private Opportunity opportunityWithStage(OpportunityStage stage) {
@@ -57,7 +67,7 @@ class OpportunityServiceTest {
     }
 
     private UpdateOpportunityRequest stageOnly(String stage) {
-        return new UpdateOpportunityRequest(null, null, null, null, stage, null, null, null, null, null);
+        return new UpdateOpportunityRequest(null, null, null, null, stage, null, null, null, null, null, null);
     }
 
     @Test
@@ -104,7 +114,7 @@ class OpportunityServiceTest {
     void lostClosedSucceedsWhenAReasonIsSuppliedInTheSameRequest() {
         Opportunity qualified = opportunityWithStage(OpportunityStage.QUALIFIED);
         when(opportunityRepository.findById(qualified.getId())).thenReturn(Optional.of(qualified));
-        UpdateOpportunityRequest request = new UpdateOpportunityRequest(null, null, null, null, "LOST_CLOSED", "Lost to a cheaper competitor", null, null, null, null);
+        UpdateOpportunityRequest request = new UpdateOpportunityRequest(null, null, null, null, "LOST_CLOSED", "Lost to a cheaper competitor", null, null, null, null, null);
 
         Opportunity updated = service.update(qualified.getId(), request, null);
 
@@ -118,5 +128,30 @@ class OpportunityServiceTest {
 
         assertThatThrownBy(() -> service.update(lost.getId(), stageOnly("LEAD"), null))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void movingOutOfARedStageWithoutADelayReasonIsRejected() {
+        Opportunity qualified = opportunityWithStage(OpportunityStage.QUALIFIED);
+        when(opportunityRepository.findById(qualified.getId())).thenReturn(Optional.of(qualified));
+        when(indicatorService.compute(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new IndicatorService.IndicatorResult(IndicatorLevel.RED, 150.0, 10.0, 5.0, true, false));
+
+        assertThatThrownBy(() -> service.update(qualified.getId(), stageOnly("RFI_PROPOSAL"), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("delay reason");
+    }
+
+    @Test
+    void movingOutOfARedStageSucceedsWithADelayReason() {
+        Opportunity qualified = opportunityWithStage(OpportunityStage.QUALIFIED);
+        when(opportunityRepository.findById(qualified.getId())).thenReturn(Optional.of(qualified));
+        when(indicatorService.compute(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new IndicatorService.IndicatorResult(IndicatorLevel.RED, 150.0, 10.0, 5.0, true, false));
+        UpdateOpportunityRequest request = new UpdateOpportunityRequest(null, null, null, null, "RFI_PROPOSAL", null, null, null, null, null, "OEM_MAF_PENDING");
+
+        Opportunity updated = service.update(qualified.getId(), request, null);
+
+        assertThat(updated.getStage()).isEqualTo(OpportunityStage.RFI_PROPOSAL);
     }
 }

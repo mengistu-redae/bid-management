@@ -3,9 +3,11 @@ package com.motiengineering.bidmgmt.service;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
 import com.motiengineering.bidmgmt.domain.Contract;
+import com.motiengineering.bidmgmt.domain.DealRegistration;
 import com.motiengineering.bidmgmt.domain.FollowUpState;
 import com.motiengineering.bidmgmt.domain.LogisticsShipment;
 import com.motiengineering.bidmgmt.domain.LotAccountOfficer;
+import com.motiengineering.bidmgmt.domain.Opportunity;
 import com.motiengineering.bidmgmt.domain.WaitingOnState;
 import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.dto.DelayBoardRowDto;
@@ -13,8 +15,12 @@ import com.motiengineering.bidmgmt.dto.DelaySummaryDto;
 import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.repository.BidRepository;
 import com.motiengineering.bidmgmt.repository.ContractRepository;
+import com.motiengineering.bidmgmt.repository.DealRegistrationRepository;
+import com.motiengineering.bidmgmt.repository.DivisionRepository;
 import com.motiengineering.bidmgmt.repository.LogisticsShipmentRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
+import com.motiengineering.bidmgmt.repository.OpportunityDivisionRepository;
+import com.motiengineering.bidmgmt.repository.OpportunityRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,15 +33,15 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Every currently amber/red/critical open Bid lot, Contract or Logistics
- * shipment, for managers/the Director to triage - a live, filterable
- * superset of the dashboard's "Delays" section (which only shows the top
- * 10, and - as of this writing - BidLot only; extending the dashboard
- * widget the same way this board was extended is a reasonable next step,
- * not yet done). Contract/Logistics rows carry no division or OEM (those
- * concepts live on BidLot, not their parent Contract) and no account
- * officers (no equivalent of lot_account_officers exists for them yet),
- * so those fields are simply null/empty on those rows rather than guessed.
+ * Every currently amber/red/critical open Bid lot, Contract, Logistics
+ * shipment, Opportunity or Deal Registration, for managers/the Director to
+ * triage - a live, filterable superset of the dashboard's "Delays" section
+ * (which only shows the top 10, and shares this same scan via summary()).
+ * Contract/Logistics/Opportunity/DealRegistration rows carry no account
+ * officers (no equivalent of lot_account_officers exists for them yet), so
+ * that field is simply empty on those rows rather than guessed; Contract/
+ * Logistics/DealRegistration additionally carry no division (that concept
+ * lives on BidLot and, for Opportunity, its own division links).
  */
 @Service
 @RequiredArgsConstructor
@@ -45,6 +51,10 @@ public class DelaysBoardService {
     private final BidRepository bidRepository;
     private final ContractRepository contractRepository;
     private final LogisticsShipmentRepository logisticsShipmentRepository;
+    private final OpportunityRepository opportunityRepository;
+    private final OpportunityDivisionRepository opportunityDivisionRepository;
+    private final DealRegistrationRepository dealRegistrationRepository;
+    private final DivisionRepository divisionRepository;
     private final LotAccountOfficerRepository lotAccountOfficerRepository;
     private final AppUserRepository appUserRepository;
     private final IndicatorService indicatorService;
@@ -117,6 +127,18 @@ public class DelaysBoardService {
         }
         for (LogisticsShipment shipment : logisticsShipmentRepository.findAll()) {
             DelayBoardRowDto row = computeLogisticsRow(shipment);
+            if (row != null) {
+                rows.add(row);
+            }
+        }
+        for (Opportunity opportunity : opportunityRepository.findAll()) {
+            DelayBoardRowDto row = computeOpportunityRow(opportunity);
+            if (row != null) {
+                rows.add(row);
+            }
+        }
+        for (DealRegistration reg : dealRegistrationRepository.findAll()) {
+            DelayBoardRowDto row = computeDealRegistrationRow(reg);
             if (row != null) {
                 rows.add(row);
             }
@@ -221,6 +243,69 @@ public class DelaysBoardService {
                 bid.getOrganization() == null ? null : bid.getOrganization().getName(),
                 null, null,
                 shipment.getStatus().name(), null,
+                result.level().name(), result.percentUsed(), result.daysUsed(), result.targetDays(), result.stale(),
+                waitingOn == null || waitingOn.getPartyType() == null ? null : waitingOn.getPartyType().name(),
+                List.of(),
+                followUp == null ? null : followUp.getNextFollowUpDate(),
+                followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName());
+    }
+
+    /** Mirrors OpportunityMapper.indicatorFor exactly, so the board and the opportunity's own badge can never disagree. */
+    public DelayBoardRowDto computeOpportunityRow(Opportunity opportunity) {
+        if (opportunity.getStage() == null || opportunity.getStage().isTerminal()) {
+            return null;
+        }
+        List<UUID> divisionIds = opportunityDivisionRepository.findById_OpportunityId(opportunity.getId()).stream()
+                .map(od -> od.getId().getDivisionId())
+                .toList();
+        UUID divisionId = divisionIds.size() == 1 ? divisionIds.get(0) : null;
+        String divisionName = divisionId == null ? null : divisionRepository.findById(divisionId).map(com.motiengineering.bidmgmt.domain.Division::getName).orElse(null);
+        TargetContext context = new TargetContext(divisionId,
+                opportunity.getOrganization() == null ? null : opportunity.getOrganization().getSector(), null, null);
+        IndicatorService.IndicatorResult result = indicatorService.compute(
+                EntityType.OPPORTUNITY, opportunity.getId(), "stage", opportunity.getStage().name(), opportunity.getCreatedAt(), context, Map.of());
+
+        WaitingOnState waitingOn = waitingOnService.get(EntityType.OPPORTUNITY, opportunity.getId()).orElse(null);
+        FollowUpState followUp = followUpService.get(EntityType.OPPORTUNITY, opportunity.getId()).orElse(null);
+
+        return new DelayBoardRowDto(
+                "OPPORTUNITY", opportunity.getId(), "/opportunities/" + opportunity.getId(),
+                null, opportunity.getTitle(), null, null,
+                opportunity.getOrganization() == null ? null : opportunity.getOrganization().getId(),
+                opportunity.getOrganization() == null ? null : opportunity.getOrganization().getName(),
+                divisionId, divisionName,
+                opportunity.getStage().name(), null,
+                result.level().name(), result.percentUsed(), result.daysUsed(), result.targetDays(), result.stale(),
+                waitingOn == null || waitingOn.getPartyType() == null ? null : waitingOn.getPartyType().name(),
+                List.of(),
+                followUp == null ? null : followUp.getNextFollowUpDate(),
+                followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName());
+    }
+
+    /**
+     * Mirrors DealRegistrationMapper.indicatorFor exactly, so the board and the registration's own
+     * badge can never disagree - APPROVED is excluded the same way the mapper excludes it (not
+     * technically terminal, since it can still move to EXPIRED, but no longer "in progress").
+     */
+    public DelayBoardRowDto computeDealRegistrationRow(DealRegistration reg) {
+        var status = reg.getStatus();
+        if (status == null || status.isTerminal() || status == com.motiengineering.bidmgmt.domain.enums.DealRegistrationStatus.APPROVED) {
+            return null;
+        }
+        TargetContext context = new TargetContext(null, reg.getOrganization() == null ? null : reg.getOrganization().getSector(), null, null);
+        IndicatorService.IndicatorResult result = indicatorService.compute(
+                EntityType.DEAL_REGISTRATION, reg.getId(), "status", status.name(), reg.getCreatedAt(), context, Map.of());
+
+        WaitingOnState waitingOn = waitingOnService.get(EntityType.DEAL_REGISTRATION, reg.getId()).orElse(null);
+        FollowUpState followUp = followUpService.get(EntityType.DEAL_REGISTRATION, reg.getId()).orElse(null);
+
+        return new DelayBoardRowDto(
+                "DEAL_REGISTRATION", reg.getId(), "/deal-registrations/" + reg.getId(),
+                null, reg.getOem().getName(), null, reg.getRegistrationId(),
+                reg.getOrganization() == null ? null : reg.getOrganization().getId(),
+                reg.getOrganization() == null ? null : reg.getOrganization().getName(),
+                null, null,
+                status.name(), reg.getOem().getName(),
                 result.level().name(), result.percentUsed(), result.daysUsed(), result.targetDays(), result.stale(),
                 waitingOn == null || waitingOn.getPartyType() == null ? null : waitingOn.getPartyType().name(),
                 List.of(),

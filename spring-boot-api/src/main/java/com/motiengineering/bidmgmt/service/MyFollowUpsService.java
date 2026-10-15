@@ -4,14 +4,18 @@ import com.motiengineering.bidmgmt.domain.AppUser;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
 import com.motiengineering.bidmgmt.domain.Contract;
+import com.motiengineering.bidmgmt.domain.DealRegistration;
 import com.motiengineering.bidmgmt.domain.FollowUpState;
 import com.motiengineering.bidmgmt.domain.LogisticsShipment;
+import com.motiengineering.bidmgmt.domain.Opportunity;
 import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.dto.DelayBoardRowDto;
 import com.motiengineering.bidmgmt.repository.BidRepository;
 import com.motiengineering.bidmgmt.repository.ContractRepository;
+import com.motiengineering.bidmgmt.repository.DealRegistrationRepository;
 import com.motiengineering.bidmgmt.repository.LogisticsShipmentRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
+import com.motiengineering.bidmgmt.repository.OpportunityRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +25,9 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 /** The per-user view backing the "My Follow-ups" page - same underlying computation as DelaysBoardService, filtered to one person. */
 @Service
@@ -34,6 +41,8 @@ public class MyFollowUpsService {
     private final BidRepository bidRepository;
     private final ContractRepository contractRepository;
     private final LogisticsShipmentRepository logisticsShipmentRepository;
+    private final OpportunityRepository opportunityRepository;
+    private final DealRegistrationRepository dealRegistrationRepository;
     private final LotAccountOfficerRepository lotAccountOfficerRepository;
     private final DelaysBoardService delaysBoardService;
     private final FollowUpService followUpService;
@@ -74,41 +83,46 @@ public class MyFollowUpsService {
             }
         }
 
-        // Contract/Logistics have no account-officer concept (no equivalent of lot_account_officers
-        // exists for them yet) - the follow-up owner is the sole stand-in for "the responsible person"
-        // on these two, so it gates both the date-based buckets AND the proactive turning-amber-soon/stale ones.
-        for (Contract contract : contractRepository.findAll()) {
-            if (contract.getStatus() == null || contract.getStatus().isTerminal()) {
-                continue;
-            }
-            FollowUpState followUp = followUpService.get(EntityType.CONTRACT, contract.getId()).orElse(null);
-            boolean isFollowUpOwner = followUp != null && followUp.getFollowUpOwner() != null && followUp.getFollowUpOwner().getId().equals(user.getId());
-            if (!isFollowUpOwner) {
-                continue;
-            }
-            DelayBoardRowDto row = delaysBoardService.computeContractRow(contract);
-            if (row == null) {
-                continue;
-            }
-            classify(row, isFollowUpOwner, isFollowUpOwner, followUp, today, soonFloor, overdue, dueToday, turningAmberSoon, stale);
-        }
-        for (LogisticsShipment shipment : logisticsShipmentRepository.findAll()) {
-            if (shipment.getStatus() == null || shipment.getStatus().isTerminal()) {
-                continue;
-            }
-            FollowUpState followUp = followUpService.get(EntityType.LOGISTICS, shipment.getId()).orElse(null);
-            boolean isFollowUpOwner = followUp != null && followUp.getFollowUpOwner() != null && followUp.getFollowUpOwner().getId().equals(user.getId());
-            if (!isFollowUpOwner) {
-                continue;
-            }
-            DelayBoardRowDto row = delaysBoardService.computeLogisticsRow(shipment);
-            if (row == null) {
-                continue;
-            }
-            classify(row, isFollowUpOwner, isFollowUpOwner, followUp, today, soonFloor, overdue, dueToday, turningAmberSoon, stale);
-        }
+        // Contract/Logistics/Opportunity/DealRegistration have no account-officer concept (no
+        // equivalent of lot_account_officers exists for them) - the follow-up owner is the sole
+        // stand-in for "the responsible person" on these four, so it gates both the date-based
+        // buckets AND the proactive turning-amber-soon/stale ones.
+        evaluateFollowUpOwnerOnly(contractRepository.findAll(), EntityType.CONTRACT,
+                c -> c.getStatus() != null && !c.getStatus().isTerminal(), Contract::getId, delaysBoardService::computeContractRow,
+                user, today, soonFloor, overdue, dueToday, turningAmberSoon, stale);
+        evaluateFollowUpOwnerOnly(logisticsShipmentRepository.findAll(), EntityType.LOGISTICS,
+                s -> s.getStatus() != null && !s.getStatus().isTerminal(), LogisticsShipment::getId, delaysBoardService::computeLogisticsRow,
+                user, today, soonFloor, overdue, dueToday, turningAmberSoon, stale);
+        evaluateFollowUpOwnerOnly(opportunityRepository.findAll(), EntityType.OPPORTUNITY,
+                o -> o.getStage() != null && !o.getStage().isTerminal(), Opportunity::getId, delaysBoardService::computeOpportunityRow,
+                user, today, soonFloor, overdue, dueToday, turningAmberSoon, stale);
+        evaluateFollowUpOwnerOnly(dealRegistrationRepository.findAll(), EntityType.DEAL_REGISTRATION,
+                r -> r.getStatus() != null && !r.getStatus().isTerminal() && r.getStatus() != com.motiengineering.bidmgmt.domain.enums.DealRegistrationStatus.APPROVED,
+                DealRegistration::getId, delaysBoardService::computeDealRegistrationRow,
+                user, today, soonFloor, overdue, dueToday, turningAmberSoon, stale);
 
         return new MyFollowUpsDto(overdue, dueToday, turningAmberSoon, stale);
+    }
+
+    private <T> void evaluateFollowUpOwnerOnly(List<T> entities, EntityType entityType, Predicate<T> isOpen, Function<T, UUID> idOf,
+                                                Function<T, DelayBoardRowDto> rowOf, AppUser user, LocalDate today, BigDecimal soonFloor,
+                                                List<DelayBoardRowDto> overdue, List<DelayBoardRowDto> dueToday,
+                                                List<DelayBoardRowDto> turningAmberSoon, List<DelayBoardRowDto> stale) {
+        for (T entity : entities) {
+            if (!isOpen.test(entity)) {
+                continue;
+            }
+            FollowUpState followUp = followUpService.get(entityType, idOf.apply(entity)).orElse(null);
+            boolean isFollowUpOwner = followUp != null && followUp.getFollowUpOwner() != null && followUp.getFollowUpOwner().getId().equals(user.getId());
+            if (!isFollowUpOwner) {
+                continue;
+            }
+            DelayBoardRowDto row = rowOf.apply(entity);
+            if (row == null) {
+                continue;
+            }
+            classify(row, isFollowUpOwner, isFollowUpOwner, followUp, today, soonFloor, overdue, dueToday, turningAmberSoon, stale);
+        }
     }
 
     /** isProactivelyOwned gates turning-amber-soon/stale - the assigned officer for a LOT, the follow-up owner for everything else. */

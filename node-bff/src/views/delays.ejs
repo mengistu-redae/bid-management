@@ -43,7 +43,7 @@
     <div class="row" style="justify-content:space-between; align-items:flex-start; flex-wrap:wrap;">
       <div>
         <a href="<%= row.detailHref %>" style="font-weight:600;"><%= row.bidTitle %></a>
-        <span class="muted"> &middot; <%= row.lotLabel %></span>
+        <% if (row.lotLabel) { %><span class="muted"> &middot; <%= row.lotLabel %></span><% } %>
         <% if (row.entityType !== 'LOT') { %><span class="badge" style="margin-left:0.4rem;"><%= row.entityType %></span><% } %>
         <div class="muted" style="font-size:0.85rem;">
           <%= row.organizationName || '-' %><% if (row.divisionName) { %> &middot; <%= row.divisionName %><% } %><% if (row.oemBrand) { %> &middot; <%= row.oemBrand %><% } %>
