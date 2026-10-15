@@ -35,11 +35,11 @@ function formatMoney(amount, currency) {
 function statusBadgeClass(status) {
   if (!status) return '';
   const s = status.toLowerCase();
-  if (s === 'won') return 'won';
-  if (['lost', 'dropped', 'cancelled'].includes(s)) return 'lost';
+  if (['won', 'completed', 'delivered', 'approved'].includes(s)) return 'won';
+  if (['lost', 'dropped', 'cancelled', 'terminated', 'rejected'].includes(s)) return 'lost';
   if (s === 'under_review') return 'review';
-  if (['preparing', 'submitted', 'opened', 'under_evaluation'].includes(s)) return 'active';
-  if (s === 'identified') return 'new';
+  if (['preparing', 'submitted', 'opened', 'under_evaluation', 'signed', 'in_delivery', 'dispatched', 'in_transit', 'customs', 'cleared'].includes(s)) return 'active';
+  if (['identified', 'awarded', 'planning', 'draft'].includes(s)) return 'new';
   return '';
 }
 

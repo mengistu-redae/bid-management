@@ -1,0 +1,38 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<h1>New contract</h1>
+
+<div class="card">
+  <% if (bid) { %>
+    <p class="mt-0">For bid: <strong><%= bid.title %></strong> &middot; <%= bid.organization.name %></p>
+    <form method="post" action="/contracts">
+      <input type="hidden" name="bidId" value="<%= bid.id %>">
+      <label>Contract number</label>
+      <input name="contractNumber">
+      <label>Delivery deadline</label>
+      <input type="date" name="deliveryDeadline">
+      <label>Notes</label>
+      <textarea name="notes"></textarea>
+      <button type="submit" class="mt-2">Create contract</button>
+    </form>
+  <% } else { %>
+    <form method="post" action="/contracts">
+      <label>Bid</label>
+      <select name="bidId" required>
+        <option value="">Select a WON bid...</option>
+        <% eligibleBids.forEach(b => { %>
+          <option value="<%= b.id %>"><%= b.title %> &middot; <%= b.organization.name %></option>
+        <% }) %>
+      </select>
+      <label>Contract number</label>
+      <input name="contractNumber">
+      <label>Delivery deadline</label>
+      <input type="date" name="deliveryDeadline">
+      <label>Notes</label>
+      <textarea name="notes"></textarea>
+      <button type="submit" class="mt-2" <%= eligibleBids.length === 0 ? 'disabled' : '' %>>Create contract</button>
+      <% if (eligibleBids.length === 0) { %><p class="muted mt-1">No WON bids without a contract yet.</p><% } %>
+    </form>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

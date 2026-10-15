@@ -51,6 +51,21 @@
 </div>
 <% } %>
 
+<% if (bid.status === 'WON') { %>
+<div class="card">
+  <h2 class="mt-0">Contract</h2>
+  <% if (contract) { %>
+    <p class="mt-0">
+      <a href="/contracts/<%= contract.id %>"><%= contract.contractNumber || 'View contract' %></a>
+      <span class="badge <%= statusBadgeClass(contract.status) %>"><%= contract.status %></span>
+    </p>
+  <% } else { %>
+    <p class="muted mt-0">No contract yet.</p>
+    <a class="btn secondary w-auto" href="/contracts/new?bidId=<%= bid.id %>">+ Create contract</a>
+  <% } %>
+</div>
+<% } %>
+
 <h2><%- include('../partials/icon', { name: 'box' }) %> Lots</h2>
 <% bid.lots.forEach(lot => { %>
   <div class="card">

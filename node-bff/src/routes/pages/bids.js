@@ -211,11 +211,18 @@ function buildBidsRouter() {
         ? Math.ceil((new Date(bid.closingAt).getTime() - Date.now()) / DAY_MS)
         : null;
       const closingUrgent = daysUntilClosing !== null && daysUntilClosing <= URGENT_CLOSING_DAYS;
+      // Only WON bids can have a contract (ContractService enforces this) - skip the extra call otherwise.
+      let contract = null;
+      if (bid.status === 'WON') {
+        const contracts = await req.api.get('/api/contracts');
+        contract = contracts.find((c) => c.bidId === bid.id) || null;
+      }
       res.render('bids/detail', {
         title: bid.title, user: req.session.user, bid, history, activity, dealRegistrations, statusOptions: STATUS_OPTIONS,
         daysUntilClosing, closingUrgent, historyLimit: HISTORY_LIMIT,
         delayReasonCodes: delayReasonCodes.filter((c) => c.active),
         waitingOnOptions: WAITING_ON_OPTIONS,
+        contract,
       });
     } catch (err) {
       next(err);

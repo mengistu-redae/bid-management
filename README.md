@@ -554,16 +554,20 @@ themselves stayed stable, the search bar returning the correct bids,
 dark theme readability, and the visited-link color bug caught and fixed
 before calling this done.
 
-## Lifecycle enforcement (Opportunity & Deal Registration)
+## Lifecycle completeness (closing the pipeline gaps)
 
 A lifecycle evaluation of the five-stage pipeline (Opportunity -> Deal
-Registration -> Bid -> Contract -> Logistics) found that Bid, Contract,
-and Logistics each enforce a guarded transition table, but Opportunity
-and Deal Registration didn't - `stage`/`status` were plain fields
-settable to any value through the generic `update()` endpoint. This is
-phase 1 of closing that gap (phases 2-4 - Contract and Logistics
-management UI, then the smaller remaining gaps - are tracked separately,
-not yet built):
+Registration -> Bid -> Contract -> Logistics) found two different kinds
+of gap: Opportunity and Deal Registration had no guarded transitions
+(stage/status were plain fields, settable to anything), while Contract
+and Logistics had a fully guarded backend and REST API but no node-bff UI
+at all - reachable only through direct API calls. A 4-phase plan closes
+both: phase 1 (lifecycle enforcement) and phase 2 (Contract UI) are done;
+phase 3 (Logistics UI) and phase 4 (the smaller remaining gaps - gating
+Logistics creation on contract status, making `Bid.goNoGoDecision`
+editable) are tracked separately, not yet built.
+
+**Phase 1** - guarded transitions for Opportunity and Deal Registration:
 
 - **`OpportunityService`** gained the same `EnumMap<OpportunityStage,
   Set<OpportunityStage>>` guarded-transition pattern `BidStatusService`
@@ -602,6 +606,37 @@ correctly requiring a reason and then succeeding once one was supplied;
 a terminal-stage opportunity correctly rejecting any further transition;
 and the same illegal/legal/terminal sequence repeated for a deal
 registration (Approved -> Draft rejected, Approved -> Expired succeeding).
+
+**Phase 2** - Contract management UI, the first node-bff screens Contract
+has ever had:
+
+- New `/contracts` (list - bid, contract number, status, delivery
+  deadline, indicator), `/contracts/new` (creates from a WON bid - either
+  pre-selected via `?bidId=` from that bid's own detail page, or picked
+  from a dropdown of WON bids that don't have one yet), and
+  `/contracts/:id` (detail - status-transition form reusing phase 1's
+  flash-error pattern, an edit form, and a Logistics section listing that
+  contract's shipments - empty until phase 3 adds the UI to create one).
+  No backend changes were needed - `ContractController`'s REST API was
+  already complete; this phase is purely the missing frontend.
+- The Bid detail page gained a Contract section, shown only for WON bids:
+  a link to the existing contract if one exists, or a "+ Create contract"
+  link into `/contracts/new?bidId=` if not.
+- Added "4 Contracts" to the sidebar's Lifecycle group (deliberately left
+  out until now, since there was nowhere for it to link to).
+- Extended node-bff's `statusBadgeClass` helper to color-code Contract
+  and Logistics statuses too (it previously only recognized Bid's own
+  status names and fell back to an uncolored badge for everything else).
+
+Live-verified end to end against the real `bidmgmt` database: walked a
+real bid through its full guarded status chain to WON via the existing
+UI, created a contract from its detail page, confirmed the one-contract-
+per-bid rule rejects a second attempt with a clear message, an illegal
+status transition (Awarded -> In Delivery, skipping Signed) rejected the
+same way phase 1's bid/opportunity/deal-registration transitions are,
+and the legal next step (Awarded -> Signed) succeeding with `signedAt`
+auto-populated - all reflected correctly on both the list page and the
+originating bid's detail page.
 
 ## Tests
 

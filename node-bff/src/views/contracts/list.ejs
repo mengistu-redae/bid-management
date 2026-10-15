@@ -1,0 +1,32 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<div class="row" style="justify-content:space-between;">
+  <h1 class="mt-0">Contracts</h1>
+  <a class="btn" href="/contracts/new">+ New contract</a>
+</div>
+
+<% if (contracts.length === 0) { %>
+  <p class="muted">No contracts yet - a contract is created from a WON bid.</p>
+<% } else { %>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Bid</th><th>Contract #</th><th>Status</th><th>Delivery deadline</th><th>Indicator</th></tr></thead>
+    <tbody>
+      <% contracts.forEach(c => { %>
+        <tr onclick="window.location='/contracts/<%= c.id %>'" style="cursor:pointer;">
+          <td><a href="/contracts/<%= c.id %>"><%= c.bidTitle %></a></td>
+          <td><%= c.contractNumber || '-' %></td>
+          <td><span class="badge <%= statusBadgeClass(c.status) %>"><%= c.status %></span><% if (c.onHold) { %> <span class="badge stale">On hold</span><% } %></td>
+          <td><%= c.deliveryDeadline ? formatDate(c.deliveryDeadline) : '-' %></td>
+          <td>
+            <% if (c.indicator && c.indicator.level !== 'NO_TARGET') { %>
+              <span class="badge <%= indicatorBadgeClass(c.indicator.level) %>"><%= c.indicator.level %></span>
+            <% } else { %><span class="muted">-</span><% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+<% } %>
+
+<%- include('../partials/footer') %>

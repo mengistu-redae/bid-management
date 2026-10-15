@@ -131,7 +131,7 @@
   a plain class selector loses to `a:visited` at equal specificity - the
   same class of bug the earlier bid-card redesign already worked around.
 
-### Lifecycle enforcement (Opportunity & Deal Registration) - Phase 1
+### Lifecycle completeness (closing the pipeline gaps) - Phase 1
 
 - Added a guarded transition table to `OpportunityService` (Lead ->
   Qualified -> RFI/Proposal -> Expecting tender, Lost/Closed as a side
@@ -149,3 +149,17 @@
   node-bff's bid/lot/opportunity/deal-registration status routes now
   flash that message back to the same page instead of bouncing to the
   generic error page.
+
+### Lifecycle completeness (closing the pipeline gaps) - Phase 2
+
+- Added Contract's first-ever node-bff UI: `/contracts` (list),
+  `/contracts/new` (create from a WON bid, pre-selected via `?bidId=` or
+  picked from a dropdown), and `/contracts/:id` (detail - status
+  transitions reusing phase 1's flash-error pattern, an edit form, and a
+  Logistics section listing its shipments). No backend changes needed -
+  `ContractController`'s REST API was already complete.
+- Added a Contract section to the Bid detail page (WON bids only) linking
+  to the existing contract or offering to create one.
+- Added "4 Contracts" to the sidebar's Lifecycle group.
+- Extended `statusBadgeClass` (node-bff) to color-code Contract and
+  Logistics statuses, not just Bid's.

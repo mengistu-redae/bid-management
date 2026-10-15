@@ -17,6 +17,7 @@ const buildReportsRouter = require('./routes/pages/reports');
 const buildUsersRouter = require('./routes/pages/users');
 const buildDelaysRouter = require('./routes/pages/delays');
 const buildMyFollowUpsRouter = require('./routes/pages/myFollowUps');
+const buildContractsRouter = require('./routes/pages/contracts');
 
 async function main() {
   const app = express();
@@ -84,6 +85,7 @@ async function main() {
   app.use('/users', buildUsersRouter());
   app.use('/delays', buildDelaysRouter());
   app.use('/my-follow-ups', buildMyFollowUpsRouter());
+  app.use('/contracts', buildContractsRouter());
   app.use('/import', buildImportRouter());
 
   app.use((req, res) => res.status(404).render('error', { message: 'Page not found', user: req.session.user }));
