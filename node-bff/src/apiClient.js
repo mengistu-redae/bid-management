@@ -50,6 +50,7 @@ function attachApiClient(getClient) {
         get: (path) => call(req, 'GET', path, accessToken),
         post: (path, body) => call(req, 'POST', path, accessToken, body),
         put: (path, body) => call(req, 'PUT', path, accessToken, body),
+        delete: (path) => call(req, 'DELETE', path, accessToken),
       };
       next();
     } catch (err) {

@@ -1,0 +1,121 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<h1><%= target ? 'Edit stage target' : 'New stage target' %></h1>
+<a href="/settings/stage-targets">&larr; Back to Stage targets</a>
+
+<form class="card mt-2" method="post" action="<%= target ? '/settings/stage-targets/' + target.id + '/update' : '/settings/stage-targets' %>">
+  <div class="row">
+    <div class="col">
+      <label>Entity type</label>
+      <select name="entityType" required>
+        <% entityTypeOptions.forEach(o => { %><option value="<%= o %>" <%= target && target.entityType === o ? 'selected' : '' %>><%= o %></option><% }) %>
+      </select>
+    </div>
+    <div class="col">
+      <label>Stage value</label>
+      <input name="stageValue" value="<%= target ? target.stageValue : '' %>" required placeholder="e.g. UNDER_REVIEW">
+      <p class="muted" style="font-size:0.8rem; margin:0.2rem 0 0;">
+        BID/LOT: IDENTIFIED, UNDER_REVIEW, PREPARING, SUBMITTED, OPENED, UNDER_EVALUATION &middot;
+        OPPORTUNITY: LEAD, QUALIFIED, RFI_PROPOSAL, EXPECTING_TENDER &middot;
+        DEAL_REGISTRATION: DRAFT, SUBMITTED &middot;
+        CONTRACT: AWARDED, SIGNED, IN_DELIVERY &middot;
+        LOGISTICS: PLANNING, DISPATCHED, IN_TRANSIT, CUSTOMS, CLEARED
+      </p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <label>Target type</label>
+      <select name="targetType" id="targetType" required>
+        <% targetTypeOptions.forEach(o => { %><option value="<%= o %>" <%= target && target.targetType === o ? 'selected' : '' %>><%= o %></option><% }) %>
+      </select>
+    </div>
+  </div>
+
+  <div class="row" id="duration-fields">
+    <div class="col">
+      <label>Target days</label>
+      <input type="number" step="0.1" name="targetDays" value="<%= target && target.targetDays !== null ? target.targetDays : '' %>">
+    </div>
+    <div class="col" style="justify-content:flex-end; display:flex; padding-bottom:0.6rem;">
+      <label style="display:flex; align-items:center; gap:0.3rem; font-weight:normal;">
+        <input type="checkbox" name="usesBusinessDays" <%= !target || target.usesBusinessDays ? 'checked' : '' %>> Uses business days (not calendar days)
+      </label>
+    </div>
+  </div>
+
+  <div class="row" id="deadline-fields">
+    <div class="col">
+      <label>Deadline field (on the same entity)</label>
+      <input name="deadlineField" value="<%= target ? (target.deadlineField || '') : '' %>" placeholder="e.g. closingAt">
+    </div>
+    <div class="col">
+      <label>Offset days before the deadline</label>
+      <input type="number" step="0.1" name="deadlineOffsetDays" value="<%= target && target.deadlineOffsetDays !== null ? target.deadlineOffsetDays : '' %>">
+    </div>
+  </div>
+
+  <h3>Overrides (most specific match wins - leave blank for the fallback/default row)</h3>
+  <div class="row">
+    <div class="col">
+      <label>Division</label>
+      <select name="divisionId">
+        <option value="">-</option>
+        <% divisions.forEach(d => { %><option value="<%= d.id %>" <%= target && target.divisionId === d.id ? 'selected' : '' %>><%= d.name %></option><% }) %>
+      </select>
+    </div>
+    <div class="col">
+      <label>Sector</label>
+      <select name="sector">
+        <% sectorOptions.forEach(o => { %><option value="<%= o %>" <%= target && target.sector === o ? 'selected' : '' %>><%= o || '-' %></option><% }) %>
+      </select>
+    </div>
+    <div class="col">
+      <label>OEM name</label>
+      <input name="oemName" value="<%= target ? (target.oemName || '') : '' %>">
+    </div>
+    <div class="col">
+      <label>Shipment mode</label>
+      <select name="shipmentMode">
+        <% shipmentModeOptions.forEach(o => { %><option value="<%= o %>" <%= target && target.shipmentMode === o ? 'selected' : '' %>><%= o || '-' %></option><% }) %>
+      </select>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <label>Stale after (days, overrides the global default)</label>
+      <input type="number" step="0.1" name="staleAfterDays" value="<%= target && target.staleAfterDays !== null ? target.staleAfterDays : '' %>">
+    </div>
+    <div class="col" style="justify-content:flex-end; display:flex; padding-bottom:0.6rem;">
+      <label style="display:flex; align-items:center; gap:0.3rem; font-weight:normal;">
+        <input type="checkbox" name="active" <%= !target || target.active ? 'checked' : '' %>> Active
+      </label>
+    </div>
+  </div>
+
+  <label>Notes</label>
+  <textarea name="notes"><%= target ? (target.notes || '') : '' %></textarea>
+
+  <div class="mt-2"><button type="submit"><%= target ? 'Save' : 'Create' %></button></div>
+</form>
+
+<script>
+  // Duration and deadline-relative fields are mutually exclusive - just a visual hint,
+  // both groups still post (IndicatorService.resolveTarget only reads the ones its
+  // TargetType actually needs), so nothing here needs to clear the other group's values.
+  (function () {
+    var select = document.getElementById('targetType');
+    var durationFields = document.getElementById('duration-fields');
+    var deadlineFields = document.getElementById('deadline-fields');
+    function render() {
+      var isDeadline = select.value === 'DEADLINE_RELATIVE';
+      durationFields.style.display = isDeadline ? 'none' : '';
+      deadlineFields.style.display = isDeadline ? '' : 'none';
+    }
+    select.addEventListener('change', render);
+    render();
+  })();
+</script>
+
+<%- include('../partials/footer') %>

@@ -299,3 +299,94 @@ All four phases of the lifecycle-completeness initiative are now done.
   an owner nor a division - extending alert-recipient resolution to
   these two needs a recipient-policy decision from the user, not a guess,
   so it's left as a follow-up rather than done here.
+
+### Admin settings UI
+
+- New `/settings` page (Director-only, linked from the sidebar's Admin
+  section): indicator thresholds, working week, holiday calendar, and
+  delay reason codes all editable from one page, plus a link to a
+  separate `/settings/stage-targets` list/edit flow (20 rows, too many
+  fields per row for the same page). All five REST surfaces already
+  existed from stage-tracking phase 2 except two: `HolidayCalendarController`
+  (`/api/holidays`, GET/POST/PUT/DELETE) and `WorkingWeekConfigController`
+  (`/api/working-week-config`, GET/PUT) are new, mirroring
+  `StageTargetController`/`IndicatorConfigController`'s existing
+  Director-only-writes-open-reads pattern exactly.
+- **Real gap found and fixed while wiring this up**: `DelayReasonCodeController`'s
+  POST/PUT had no Director check at all, unlike its three sibling settings
+  controllers - any authenticated user could create or edit delay reason
+  codes via the API. Fixed with the same inline `requireDirector()` check
+  the others already use.
+- `req.api` (node-bff's server-side API client) gained a `delete` method -
+  only `get`/`post`/`put` existed before, and nothing needed DELETE until
+  removing a holiday did.
+- Working week storage keeps its existing 3-letter-code format
+  (`MON,TUE,...`) to stay within the `working_days VARCHAR(40)` column -
+  `WorkingWeekConfigController` translates to/from full `DayOfWeek` names
+  (`MONDAY`, `TUESDAY`, ...) at the API boundary so the UI/DTO never has
+  to know about the abbreviation.
+- Live-verified end to end against the real `bidmgmt` database: all four
+  settings sections and the stage-targets list/edit flow render real data
+  (indicator thresholds 75/100/150/5, the Mon-Sat working week, 13
+  holidays, 9 delay reason codes, 20 stage targets including
+  DEADLINE_RELATIVE and shipment-mode-override rows); a stage target's
+  edit form round-trips correctly including the duration/deadline-relative
+  field-visibility toggle; the working week checkbox save/reload round
+  trip confirmed (toggled Sunday on, saw it persist, reverted); and a
+  holiday add-then-remove round trip confirmed. One browser-automation
+  quirk hit along the way (native `<input type="date">` doesn't accept
+  plain keystroke typing in this tooling - same "date-picker quirks"
+  noted in an earlier phase's own live-verification writeup) - worked
+  around by setting the input's value via JS and dispatching a real
+  `input` event before submitting, so the actual form POST path was still
+  exercised for real, not bypassed.
+
+### Key-date-changed notifications
+
+- New `KeyDateChangeNotificationService` (notification package), on the
+  same `bidmgmt.notifications.alert-cron` cadence as
+  `DelayAlertSchedulerService` (every 30 min by default): scans
+  `audit_log` for new rows on `DelayAnalyticsService.KEY_DATE_FIELDS`
+  (made `public static` for this reuse - the exact same curated field
+  list the date-slippage report already uses, so the two can never
+  drift) and sends one `KEY_DATE_CHANGED` email per change via the
+  `EmailTemplates.keyDateChangedAlert` template and the
+  `ReminderType.KEY_DATE_CHANGED` enum value - both already existed,
+  reserved but never wired up by an earlier phase.
+- **Why a new table wasn't needed**: `alert_state` (phase 3's
+  episode-tracking table) gained a 4th `AlertKind`
+  (`KEY_DATE_CHANGED`), with the audit_log row's own id as the
+  `contextKey` - this is what makes a given change notify exactly once,
+  ever, no matter how many times the 30-minute scan re-runs.
+  `NotificationService.sendIfNotAlreadySent`'s own dedup is "once per
+  calendar day", not "once ever" (it hardcodes `LocalDate.now()`), so
+  without this a change notified today would re-fire again on every
+  later day's scan, since `audit_log` rows are permanent and the service
+  has no way to tell "already handled" from "not yet seen" on its own.
+- **Real CHECK-constraint bug found before it could bite**: `alert_state`'s
+  `alert_kind` constraint only listed the 3 values that existed when
+  V12 created the table, same stale-constraint class of bug fixed for
+  `activity_log`/`attachments` in V13 - caught this time by checking
+  `pg_constraint` against the real database before writing any code,
+  per the lesson recorded then. Fixed in
+  `V14__widen_alert_kind_for_key_date_changes.sql`.
+- Recipients mirror each entity's existing reminder/alert audience
+  rather than inventing a new one: Bid reuses
+  `ReminderSchedulerService`'s lot-officers-plus-division-managers
+  resolution (re-derived locally, matching that class's own precedent of
+  not sharing this logic with `DelayAlertSchedulerService` either);
+  Opportunity notifies its `owner` plus division managers for its linked
+  divisions; DealRegistration (no owner, no division) notifies
+  `createdBy` plus the Director, the same pair
+  `ReminderSchedulerService`'s expiry reminders already use.
+- Added `KeyDateChangeNotificationServiceTest` (pure Mockito, no DB/Spring
+  context, same convention as `DelayAlertSchedulerServiceTest`) - one
+  case per entity type's recipients, one for an irrelevant field being
+  ignored, one proving an already-notified change is never reprocessed.
+- Live-verified: the app starts cleanly with the new scheduled bean and
+  migration (confirms the Spring wiring and the CHECK-constraint fix are
+  both correct), and the full 173-test backend suite stays green. The
+  scheduler's own firing logic was not exercised via a real 30-minute
+  cron wait - same situation `DelayAlertSchedulerService` was in per its
+  own test file's convention - its 5 passing unit tests substitute for
+  that, asserting the exact recipients and dedup behavior directly.

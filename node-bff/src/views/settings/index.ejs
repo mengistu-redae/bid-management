@@ -1,0 +1,109 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<h1>Settings</h1>
+<p class="muted">Director-only: these numbers decide what "late" means everywhere else in the app.</p>
+
+<div class="card">
+  <h2 class="mt-0">Indicator thresholds</h2>
+  <p class="muted" style="font-size:0.85rem;">% of target used before a lot/entity turns Amber, Red, or Critical, plus the default "stale" cutoff when no stage-specific override applies.</p>
+  <form method="post" action="/settings/indicator-config" class="row" style="gap:1rem; align-items:flex-end; flex-wrap:wrap;">
+    <div>
+      <label>Amber %</label>
+      <input type="number" step="1" name="amberThresholdPercent" value="<%= indicatorConfig.amberThresholdPercent %>" class="w-auto">
+    </div>
+    <div>
+      <label>Red %</label>
+      <input type="number" step="1" name="redThresholdPercent" value="<%= indicatorConfig.redThresholdPercent %>" class="w-auto">
+    </div>
+    <div>
+      <label>Critical %</label>
+      <input type="number" step="1" name="criticalThresholdPercent" value="<%= indicatorConfig.criticalThresholdPercent %>" class="w-auto">
+    </div>
+    <div>
+      <label>Default stale-after (days)</label>
+      <input type="number" step="1" name="defaultStaleAfterDays" value="<%= indicatorConfig.defaultStaleAfterDays %>" class="w-auto">
+    </div>
+    <div><button type="submit">Save</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2 class="mt-0">Working week</h2>
+  <p class="muted" style="font-size:0.85rem;">Which weekdays count toward a business-day target. Holidays below are subtracted from whichever days are checked here.</p>
+  <form method="post" action="/settings/working-week" class="row" style="gap:1rem; flex-wrap:wrap; align-items:center;">
+    <% allDays.forEach(day => { %>
+      <label style="display:flex; align-items:center; gap:0.3rem; font-weight:normal;">
+        <input type="checkbox" name="workingDays" value="<%= day %>" <%= workingWeek.workingDays.includes(day) ? 'checked' : '' %>>
+        <%= day.slice(0,3) %>
+      </label>
+    <% }) %>
+    <div><button type="submit">Save</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2 class="mt-0">Holiday calendar</h2>
+  <p class="muted" style="font-size:0.85rem;">Non-working days subtracted from business-day calculations regardless of which weekdays are checked above.</p>
+  <% if (holidays.length === 0) { %><p class="muted">No holidays recorded.</p><% } %>
+  <div class="col" style="gap:0.4rem;">
+  <% holidays.forEach(h => { %>
+    <div class="row tight" style="align-items:center;">
+      <form method="post" action="/settings/holidays/<%= h.id %>/update" class="row tight col" style="align-items:flex-end;">
+        <input type="date" name="holidayDate" value="<%= h.holidayDate %>" class="w-auto">
+        <input name="name" value="<%= h.name %>" class="col">
+        <button type="submit" class="secondary btn-xs">Save</button>
+      </form>
+      <form method="post" action="/settings/holidays/<%= h.id %>/delete"><button type="submit" class="secondary btn-xs">Remove</button></form>
+    </div>
+  <% }) %>
+  </div>
+  <form method="post" action="/settings/holidays" class="row tight mt-2" style="align-items:flex-end;">
+    <div>
+      <label>Date</label>
+      <input type="date" name="holidayDate" required class="w-auto">
+    </div>
+    <div class="col">
+      <label>Name</label>
+      <input name="name" placeholder="e.g. Meskel" required>
+    </div>
+    <div><button type="submit" class="secondary">+ Add holiday</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2 class="mt-0">Delay reason codes</h2>
+  <p class="muted" style="font-size:0.85rem;">Shown in the "Delay reason" dropdown everywhere a red/critical lot, contract, logistics shipment, opportunity, or deal registration exits its current stage.</p>
+  <div class="col" style="gap:0.4rem;">
+  <% delayReasonCodes.forEach(c => { %>
+    <form method="post" action="/settings/delay-reason-codes/<%= c.id %>/update" class="row tight" style="align-items:center;">
+      <span class="muted" style="width:12rem; font-family:monospace;"><%= c.code %></span>
+      <input name="label" value="<%= c.label %>" class="col">
+      <label style="display:flex; align-items:center; gap:0.3rem; font-weight:normal;">Sort <input type="number" name="sortOrder" value="<%= c.sortOrder %>" class="w-auto" style="width:4rem;"></label>
+      <label style="display:flex; align-items:center; gap:0.3rem; font-weight:normal;"><input type="checkbox" name="active" <%= c.active ? 'checked' : '' %>> Active</label>
+      <button type="submit" class="secondary btn-xs">Save</button>
+    </form>
+  <% }) %>
+  </div>
+  <form method="post" action="/settings/delay-reason-codes" class="row tight mt-2" style="align-items:flex-end;">
+    <div>
+      <label>Code</label>
+      <input name="code" placeholder="e.g. FOREX_DELAY" required class="w-auto">
+    </div>
+    <div class="col">
+      <label>Label</label>
+      <input name="label" placeholder="e.g. Forex approval delay" required>
+    </div>
+    <div>
+      <label>Sort</label>
+      <input type="number" name="sortOrder" value="0" class="w-auto" style="width:4rem;">
+    </div>
+    <div><button type="submit" class="secondary">+ Add reason code</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <h2 class="mt-0">Stage targets</h2>
+  <p class="muted" style="font-size:0.85rem;">What "late" means per entity/stage, with optional division/sector/OEM/shipment-mode overrides - the most specific match wins.</p>
+  <a class="btn secondary w-auto" href="/settings/stage-targets">Manage stage targets &rarr;</a>
+</div>
+
+<%- include('../partials/footer') %>

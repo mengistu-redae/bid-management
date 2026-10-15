@@ -58,7 +58,8 @@ public class DelayAnalyticsService {
 
     private static final ZoneId ZONE = ZoneId.of("Africa/Addis_Ababa");
     private static final int TOP_SLIPPAGE_LIMIT = 15;
-    private static final Map<String, List<String>> KEY_DATE_FIELDS = Map.of(
+    /** Public so KeyDateChangeNotificationService (notification package) reuses the exact same curated field list - never drift between what the slippage report covers and what triggers a change notification. */
+    public static final Map<String, List<String>> KEY_DATE_FIELDS = Map.of(
             "BID", List.of("closingAt", "openingAt", "clarificationDeadline"),
             "OPPORTUNITY", List.of("expectedTenderDate"),
             "DEAL_REGISTRATION", List.of("submittedDate", "approvalDate", "expiryDate"));

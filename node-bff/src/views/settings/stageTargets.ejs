@@ -1,0 +1,42 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<div class="toolbar">
+  <h1 style="margin:0;">Stage targets</h1>
+  <a class="btn" href="/settings/stage-targets/new">+ Add target</a>
+</div>
+<p class="muted">What "late" means per entity/stage - IndicatorService picks the most specific row that matches an instance, falling back to the row with every override column blank.</p>
+<a href="/settings">&larr; Back to Settings</a>
+
+<div class="table-scroll mt-2">
+<table>
+  <thead>
+    <tr>
+      <th>Entity</th><th>Stage</th><th>Type</th><th>Target</th><th>Overrides</th><th>Stale after</th><th>Active</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <% stageTargets.forEach(t => { %>
+      <tr style="<%= t.active ? '' : 'opacity:0.5;' %>">
+        <td><%= t.entityType %></td>
+        <td><%= t.stageValue %></td>
+        <td><%= t.targetType %></td>
+        <td>
+          <% if (t.targetType === 'DEADLINE_RELATIVE') { %>
+            <%= t.deadlineOffsetDays %>d before <%= t.deadlineField %>
+          <% } else { %>
+            <%= t.targetDays %> <%= t.usesBusinessDays ? 'business' : 'calendar' %> day(s)
+          <% } %>
+        </td>
+        <td class="muted" style="font-size:0.85rem;">
+          <%= [t.divisionName, t.sector, t.oemName, t.shipmentMode].filter(Boolean).join(', ') || '-' %>
+        </td>
+        <td><%= t.staleAfterDays || '-' %></td>
+        <td><%= t.active ? 'Yes' : 'No' %></td>
+        <td><a href="/settings/stage-targets/<%= t.id %>/edit">Edit</a></td>
+      </tr>
+    <% }) %>
+    <% if (stageTargets.length === 0) { %><tr><td colspan="8" class="muted">No stage targets configured.</td></tr><% } %>
+  </tbody>
+</table>
+</div>
+
+<%- include('../partials/footer') %>

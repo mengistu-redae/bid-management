@@ -3,5 +3,6 @@ package com.motiengineering.bidmgmt.domain.enums;
 public enum AlertKind {
     INDICATOR,
     STALE,
-    FOLLOWUP_DUE
+    FOLLOWUP_DUE,
+    KEY_DATE_CHANGED
 }
