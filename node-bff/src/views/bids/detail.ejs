@@ -49,6 +49,25 @@
     <div><button type="submit">Update status</button></div>
   </form>
 </div>
+
+<div class="card">
+  <h2 class="mt-0">Go / no-go</h2>
+  <form method="post" action="/bids/<%= bid.id %>/go-no-go" class="row end">
+    <div class="col" style="min-width:10rem;">
+      <label>Decision</label>
+      <select name="goNoGoDecision">
+        <option value="" <%= !bid.goNoGoDecision ? 'selected' : '' %>>- not decided -</option>
+        <option value="GO" <%= bid.goNoGoDecision === 'GO' ? 'selected' : '' %>>Go</option>
+        <option value="NO_GO" <%= bid.goNoGoDecision === 'NO_GO' ? 'selected' : '' %>>No-go</option>
+      </select>
+    </div>
+    <div style="flex:2; min-width:14rem;">
+      <label>Reason</label>
+      <input name="goNoGoReason" value="<%= bid.goNoGoReason || '' %>" placeholder="Why?">
+    </div>
+    <div><button type="submit">Save</button></div>
+  </form>
+</div>
 <% } %>
 
 <% if (bid.status === 'WON') { %>

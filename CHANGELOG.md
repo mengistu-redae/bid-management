@@ -174,3 +174,16 @@
 - Gave the Contract detail page's Logistics section (stubbed empty in
   Phase 2) a working "+ Add shipment" link and linked its shipment rows.
 - Added "5 Logistics" to the sidebar's Lifecycle group, completing it.
+
+### Lifecycle completeness (closing the pipeline gaps) - Phase 4
+
+- `LogisticsService.create` now rejects a shipment for a contract that
+  isn't Signed or In Delivery, mirroring Contract's own WON-bid gate.
+- Added a "Go / no-go" card to the Bid detail page for the previously
+  UI-less `Bid.goNoGoDecision`/`goNoGoReason` fields (already fully wired
+  on the backend) - a small dedicated form rather than a general bid-edit
+  form, since the detail page has never had one.
+- Added `LogisticsServiceTest`, the first test coverage `LogisticsService`
+  has had, covering the new creation gate and its existing status guard.
+
+All four phases of the lifecycle-completeness initiative are now done.

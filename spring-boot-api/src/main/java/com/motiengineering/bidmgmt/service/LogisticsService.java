@@ -3,6 +3,7 @@ package com.motiengineering.bidmgmt.service;
 import com.motiengineering.bidmgmt.domain.AppUser;
 import com.motiengineering.bidmgmt.domain.Contract;
 import com.motiengineering.bidmgmt.domain.LogisticsShipment;
+import com.motiengineering.bidmgmt.domain.enums.ContractStatus;
 import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.domain.enums.LogisticsStatus;
 import com.motiengineering.bidmgmt.domain.enums.ShipmentMode;
@@ -54,6 +55,9 @@ public class LogisticsService {
     public LogisticsShipment create(CreateLogisticsShipmentRequest request, AppUser creator) {
         Contract contract = contractRepository.findById(request.contractId())
                 .orElseThrow(() -> new NoSuchElementException("Contract not found: " + request.contractId()));
+        if (contract.getStatus() != ContractStatus.SIGNED && contract.getStatus() != ContractStatus.IN_DELIVERY) {
+            throw new IllegalStateException("A shipment can only be added to a contract that is Signed or In Delivery (this one is " + contract.getStatus() + ")");
+        }
 
         LogisticsShipment shipment = new LogisticsShipment();
         shipment.setContract(contract);

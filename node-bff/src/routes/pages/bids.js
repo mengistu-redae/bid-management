@@ -293,6 +293,23 @@ function buildBidsRouter() {
     }
   });
 
+  router.post('/:id/go-no-go', async (req, res, next) => {
+    try {
+      await req.api.put(`/api/bids/${req.params.id}`, {
+        goNoGoDecision: req.body.goNoGoDecision || null,
+        goNoGoReason: req.body.goNoGoReason || null,
+      });
+      setFlash(req, 'success', 'Go/no-go saved.');
+      res.redirect(`/bids/${req.params.id}`);
+    } catch (err) {
+      if (err.status === 409 || err.status === 400) {
+        setFlash(req, 'error', err.message);
+        return res.redirect(`/bids/${req.params.id}`);
+      }
+      next(err);
+    }
+  });
+
   router.post('/lots/:lotId/waiting-on', async (req, res, next) => {
     try {
       await req.api.put(`/api/waiting-on?entityType=LOT&entityId=${req.params.lotId}`, {

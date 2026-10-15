@@ -562,10 +562,7 @@ of gap: Opportunity and Deal Registration had no guarded transitions
 (stage/status were plain fields, settable to anything), while Contract
 and Logistics had a fully guarded backend and REST API but no node-bff UI
 at all - reachable only through direct API calls. A 4-phase plan closes
-both: phases 1-3 (lifecycle enforcement, Contract UI, Logistics UI) are
-done; phase 4 (the smaller remaining gaps - gating Logistics creation on
-contract status, making `Bid.goNoGoDecision` editable) is tracked
-separately, not yet built.
+both, and all 4 phases are now done.
 
 **Phase 1** - guarded transitions for Opportunity and Deal Registration:
 
@@ -664,6 +661,33 @@ correctly across all three surfaces - the shipment's own detail page, the
 flat `/logistics` list (joined back to its contract), and the originating
 contract's embedded Logistics table.
 
+**Phase 4** - the two smaller gaps noted during the evaluation, closing
+out this initiative:
+
+- **`LogisticsService.create`** now rejects a shipment for a contract
+  that isn't Signed or In Delivery (mirroring Contract's own WON-bid
+  gate) - previously a shipment could attach to a contract in any status,
+  including one that had been Terminated.
+- **`Bid.goNoGoDecision`/`goNoGoReason`** were already fully wired on the
+  backend (`UpdateBidRequest`, `BidService.update`, audited like every
+  other bid field) but had no UI anywhere - not even as part of a larger
+  bid-edit form, since the bid detail page has never had general-purpose
+  field editing (only status changes and a handful of specific per-lot
+  actions). Rather than build that larger, out-of-scope edit form, added
+  a small dedicated "Go / no-go" card to the bid detail page with just
+  these two fields, following the same pattern as the status-change card
+  next to it.
+
+Live-verified end to end: an attempt to add a shipment to a freshly
+created (Awarded) contract rejected with "A shipment can only be added to
+a contract that is Signed or In Delivery (this one is AWARDED)"; and
+setting a bid's Go/No-go decision to Go with a reason saved correctly and
+displayed back pre-filled on reload. Added `LogisticsServiceTest` - the
+first test coverage this service has had - covering both the new creation
+gate (Awarded/Terminated rejected, Signed/In Delivery allowed) and its
+existing status-transition guard; all 137 backend tests and all node-bff
+tests pass.
+
 ## Tests
 
 ```bash
@@ -751,6 +775,13 @@ Bid being unreachable through the generic guard, Lost/Closed's required-
 reason rule both failing and succeeding, and a terminal stage rejecting
 any further move - and extended `DealRegistrationServiceTest` with the
 equivalent three cases for its own transition table.
+
+Phase 4 added `LogisticsServiceTest` - the first test coverage
+`LogisticsService` has ever had - covering the new contract-status
+creation gate (rejected for Awarded and Terminated, allowed for Signed
+and In Delivery) and the existing status-transition guard (skipped-stage
+rejection, the legal next-stage success path, and the right timestamp
+field getting stamped on each transition).
 
 ## Deployment
 
