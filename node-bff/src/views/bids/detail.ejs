@@ -185,11 +185,11 @@
       </details>
     <% } %>
 
-    <h3 style="margin-bottom:0.3rem;">Checklist (<%= lot.checklistProgressPercent %>%)</h3>
-    <div class="progress-bar"><div style="width: <%= lot.checklistProgressPercent %>%;"></div></div>
+    <h3 id="lot-checklist-heading-<%= lot.id %>" style="margin-bottom:0.3rem;">Checklist (<%= lot.checklistProgressPercent %>%)</h3>
+    <div class="progress-bar" id="lot-checklist-bar-<%= lot.id %>"><div style="width: <%= lot.checklistProgressPercent %>%;"></div></div>
     <% lot.checklistItems.forEach(item => { %>
-      <div class="checklist-item <%= item.done ? 'done' : '' %>">
-        <form method="post" action="/bids/checklist/<%= item.id %>/toggle">
+      <div class="checklist-item <%= item.done ? 'done' : '' %>" id="item-<%= item.id %>">
+        <form method="post" action="/bids/checklist/<%= item.id %>/toggle" class="checklist-toggle-form" hx-boost="false">
           <input type="hidden" name="bidId" value="<%= bid.id %>">
           <input type="hidden" name="lotId" value="<%= lot.id %>">
           <input type="hidden" name="done" value="<%= !item.done %>">
@@ -200,6 +200,7 @@
         <span><%= item.title %></span>
         <% if (item.ownerName) { %><span class="muted">(<%= item.ownerName %>)</span><% } %>
         <% if (item.dueDate) { %><span class="muted">due <%= formatDate(item.dueDate) %></span><% } %>
+        <span class="checklist-item-error" style="color:var(--danger); font-size:0.8rem;" hidden></span>
       </div>
     <% }) %>
 
@@ -229,6 +230,78 @@
     <% } %>
   </div>
 <% }) %>
+
+<script>
+  // Progressive enhancement for the checklist toggle buttons above: intercept
+  // the submit, send the same POST via fetch (Accept: application/json gets
+  // the node-bff route to return { done, percent } instead of redirecting -
+  // see bids.js's /checklist/:itemId/toggle), and patch the DOM in place
+  // instead of letting the browser (or htmx's hx-boost on <body>, explicitly
+  // turned off on this form below) reload/re-swap the whole page and reset
+  // scroll position. No optimistic update - the DOM only changes once the
+  // server confirms the new state, so a failure needs no explicit "revert":
+  // nothing was changed yet, the item just stays exactly as it was.
+  (function () {
+    var ICONS = {
+      check: '<polyline points="4,12 9,17 20,6" stroke-linecap="round" stroke-linejoin="round"/>',
+      square: '<rect x="4" y="4" width="16" height="16" rx="2"/>',
+    };
+    function iconSvg(name) {
+      return '<svg class="icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' + ICONS[name] + '</svg>';
+    }
+    function updateLotChecklist(lotId, percent) {
+      if (percent === null || percent === undefined) return;
+      var heading = document.getElementById('lot-checklist-heading-' + lotId);
+      if (heading) heading.textContent = 'Checklist (' + percent + '%)';
+      var barWrap = document.getElementById('lot-checklist-bar-' + lotId);
+      var bar = barWrap && barWrap.firstElementChild;
+      if (bar) bar.style.width = percent + '%';
+    }
+
+    document.querySelectorAll('.checklist-toggle-form').forEach(function (form) {
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var item = form.closest('.checklist-item');
+        var button = form.querySelector('button[type="submit"]');
+        var doneInput = form.querySelector('input[name="done"]');
+        var lotId = form.querySelector('input[name="lotId"]').value;
+        var errorEl = item.querySelector('.checklist-item-error');
+
+        errorEl.hidden = true;
+        button.disabled = true;
+
+        fetch(form.action, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+          body: new URLSearchParams(new FormData(form)),
+        })
+          .then(function (response) {
+            if (!response.ok) {
+              return response.json().catch(function () { return {}; }).then(function (body) {
+                throw new Error(body.message || 'Could not update this item.');
+              });
+            }
+            return response.json();
+          })
+          .then(function (result) {
+            item.classList.toggle('done', result.done);
+            doneInput.value = String(!result.done);
+            button.setAttribute('aria-label', result.done ? 'Mark not done' : 'Mark done');
+            var iconEl = button.querySelector('svg');
+            if (iconEl) iconEl.outerHTML = iconSvg(result.done ? 'check' : 'square');
+            updateLotChecklist(lotId, result.percent);
+          })
+          .catch(function (err) {
+            errorEl.textContent = err.message || 'Could not update this item - try again.';
+            errorEl.hidden = false;
+          })
+          .finally(function () {
+            button.disabled = false;
+          });
+      });
+    });
+  })();
+</script>
 
 <h2><%- include('../partials/icon', { name: 'repeat' }) %> Deal registrations</h2>
 <div class="card">

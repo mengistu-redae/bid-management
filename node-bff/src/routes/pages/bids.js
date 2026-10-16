@@ -386,10 +386,34 @@ function buildBidsRouter() {
   });
 
   router.post('/checklist/:itemId/toggle', async (req, res, next) => {
+    // Progressive enhancement: the checklist's own JS fetches this with an
+    // explicit Accept: application/json header and updates the item/lot
+    // progress bar in place; a plain (no-JS) form submit falls back to the
+    // old full-page redirect, landing back on this exact item via its #anchor.
+    const wantsJson = (req.get('accept') || '').includes('application/json');
     try {
-      await req.api.put(`/api/lots/${req.body.lotId}/checklist-items/${req.params.itemId}`, { done: req.body.done === 'true' });
-      res.redirect(`/bids/${req.body.bidId}`);
+      const updatedItem = await req.api.put(`/api/lots/${req.body.lotId}/checklist-items/${req.params.itemId}`, { done: req.body.done === 'true' });
+      if (!wantsJson) {
+        return res.redirect(`/bids/${req.body.bidId}#item-${req.params.itemId}`);
+      }
+      // The toggle itself already succeeded above - re-fetching the bid just for
+      // the lot's rolled-up percent is a "nice to have", not re-fetched via a
+      // dedicated endpoint (none exists) so a failure here shouldn't report the
+      // whole request as failed.
+      let percent = null;
+      try {
+        const bid = await req.api.get(`/api/bids/${req.body.bidId}`);
+        const lot = bid.lots.find((l) => l.id === req.body.lotId);
+        percent = lot ? lot.checklistProgressPercent : null;
+      } catch (percentErr) {
+        // ignored - see comment above
+      }
+      res.json({ done: updatedItem.done, percent });
     } catch (err) {
+      if (wantsJson) {
+        const status = err.status && err.status < 600 ? err.status : 500;
+        return res.status(status).json({ message: err.message || 'Failed to update checklist item' });
+      }
       next(err);
     }
   });

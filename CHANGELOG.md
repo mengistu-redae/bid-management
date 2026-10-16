@@ -481,3 +481,45 @@ generic `/stage-history` page - "why is this record this color."
   correct stage-history page with correct title/subtitle/back-link, and
   the `stopPropagation` fix was specifically confirmed on the
   Opportunities list. No errors in either service's logs throughout.
+
+### Checklist toggle: progressive enhancement, no more page reload/scroll-to-top
+
+A bid lot's checklist toggle button used a plain form POST that reloaded
+the whole page (and, with `hx-boost` on `<body>`, still reset scroll
+position even without a true navigation) - annoying when checking off
+several items in a long checklist. Now intercepted with JS and patched
+in place; a no-JS fallback still works exactly as before, just landing
+back on the same item instead of the top of the page.
+
+- `/bids/checklist/:itemId/toggle` (node-bff) now branches on the
+  request's `Accept` header: `application/json` (the page's own fetch
+  call) gets back `{ done, percent }` and no redirect; anything else
+  (a plain form submit) gets the original redirect, now with a
+  `#item-<id>` anchor appended so the browser lands back on the same
+  row instead of the top of the page. No backend changes - the PUT to
+  `/api/lots/:lotId/checklist-items/:itemId` already returns the
+  updated item; the lot's rolled-up percent comes from a second,
+  already-existing `GET /api/bids/:bidId` (a failure there doesn't fail
+  the whole request - the toggle itself already succeeded by that
+  point).
+- Each checklist item div gained a stable `id="item-<id>"` (the no-JS
+  anchor target) and `hx-boost="false"` on its form - without the
+  latter, `<body>`'s `hx-boost="true"` would still intercept the
+  submit and do its own full-body swap/scroll-reset before the new
+  inline JS ever got a chance to run.
+- The new inline script (plain `addEventListener`, no library) disables
+  the button while in flight, then on success toggles the `.done` class
+  (CSS already handles the strikethrough), flips the hidden `done`
+  input and `aria-label` for the next click, swaps the check/square SVG
+  icon, and patches that lot's "Checklist (NN%)" heading and progress
+  bar width - all addressed via the new ids, not a page-wide re-render.
+  No optimistic update: the DOM only changes after the server confirms
+  the new state, so a failure needs no explicit "revert" logic - a
+  small inline error message is shown instead and the button
+  re-enables.
+- Live-verified end to end: toggling a real checklist item updated
+  "Checklist (0%)" to "Checklist (8%)" with the correct icon/strikethrough/
+  aria-label, with the URL and scroll position completely unchanged
+  (no `#` fragment, no reload) - then toggled back off, confirming both
+  directions. No errors in either service's logs. Full 178-test backend
+  suite and node-bff tests unaffected (no backend changes).
