@@ -523,3 +523,35 @@ back on the same item instead of the top of the page.
   (no `#` fragment, no reload) - then toggled back off, confirming both
   directions. No errors in either service's logs. Full 178-test backend
   suite and node-bff tests unaffected (no backend changes).
+
+### Bid detail page: same scroll-reset bug fixed for every other form
+
+The checklist toggle wasn't the only offender on the bid detail page -
+`<body>`'s global `hx-boost="true"` defaults every boosted form submission
+to `scrollIntoView({block:'start'})` after the swap, so status changes,
+go/no-go, waiting-on, bond-returned/bond-details, lot outcome, add
+checklist item, lot status, and the activity-log note form all reset
+scroll to the top on every submit.
+
+- Added `hx-swap="show:none"` to all 9 remaining forms in
+  `bids/detail.ejs`. htmx only injects its `show:"top"` scroll behavior
+  when a swap doesn't already specify one; this attribute overrides it
+  with a no-op target that matches neither `"top"` nor `"bottom"`, so no
+  `scrollIntoView` call happens - while keeping the existing AJAX
+  partial-swap behavior (and the server-side redirect responses) exactly
+  as before. No JS, no backend changes.
+- Deliberately not a global `htmx.config.scrollIntoViewOnBoost = false`:
+  that would also suppress the (wanted) scroll-to-top on genuine
+  page-to-page link navigations, since htmx's own anchor-link exclusion
+  only checks for a `#` in `href`, not whether an element is a link vs a
+  form.
+- Live-verified: the activity-log note form (bottom of page) kept its
+  exact scroll position after a real submit. A JS-driven submit of the
+  "add checklist item" form (mid-page) confirmed `scrollTop` unchanged
+  (940 before and after) across a real add that landed in the database.
+  One attempt via the browser-automation tool's synthetic click returned
+  a transient 503 with no corresponding error in either service's logs
+  (automation-layer flake, not an app bug) - a retry succeeded cleanly.
+  Test checklist items/activity note added during verification were
+  removed afterward; the bid is back to its original state (checklist
+  100%, "No activity yet").

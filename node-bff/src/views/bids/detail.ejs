@@ -35,7 +35,7 @@
 <% if (bid.canEdit) { %>
 <div class="card">
   <h2 class="mt-0">Change status</h2>
-  <form method="post" action="/bids/<%= bid.id %>/status" class="row end">
+  <form method="post" action="/bids/<%= bid.id %>/status" class="row end" hx-swap="show:none">
     <div class="col" style="min-width:10rem;">
       <label>New status</label>
       <select name="newStatus">
@@ -52,7 +52,7 @@
 
 <div class="card">
   <h2 class="mt-0">Go / no-go</h2>
-  <form method="post" action="/bids/<%= bid.id %>/go-no-go" class="row end">
+  <form method="post" action="/bids/<%= bid.id %>/go-no-go" class="row end" hx-swap="show:none">
     <div class="col" style="min-width:10rem;">
       <label>Decision</label>
       <select name="goNoGoDecision">
@@ -114,7 +114,7 @@
       <% if (bid.canEdit) { %>
         <details>
           <summary class="muted">change</summary>
-          <form method="post" action="/bids/lots/<%= lot.id %>/waiting-on" class="row tight mt-1">
+          <form method="post" action="/bids/lots/<%= lot.id %>/waiting-on" class="row tight mt-1" hx-swap="show:none">
             <input type="hidden" name="bidId" value="<%= bid.id %>">
             <select name="partyType" class="w-auto">
               <% waitingOnOptions.forEach(p => { %><option value="<%= p %>" <%= lot.waitingOn && lot.waitingOn.partyType === p ? 'selected' : '' %>><%= p %></option><% }) %>
@@ -137,7 +137,7 @@
           <% if (lot.bidBondReturned) { %>
             <div class="muted">Returned <%= formatDate(lot.bidBondReturnedAt) %></div>
           <% } else if (bid.canEdit) { %>
-            <form method="post" action="/bids/lots/<%= lot.id %>/bond-returned" class="inline">
+            <form method="post" action="/bids/lots/<%= lot.id %>/bond-returned" class="inline" hx-swap="show:none">
               <input type="hidden" name="bidId" value="<%= bid.id %>">
               <button type="submit" class="secondary btn-xs">Mark bond returned</button>
             </form>
@@ -145,7 +145,7 @@
           <% if (bid.canEdit) { %>
             <details class="mt-1">
               <summary class="muted" style="font-size:0.78rem;">Issuing bank / issue date</summary>
-              <form method="post" action="/bids/lots/<%= lot.id %>/bond-details" class="row tight mt-1">
+              <form method="post" action="/bids/lots/<%= lot.id %>/bond-details" class="row tight mt-1" hx-swap="show:none">
                 <input type="hidden" name="bidId" value="<%= bid.id %>">
                 <input name="issuingBank" placeholder="Bank" value="<%= lot.bidBondIssuingBank || '' %>" class="w-auto">
                 <input type="date" name="issueDate" value="<%= lot.bidBondIssueDate || '' %>" class="w-auto">
@@ -167,7 +167,7 @@
     <% if (bid.canEdit && (lot.status === 'UNDER_EVALUATION' || lot.status === 'WON' || lot.status === 'LOST')) { %>
       <details class="mt-1">
         <summary class="muted">Record outcome</summary>
-        <form method="post" action="/bids/lots/<%= lot.id %>/outcome" class="row mt-1">
+        <form method="post" action="/bids/lots/<%= lot.id %>/outcome" class="row mt-1" hx-swap="show:none">
           <input type="hidden" name="bidId" value="<%= bid.id %>">
           <select name="outcome" class="w-auto">
             <option value="">-</option>
@@ -205,7 +205,7 @@
     <% }) %>
 
     <% if (bid.canEdit) { %>
-    <form method="post" action="/bids/lots/<%= lot.id %>/checklist-items" class="row mt-1">
+    <form method="post" action="/bids/lots/<%= lot.id %>/checklist-items" class="row mt-1" hx-swap="show:none">
       <input name="title" placeholder="Add checklist item..." style="flex:2;">
       <input type="hidden" name="bidId" value="<%= bid.id %>">
       <input type="date" name="dueDate" class="col">
@@ -214,7 +214,7 @@
 
     <details class="mt-2"<%= lot.indicator && (lot.indicator.level === 'RED' || lot.indicator.level === 'CRITICAL') ? ' open' : '' %>>
       <summary class="muted">Change this lot's status independently</summary>
-      <form method="post" action="/bids/lots/<%= lot.id %>/status" class="row mt-1">
+      <form method="post" action="/bids/lots/<%= lot.id %>/status" class="row mt-1" hx-swap="show:none">
         <input type="hidden" name="bidId" value="<%= bid.id %>">
         <select name="newStatus" class="w-auto">
           <% statusOptions.forEach(s => { %><option value="<%= s %>" <%= s === lot.status ? 'selected' : '' %>><%= s %></option><% }) %>
@@ -322,7 +322,7 @@
     <p style="margin:0.4rem 0;"><strong><%= entry.authorName || 'Import' %></strong> <span class="muted"><%= formatDateTime(entry.createdAt) %></span><br><%= entry.note %></p>
   <% }) %>
   <% if (activity.length === 0) { %><p class="muted">No activity yet.</p><% } %>
-  <form method="post" action="/bids/<%= bid.id %>/activity" class="row mt-2">
+  <form method="post" action="/bids/<%= bid.id %>/activity" class="row mt-2" hx-swap="show:none">
     <input name="note" placeholder="Add a note..." class="col" required>
     <button type="submit">Add</button>
   </form>
