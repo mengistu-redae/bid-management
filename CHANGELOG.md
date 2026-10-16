@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Sidebar: collapsible categories, and a home for the orphan action links
+
+Each sidebar category (Today, Lifecycle, Insight, Admin) is now a native
+`<details>`/`<summary>` group instead of a plain heading, so it can be
+collapsed - useful once a category's items aren't relevant to what
+someone's doing. "+ New Tender" and "Import" used to sit bare at the
+bottom of the nav with no heading; they're now grouped under a new
+"Actions" category like everything else.
+
+- No JS needed for the expand/collapse itself (native `<details>`); a
+  small script persists each group's open/collapsed state to
+  `localStorage` (keyed by a `data-group` slug) and restores it on every
+  page load, since the sidebar partial re-renders fresh on every
+  navigation.
+- A CSS-only chevron (`::after` on the `<summary>`) rotates between
+  pointing right (collapsed) and down (expanded); the default triangle
+  marker is suppressed instead.
+- Live-verified: collapsed "Lifecycle" on the dashboard, navigated to a
+  different page, and it was still collapsed; re-expanded and it stuck
+  too. No console or server errors.
+
 ### Stage time tracking, delay indicators & proactive follow-up - Phase 1
 
 - Added minimal `Contract` and `Logistics` entities (the lifecycle

@@ -30,30 +30,52 @@
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand"><a href="/dashboard">Bid Management</a></div>
     <nav class="sidebar-nav">
-      <div class="sidebar-nav-heading">Today</div>
-      <a href="/dashboard">Dashboard</a>
-      <a href="/my-follow-ups">My follow-ups<% if (typeof navCounts !== 'undefined' && navCounts && navCounts.followUps > 0) { %><span class="nav-badge"><%= navCounts.followUps %></span><% } %></a>
-      <a href="/delays">Delays<% if (typeof navCounts !== 'undefined' && navCounts && navCounts.delays > 0) { %><span class="nav-badge"><%= navCounts.delays %></span><% } %></a>
-      <a href="/bids/calendar">Calendar</a>
+      <details class="sidebar-group" data-group="today" open>
+        <summary class="sidebar-nav-heading">Today</summary>
+        <div class="sidebar-group-items">
+          <a href="/dashboard">Dashboard</a>
+          <a href="/my-follow-ups">My follow-ups<% if (typeof navCounts !== 'undefined' && navCounts && navCounts.followUps > 0) { %><span class="nav-badge"><%= navCounts.followUps %></span><% } %></a>
+          <a href="/delays">Delays<% if (typeof navCounts !== 'undefined' && navCounts && navCounts.delays > 0) { %><span class="nav-badge"><%= navCounts.delays %></span><% } %></a>
+          <a href="/bids/calendar">Calendar</a>
+        </div>
+      </details>
 
-      <div class="sidebar-nav-heading">Lifecycle</div>
-      <a href="/opportunities"><span class="nav-step">1</span> Opportunities</a>
-      <a href="/deal-registrations"><span class="nav-step">2</span> Deal registrations</a>
-      <a href="/bids"><span class="nav-step">3</span> Bids</a>
-      <a href="/contracts"><span class="nav-step">4</span> Contracts</a>
-      <a href="/logistics"><span class="nav-step">5</span> Logistics</a>
+      <details class="sidebar-group" data-group="lifecycle" open>
+        <summary class="sidebar-nav-heading">Lifecycle</summary>
+        <div class="sidebar-group-items">
+          <a href="/opportunities"><span class="nav-step">1</span> Opportunities</a>
+          <a href="/deal-registrations"><span class="nav-step">2</span> Deal registrations</a>
+          <a href="/bids"><span class="nav-step">3</span> Bids</a>
+          <a href="/contracts"><span class="nav-step">4</span> Contracts</a>
+          <a href="/logistics"><span class="nav-step">5</span> Logistics</a>
+        </div>
+      </details>
 
-      <div class="sidebar-nav-heading">Insight</div>
-      <a href="/reports">Reports</a>
-      <a href="/dashboard#bonds-outstanding">Bid bonds &amp; guarantees</a>
+      <details class="sidebar-group" data-group="insight" open>
+        <summary class="sidebar-nav-heading">Insight</summary>
+        <div class="sidebar-group-items">
+          <a href="/reports">Reports</a>
+          <a href="/dashboard#bonds-outstanding">Bid bonds &amp; guarantees</a>
+        </div>
+      </details>
 
       <% if (typeof user !== 'undefined' && user && user.realm_access && user.realm_access.roles && user.realm_access.roles.includes('director')) { %>
-        <div class="sidebar-nav-heading">Admin</div>
-        <a href="/users">Users</a>
-        <a href="/settings">Settings</a>
+        <details class="sidebar-group" data-group="admin" open>
+          <summary class="sidebar-nav-heading">Admin</summary>
+          <div class="sidebar-group-items">
+            <a href="/users">Users</a>
+            <a href="/settings">Settings</a>
+          </div>
+        </details>
       <% } %>
-      <a href="/bids/new">+ New Tender</a>
-      <a href="/import">Import</a>
+
+      <details class="sidebar-group" data-group="actions" open>
+        <summary class="sidebar-nav-heading">Actions</summary>
+        <div class="sidebar-group-items">
+          <a href="/bids/new">+ New Tender</a>
+          <a href="/import">Import</a>
+        </div>
+      </details>
     </nav>
     <div class="sidebar-footer">
       <button type="button" id="theme-toggle" class="secondary w-auto" aria-label="Switch color theme">Theme</button>
@@ -113,6 +135,31 @@
       backdrop.addEventListener('click', function () { setOpen(false); });
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') setOpen(false);
+      });
+    })();
+  </script>
+  <script>
+    // Each sidebar category is a native <details>, collapsed/expanded state
+    // persisted per group so it survives the full-page re-render every
+    // navigation does. Groups default open (server-rendered markup) - this
+    // only needs to act on the ones a user previously collapsed.
+    (function () {
+      var STORAGE_KEY = 'sidebarCollapsedGroups';
+      var collapsed;
+      try {
+        collapsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      } catch (e) { collapsed = []; }
+
+      Array.prototype.forEach.call(document.querySelectorAll('.sidebar-group[data-group]'), function (group) {
+        var id = group.getAttribute('data-group');
+        if (collapsed.indexOf(id) !== -1) group.open = false;
+
+        group.addEventListener('toggle', function () {
+          var idx = collapsed.indexOf(id);
+          if (!group.open && idx === -1) collapsed.push(id);
+          if (group.open && idx !== -1) collapsed.splice(idx, 1);
+          try { localStorage.setItem(STORAGE_KEY, JSON.stringify(collapsed)); } catch (e) { /* ignore - private mode etc. */ }
+        });
       });
     })();
   </script>

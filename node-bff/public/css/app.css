@@ -124,8 +124,21 @@ a, a:visited { color: var(--accent); }
   font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5); padding: 0.9rem 0.75rem 0.25rem;
 }
-.sidebar-nav-heading:first-child { padding-top: 0.25rem; }
+.sidebar-group:first-child .sidebar-nav-heading { padding-top: 0.25rem; }
 .sidebar-nav a { display: flex; align-items: center; gap: 0.5rem; }
+
+.sidebar-group summary.sidebar-nav-heading {
+  cursor: pointer; user-select: none; list-style: none;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sidebar-group summary.sidebar-nav-heading::-webkit-details-marker { display: none; }
+.sidebar-group summary.sidebar-nav-heading::after {
+  content: ''; flex-shrink: 0; width: 6px; height: 6px; margin-right: 0.2rem;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg); transition: transform 0.15s ease-in-out;
+}
+.sidebar-group:not([open]) summary.sidebar-nav-heading::after { transform: rotate(-45deg); }
+.sidebar-group-items { display: flex; flex-direction: column; gap: 0.15rem; }
 .nav-badge {
   margin-left: auto; background: var(--danger); color: #fff; font-size: 0.72rem; font-weight: 700;
   border-radius: 999px; padding: 0.05rem 0.45rem; min-width: 1.3rem; text-align: center;
