@@ -20,6 +20,7 @@ import com.motiengineering.bidmgmt.service.BidAccessService;
 import com.motiengineering.bidmgmt.service.BidMapper;
 import com.motiengineering.bidmgmt.service.BidService;
 import com.motiengineering.bidmgmt.service.BidStatusService;
+import com.motiengineering.bidmgmt.service.KeyDateHistoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -61,6 +62,9 @@ public class BidController {
     private final ActivityLogService activityLogService;
     private final BidStatusHistoryRepository bidStatusHistoryRepository;
     private final com.motiengineering.bidmgmt.service.BidExportService bidExportService;
+    private final KeyDateHistoryService keyDateHistoryService;
+
+    private static final List<String> KEY_DATE_FIELDS = List.of("closingAt", "openingAt", "clarificationDeadline");
 
     @GetMapping
     public List<BidDto> list(
@@ -140,6 +144,13 @@ public class BidController {
         BidStatus newStatus = parseStatus(request.newStatus());
         Bid updated = bidStatusService.transitionBid(bid, newStatus, request.reason(), CurrentUserContext.requireUser());
         return bidMapper.toDto(updated);
+    }
+
+    @GetMapping("/{id}/key-dates")
+    public List<KeyDateHistoryService.KeyDateSummary> keyDates(@PathVariable UUID id) {
+        Bid bid = bidService.get(id);
+        requireView(bid);
+        return keyDateHistoryService.summarize("BID", id, KEY_DATE_FIELDS);
     }
 
     @GetMapping("/{id}/status-history")

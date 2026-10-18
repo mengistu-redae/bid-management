@@ -10,6 +10,7 @@
     <a class="badge <%= indicatorBadgeClass(registration.indicator.level) %>" style="font-size:1rem;" title="<%= indicatorLabel(registration.indicator) %>"
        href="<%= stageHistoryHref('DEAL_REGISTRATION', registration.id, { title: registration.oem.name, subtitle: registration.organization.name, backHref: '/deal-registrations/' + registration.id, backLabel: 'Back to registration' }) %>"><%= registration.indicator.level %></a>
   <% } %>
+  <%- include('../partials/holdControl', { entityType: 'DEAL_REGISTRATION', entityId: registration.id, onHold: onHold, returnTo: '/deal-registrations/' + registration.id }) %>
 </div>
 
 <% if (registration.conflictCount > 0) { %>
@@ -26,7 +27,11 @@
     <div><strong>Special price ref.</strong><br><%= registration.specialPriceReference || '-' %></div>
   </div>
   <% if (registration.notes) { %><p class="mt-2"><%= registration.notes %></p><% } %>
+  <% if (linkedBid) { %><p class="mt-2"><strong>Related bid:</strong> <a href="/bids/<%= linkedBid.id %>"><%= linkedBid.title %><%= linkedBid.referenceNumber ? ' (' + linkedBid.referenceNumber + ')' : '' %></a></p><% } %>
+  <% if (linkedOpportunity) { %><p class="mt-2"><strong>Related opportunity:</strong> <a href="/opportunities/<%= linkedOpportunity.id %>"><%= linkedOpportunity.title %></a></p><% } %>
 </div>
+
+<%- include('../partials/attachmentsSection', { entityType: 'DEAL_REGISTRATION', entityId: registration.id, attachments: attachments, returnTo: '/deal-registrations/' + registration.id }) %>
 
 <div class="card">
   <h2 class="mt-0">Edit</h2>

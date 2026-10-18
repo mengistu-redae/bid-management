@@ -57,14 +57,16 @@ function buildLogisticsRouter() {
 
   router.get('/:id', async (req, res, next) => {
     try {
-      const [shipment, delayReasonCodes] = await Promise.all([
+      const [shipment, delayReasonCodes, attachments] = await Promise.all([
         req.api.get(`/api/logistics/${req.params.id}`),
         req.api.get('/api/delay-reason-codes'),
+        req.api.get(`/api/attachments?entityType=LOGISTICS&entityId=${req.params.id}`),
       ]);
       const contract = await req.api.get(`/api/contracts/${shipment.contractId}`);
       res.render('logistics/detail', {
         title: `${shipment.shipmentMode} shipment`, user: req.session.user, shipment, contract, statusOptions: STATUS_OPTIONS, modeOptions: SHIPMENT_MODE_OPTIONS,
         delayReasonCodes: delayReasonCodes.filter((c) => c.active),
+        attachments,
       });
     } catch (err) {
       next(err);

@@ -30,7 +30,51 @@
     <div><strong>Scouted</strong><br><%= formatDate(bid.scoutedDate) %> <% if (bid.scouts.length) { %>(<%= bid.scouts.map(s => s.fullName).join(', ') %>)<% } %></div>
   </div>
   <% if (bid.notes) { %><p class="mt-2"><%= bid.notes %></p><% } %>
+
+  <% if (keyDates.length > 0) { %>
+    <% const keyDateLabels = { closingAt: 'Closing', openingAt: 'Opening', clarificationDeadline: 'Clarification deadline' }; %>
+    <div class="mt-2" style="font-size:0.85rem;">
+      <strong>Date changes</strong>
+      <% keyDates.forEach(k => { %>
+        <div class="muted"><%= keyDateLabels[k.fieldName] || k.fieldName %>: <%= formatDateTime(k.originalValue) %> &rarr; <%= formatDateTime(k.currentValue) %>
+          (<%= k.changeCount %> change<%= k.changeCount > 1 ? 's' : '' %><% if (k.slippageDays !== null && k.slippageDays !== undefined) { %>, <%= k.slippageDays >= 0 ? '+' : '' %><%= k.slippageDays %>d<% } %>)</div>
+      <% }) %>
+    </div>
+  <% } %>
+
+  <% if (bid.canEdit) { %>
+    <details class="mt-2">
+      <summary class="muted">Change dates</summary>
+      <form method="post" action="/bids/<%= bid.id %>/dates" class="mt-1">
+        <div class="row">
+          <div class="col">
+            <label>Closing date</label>
+            <input type="date" name="closingDate" value="<%= formatDateInput(bid.closingAt) %>">
+          </div>
+          <div class="col">
+            <label>Closing time</label>
+            <input type="time" name="closingTime" value="<%= formatTimeInput(bid.closingAt) %>">
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            <label>Opening date</label>
+            <input type="date" name="openingDate" value="<%= formatDateInput(bid.openingAt) %>">
+          </div>
+          <div class="col">
+            <label>Opening time</label>
+            <input type="time" name="openingTime" value="<%= formatTimeInput(bid.openingAt) %>">
+          </div>
+        </div>
+        <label>Clarification deadline</label>
+        <input type="date" name="clarificationDate" value="<%= formatDateInput(bid.clarificationDeadline) %>">
+        <div class="mt-2"><button type="submit" class="secondary">Save dates</button></div>
+      </form>
+    </details>
+  <% } %>
 </div>
+
+<%- include('../partials/attachmentsSection', { entityType: 'BID', entityId: bid.id, attachments: attachments, returnTo: '/bids/' + bid.id }) %>
 
 <% if (bid.canEdit) { %>
 <div class="card">
@@ -101,6 +145,7 @@
              href="<%= stageHistoryHref('LOT', lot.id, { title: lot.lotLabel, subtitle: bid.title, backHref: '/bids/' + bid.id, backLabel: 'Back to bid' }) %>"><%= lot.indicator.level %></a>
         <% } %>
         <% if (lot.indicator && lot.indicator.stale) { %><span class="badge stale">stale</span><% } %>
+        <%- include('../partials/holdControl', { entityType: 'LOT', entityId: lot.id, onHold: lotOnHold[lot.id], returnTo: '/bids/' + bid.id }) %>
       </div>
     </div>
 
@@ -231,6 +276,76 @@
   </div>
 <% }) %>
 
+<% if (bid.canEdit) { %>
+<div class="card">
+  <details>
+    <summary><strong>+ Add lot</strong></summary>
+    <form method="post" action="/bids/<%= bid.id %>/lots" class="mt-2">
+      <label>Lot label (optional - auto-numbered if left blank)</label>
+      <input name="lotLabel" placeholder="e.g. Lot 2">
+
+      <label>Division</label>
+      <select name="divisionCode">
+        <option value="">- pick a division -</option>
+        <% divisions.forEach(d => { %><option value="<%= d.code %>"><%= d.name %></option><% }) %>
+      </select>
+
+      <label>Scope</label>
+      <% scopeTypes.forEach(st => { %>
+        <label class="inline-label">
+          <input type="checkbox" name="scopeTypes" value="<%= st %>" class="w-auto"> <%= st %>
+        </label>
+      <% }) %>
+
+      <div class="row">
+        <div class="col">
+          <label>Estimated value</label>
+          <input type="number" step="0.01" name="estimatedValue">
+        </div>
+        <div class="col">
+          <label>Currency</label>
+          <select name="estimatedValueCurrency">
+            <option value="ETB">ETB</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label>Bid bond amount</label>
+          <input type="number" step="0.01" name="bidBondAmount">
+        </div>
+        <div class="col">
+          <label>Bid bond currency</label>
+          <select name="bidBondCurrency">
+            <option value="ETB">ETB</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
+        <div class="col">
+          <label>Bid bond validity (days)</label>
+          <input type="number" name="bidBondValidityDays">
+        </div>
+      </div>
+
+      <label>Bid bond form</label>
+      <select name="bidBondForm">
+        <% ['BANK_GUARANTEE','CPO','INSURANCE_BOND','UNKNOWN'].forEach(s => { %><option value="<%= s %>"><%= s %></option><% }) %>
+      </select>
+
+      <label>OEM/brand proposed</label>
+      <input name="oemBrand">
+
+      <label>Account officer(s) (names, separated by / or &amp;)</label>
+      <input name="accountOfficerNames">
+
+      <div class="mt-2"><button type="submit">Add lot</button></div>
+    </form>
+  </details>
+</div>
+<% } %>
+
 <script>
   // Progressive enhancement for the checklist toggle buttons above: intercept
   // the submit, send the same POST via fetch (Accept: application/json gets
@@ -313,7 +428,7 @@
     </div>
   <% }) %>
   <% if (dealRegistrations.length === 0) { %><p class="muted">No deal registrations linked to this bid.</p><% } %>
-  <a class="btn secondary mt-1" href="/deal-registrations/new">+ New deal registration</a>
+  <a class="btn secondary mt-1" href="/deal-registrations/new?bidId=<%= bid.id %>">+ New deal registration</a>
 </div>
 
 <h2><%- include('../partials/icon', { name: 'clock' }) %> Activity log</h2>

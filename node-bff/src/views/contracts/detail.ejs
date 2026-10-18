@@ -2,7 +2,7 @@
 <h1 class="mt-0">
   <%= contract.contractNumber || 'Contract' %>
   <span class="badge <%= statusBadgeClass(contract.status) %>"><%= contract.status %></span>
-  <% if (contract.onHold) { %><span class="badge stale">On hold</span><% } %>
+  <%- include('../partials/holdControl', { entityType: 'CONTRACT', entityId: contract.id, onHold: contract.onHold, returnTo: '/contracts/' + contract.id }) %>
 </h1>
 <p class="muted mt-0"><a href="/bids/<%= contract.bidId %>"><%= contract.bidTitle %></a></p>
 
@@ -31,6 +31,8 @@
   <% if (contract.exitReason) { %><p class="mt-2"><strong>Exit reason:</strong> <%= contract.exitReason %></p><% } %>
   <% if (contract.notes) { %><p class="mt-2"><strong>Notes:</strong> <%= contract.notes %></p><% } %>
 </div>
+
+<%- include('../partials/attachmentsSection', { entityType: 'CONTRACT', entityId: contract.id, attachments: attachments, returnTo: '/contracts/' + contract.id }) %>
 
 <div class="card">
   <h2 class="mt-0">Update status</h2>

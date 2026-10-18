@@ -2,7 +2,7 @@
 <h1 class="mt-0">
   <%= shipment.shipmentMode %> shipment
   <span class="badge <%= statusBadgeClass(shipment.status) %>"><%= shipment.status %></span>
-  <% if (shipment.onHold) { %><span class="badge stale">On hold</span><% } %>
+  <%- include('../partials/holdControl', { entityType: 'LOGISTICS', entityId: shipment.id, onHold: shipment.onHold, returnTo: '/logistics/' + shipment.id }) %>
 </h1>
 <p class="muted mt-0"><a href="/contracts/<%= contract.id %>"><%= contract.contractNumber || 'Contract' %></a> &middot; <%= contract.bidTitle %></p>
 
@@ -38,6 +38,8 @@
   </div>
   <% if (shipment.notes) { %><p class="mt-2"><strong>Notes:</strong> <%= shipment.notes %></p><% } %>
 </div>
+
+<%- include('../partials/attachmentsSection', { entityType: 'LOGISTICS', entityId: shipment.id, attachments: attachments, returnTo: '/logistics/' + shipment.id }) %>
 
 <div class="card">
   <h2 class="mt-0">Update status</h2>

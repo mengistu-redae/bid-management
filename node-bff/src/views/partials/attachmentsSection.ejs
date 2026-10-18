@@ -1,0 +1,20 @@
+<%
+// Params: entityType, entityId, attachments, returnTo
+%>
+<h2><%- include('./icon', { name: 'box' }) %> Documents</h2>
+<div class="card">
+  <% attachments.forEach(a => { %>
+    <div class="checklist-item">
+      <a href="/attachments/<%= a.id %>/download"><%= a.filename %></a>
+      <span class="muted"><%= Math.round((a.sizeBytes || 0) / 1024) %> KB &middot; <%= a.uploadedByName || 'Unknown' %> &middot; <%= formatDate(a.uploadedAt) %></span>
+    </div>
+  <% }) %>
+  <% if (attachments.length === 0) { %><p class="muted">No documents uploaded yet.</p><% } %>
+  <form method="post" action="/attachments" enctype="multipart/form-data" hx-boost="false" class="row mt-1">
+    <input type="hidden" name="entityType" value="<%= entityType %>">
+    <input type="hidden" name="entityId" value="<%= entityId %>">
+    <input type="hidden" name="returnTo" value="<%= returnTo %>">
+    <input type="file" name="file" required class="col">
+    <button type="submit" class="secondary">Upload</button>
+  </form>
+</div>

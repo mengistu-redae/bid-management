@@ -58,14 +58,21 @@ function buildOpportunitiesRouter() {
 
   router.get('/:id', async (req, res, next) => {
     try {
-      const [opportunity, activity, delayReasonCodes] = await Promise.all([
+      const [opportunity, activity, delayReasonCodes, allDealRegistrations] = await Promise.all([
         req.api.get(`/api/opportunities/${req.params.id}`),
         req.api.get(`/api/opportunities/${req.params.id}/activity`),
         req.api.get('/api/delay-reason-codes'),
+        req.api.get('/api/deal-registrations'),
+      ]);
+      const dealRegistrations = allDealRegistrations.filter((r) => r.opportunityId === opportunity.id);
+      const [onHold, attachments] = await Promise.all([
+        req.api.get(`/api/holds/active?entityType=OPPORTUNITY&entityId=${opportunity.id}`),
+        req.api.get(`/api/attachments?entityType=OPPORTUNITY&entityId=${opportunity.id}`),
       ]);
       res.render('opportunities/detail', {
         title: opportunity.title, user: req.session.user, opportunity, activity, stageOptions: STAGE_OPTIONS,
         delayReasonCodes: delayReasonCodes.filter((c) => c.active),
+        dealRegistrations, onHold, attachments,
       });
     } catch (err) {
       next(err);

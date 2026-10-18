@@ -10,6 +10,7 @@
     <a class="badge <%= indicatorBadgeClass(opportunity.indicator.level) %>" style="font-size:1rem;" title="<%= indicatorLabel(opportunity.indicator) %>"
        href="<%= stageHistoryHref('OPPORTUNITY', opportunity.id, { title: opportunity.title, subtitle: opportunity.organization ? opportunity.organization.name : null, backHref: '/opportunities/' + opportunity.id, backLabel: 'Back to opportunity' }) %>"><%= opportunity.indicator.level %></a>
   <% } %>
+  <%- include('../partials/holdControl', { entityType: 'OPPORTUNITY', entityId: opportunity.id, onHold: onHold, returnTo: '/opportunities/' + opportunity.id }) %>
 </div>
 
 <div class="card">
@@ -26,6 +27,21 @@
   <% } %>
   <% if (opportunity.lostReason) { %><p class="mt-2"><strong>Lost reason:</strong> <%= opportunity.lostReason %></p><% } %>
 </div>
+
+<h2>Deal registrations</h2>
+<div class="card">
+  <% dealRegistrations.forEach(r => { %>
+    <div class="checklist-item">
+      <a href="/deal-registrations/<%= r.id %>"><%= r.oem.name %></a>
+      <span class="badge <%= r.status === 'REJECTED' || r.status === 'EXPIRED' ? 'lost' : (r.status === 'APPROVED' ? 'won' : '') %>"><%= r.status %></span>
+      <% if (r.conflictCount > 0) { %><span class="badge review"><%= r.conflictCount %> conflict<%= r.conflictCount > 1 ? 's' : '' %></span><% } %>
+    </div>
+  <% }) %>
+  <% if (dealRegistrations.length === 0) { %><p class="muted">No deal registrations linked to this opportunity.</p><% } %>
+  <a class="btn secondary mt-1" href="/deal-registrations/new?opportunityId=<%= opportunity.id %>">+ New deal registration</a>
+</div>
+
+<%- include('../partials/attachmentsSection', { entityType: 'OPPORTUNITY', entityId: opportunity.id, attachments: attachments, returnTo: '/opportunities/' + opportunity.id }) %>
 
 <% if (opportunity.canEdit && opportunity.stage !== 'CONVERTED_TO_BID' && opportunity.stage !== 'LOST_CLOSED') { %>
 <div class="card">

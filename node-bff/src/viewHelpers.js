@@ -14,6 +14,20 @@ function formatDate(value) {
   return `${day}-${month}-${year}`;
 }
 
+/** YYYY-MM-DD in Africa/Addis_Ababa, for prefilling an &lt;input type="date"&gt; from a stored Instant - formatDate()'s DD-MMM-YYYY display format isn't what the date input control accepts as a value. */
+function formatDateInput(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: TIMEZONE }).format(date);
+}
+
+/** HH:MM (24h) in Africa/Addis_Ababa, for prefilling an &lt;input type="time"&gt; from a stored Instant. */
+function formatTimeInput(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: TIMEZONE, hour12: false }).format(date);
+}
+
 function formatDateTime(value) {
   if (!value) {
     return '-';
@@ -95,6 +109,6 @@ function stageHistoryHref(entityType, entityId, options) {
 }
 
 module.exports = {
-  formatDate, formatDateTime, formatMoney, statusBadgeClass, barWidth, indicatorBadgeClass, indicatorLabel,
+  formatDate, formatDateTime, formatDateInput, formatTimeInput, formatMoney, statusBadgeClass, barWidth, indicatorBadgeClass, indicatorLabel,
   stageHistoryHref,
 };

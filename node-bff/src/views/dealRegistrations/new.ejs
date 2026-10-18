@@ -34,6 +34,18 @@
     <% ['BANK','GOVERNMENT','UTILITY','ENTERPRISE','OTHER'].forEach(s => { %><option value="<%= s %>"><%= s %></option><% }) %>
   </select>
 
+  <label>Related bid (optional)</label>
+  <select name="bidId">
+    <option value="">- none -</option>
+    <% bids.forEach(b => { %><option value="<%= b.id %>" <%= form.bidId === b.id ? 'selected' : '' %>><%= b.title %><%= b.referenceNumber ? ' (' + b.referenceNumber + ')' : '' %> - <%= b.organization.name %></option><% }) %>
+  </select>
+
+  <label>Related opportunity (optional)</label>
+  <select name="opportunityId">
+    <option value="">- none -</option>
+    <% opportunities.forEach(o => { %><option value="<%= o.id %>" <%= form.opportunityId === o.id ? 'selected' : '' %>><%= o.title %> - <%= o.organization ? o.organization.name : '-' %></option><% }) %>
+  </select>
+
   <label>Status</label>
   <select name="status">
     <% statusOptions.forEach(s => { %><option value="<%= s %>" <%= form.status === s ? 'selected' : '' %>><%= s %></option><% }) %>

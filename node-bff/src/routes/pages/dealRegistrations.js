@@ -19,8 +19,13 @@ function buildDealRegistrationsRouter() {
 
   router.get('/new', async (req, res, next) => {
     try {
-      const oems = await req.api.get('/api/oems');
-      res.render('dealRegistrations/new', { title: 'New deal registration', user: req.session.user, oems, statusOptions: STATUS_OPTIONS, conflicts: null, form: {} });
+      const [oems, bids, opportunities] = await Promise.all([
+        req.api.get('/api/oems'),
+        req.api.get('/api/bids'),
+        req.api.get('/api/opportunities'),
+      ]);
+      const form = { bidId: req.query.bidId || '', opportunityId: req.query.opportunityId || '' };
+      res.render('dealRegistrations/new', { title: 'New deal registration', user: req.session.user, oems, bids, opportunities, statusOptions: STATUS_OPTIONS, conflicts: null, form });
     } catch (err) {
       next(err);
     }
@@ -41,8 +46,12 @@ function buildDealRegistrationsRouter() {
       if (body.confirmConflict !== 'true' && body.oemId && organizationIdForConflictCheck) {
         const conflicts = await req.api.get(`/api/deal-registrations/conflicts?organizationId=${encodeURIComponent(organizationIdForConflictCheck)}&oemId=${encodeURIComponent(body.oemId)}`);
         if (conflicts.length > 0) {
-          const oems = await req.api.get('/api/oems');
-          return res.render('dealRegistrations/new', { title: 'New deal registration', user: req.session.user, oems, statusOptions: STATUS_OPTIONS, conflicts, form: body });
+          const [oems, bids, opportunities] = await Promise.all([
+            req.api.get('/api/oems'),
+            req.api.get('/api/bids'),
+            req.api.get('/api/opportunities'),
+          ]);
+          return res.render('dealRegistrations/new', { title: 'New deal registration', user: req.session.user, oems, bids, opportunities, statusOptions: STATUS_OPTIONS, conflicts, form: body });
         }
       }
 
@@ -54,6 +63,8 @@ function buildDealRegistrationsRouter() {
         organizationId: body.organizationId || null,
         organizationName: body.organizationId ? null : body.organizationName,
         sector: body.sector || null,
+        opportunityId: body.opportunityId || null,
+        bidId: body.bidId || null,
         submittedDate: body.submittedDate || null,
         status: body.status || null,
         approvalDate: body.approvalDate || null,
@@ -77,9 +88,16 @@ function buildDealRegistrationsRouter() {
         req.api.get(`/api/deal-registrations/${req.params.id}/activity`),
         req.api.get('/api/delay-reason-codes'),
       ]);
+      const [linkedBid, linkedOpportunity, onHold, attachments] = await Promise.all([
+        registration.bidId ? req.api.get(`/api/bids/${registration.bidId}`) : null,
+        registration.opportunityId ? req.api.get(`/api/opportunities/${registration.opportunityId}`) : null,
+        req.api.get(`/api/holds/active?entityType=DEAL_REGISTRATION&entityId=${registration.id}`),
+        req.api.get(`/api/attachments?entityType=DEAL_REGISTRATION&entityId=${registration.id}`),
+      ]);
       res.render('dealRegistrations/detail', {
         title: registration.oem.name + ' - ' + registration.organization.name, user: req.session.user, registration, activity, statusOptions: STATUS_OPTIONS,
         delayReasonCodes: delayReasonCodes.filter((c) => c.active),
+        linkedBid, linkedOpportunity, onHold, attachments,
       });
     } catch (err) {
       next(err);

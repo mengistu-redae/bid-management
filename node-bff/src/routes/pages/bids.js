@@ -197,16 +197,24 @@ function buildBidsRouter() {
 
   router.get('/:id', async (req, res, next) => {
     try {
-      const [bid, historyAsc, activity, allDealRegistrations, delayReasonCodes] = await Promise.all([
+      const [bid, historyAsc, activity, allDealRegistrations, delayReasonCodes, divisions] = await Promise.all([
         req.api.get(`/api/bids/${req.params.id}`),
         req.api.get(`/api/bids/${req.params.id}/status-history`),
         req.api.get(`/api/bids/${req.params.id}/activity`),
         req.api.get('/api/deal-registrations'),
         req.api.get('/api/delay-reason-codes'),
+        req.api.get('/api/divisions'),
       ]);
       const dealRegistrations = allDealRegistrations.filter((r) => r.bidId === bid.id);
       // Most-recent-first for display - the API returns it oldest-first (insertion order).
       const history = [...historyAsc].reverse();
+      const [holdFlags, attachments, keyDates] = await Promise.all([
+        Promise.all(bid.lots.map((lot) => req.api.get(`/api/holds/active?entityType=LOT&entityId=${lot.id}`))),
+        req.api.get(`/api/attachments?entityType=BID&entityId=${bid.id}`),
+        req.api.get(`/api/bids/${bid.id}/key-dates`),
+      ]);
+      const lotOnHold = {};
+      bid.lots.forEach((lot, i) => { lotOnHold[lot.id] = holdFlags[i]; });
       const daysUntilClosing = bid.closingAt && !TERMINAL_STATUSES.includes(bid.status)
         ? Math.ceil((new Date(bid.closingAt).getTime() - Date.now()) / DAY_MS)
         : null;
@@ -222,7 +230,7 @@ function buildBidsRouter() {
         daysUntilClosing, closingUrgent, historyLimit: HISTORY_LIMIT,
         delayReasonCodes: delayReasonCodes.filter((c) => c.active),
         waitingOnOptions: WAITING_ON_OPTIONS,
-        contract,
+        contract, divisions, scopeTypes: SCOPE_TYPES, lotOnHold, attachments, keyDates,
       });
     } catch (err) {
       next(err);
@@ -300,6 +308,55 @@ function buildBidsRouter() {
         goNoGoReason: req.body.goNoGoReason || null,
       });
       setFlash(req, 'success', 'Go/no-go saved.');
+      res.redirect(`/bids/${req.params.id}`);
+    } catch (err) {
+      if (err.status === 409 || err.status === 400) {
+        setFlash(req, 'error', err.message);
+        return res.redirect(`/bids/${req.params.id}`);
+      }
+      next(err);
+    }
+  });
+
+  router.post('/:id/dates', async (req, res, next) => {
+    try {
+      const body = req.body;
+      await req.api.put(`/api/bids/${req.params.id}`, {
+        closingAt: toInstant(body.closingDate, body.closingTime),
+        openingAt: toInstant(body.openingDate, body.openingTime),
+        clarificationDeadline: body.clarificationDate ? toInstant(body.clarificationDate, null) : null,
+      });
+      setFlash(req, 'success', 'Dates updated.');
+      res.redirect(`/bids/${req.params.id}`);
+    } catch (err) {
+      if (err.status === 409 || err.status === 400) {
+        setFlash(req, 'error', err.message);
+        return res.redirect(`/bids/${req.params.id}`);
+      }
+      next(err);
+    }
+  });
+
+  router.post('/:id/lots', async (req, res, next) => {
+    try {
+      const body = req.body;
+      const scopeTypes = Array.isArray(body.scopeTypes) ? body.scopeTypes : (body.scopeTypes ? [body.scopeTypes] : []);
+      const payload = {
+        lotLabel: body.lotLabel || null,
+        description: body.description || null,
+        divisionCode: body.divisionCode || null,
+        estimatedValue: body.estimatedValue ? Number(body.estimatedValue) : null,
+        estimatedValueCurrency: body.estimatedValueCurrency || null,
+        bidBondAmount: body.bidBondAmount ? Number(body.bidBondAmount) : null,
+        bidBondCurrency: body.bidBondCurrency || null,
+        bidBondValidityDays: body.bidBondValidityDays ? Number(body.bidBondValidityDays) : null,
+        bidBondForm: body.bidBondForm || null,
+        oemBrand: body.oemBrand || null,
+        scopeTypes,
+        accountOfficerNames: splitList(body.accountOfficerNames),
+      };
+      await req.api.post(`/api/bids/${req.params.id}/lots`, payload);
+      setFlash(req, 'success', 'Lot added.');
       res.redirect(`/bids/${req.params.id}`);
     } catch (err) {
       if (err.status === 409 || err.status === 400) {

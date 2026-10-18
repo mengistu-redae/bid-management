@@ -1,0 +1,23 @@
+<%
+// Params: entityType, entityId, onHold, returnTo
+%>
+<% if (onHold) { %>
+  <span class="badge review" title="This entity's SLA clock is paused">ON HOLD</span>
+  <form method="post" action="/holds/end" class="inline" hx-swap="show:none">
+    <input type="hidden" name="entityType" value="<%= entityType %>">
+    <input type="hidden" name="entityId" value="<%= entityId %>">
+    <input type="hidden" name="returnTo" value="<%= returnTo %>">
+    <button type="submit" class="secondary btn-xs">End hold</button>
+  </form>
+<% } else { %>
+  <details class="inline">
+    <summary class="muted btn-xs" style="display:inline-block;">Start hold</summary>
+    <form method="post" action="/holds" class="row tight mt-1" hx-swap="show:none">
+      <input type="hidden" name="entityType" value="<%= entityType %>">
+      <input type="hidden" name="entityId" value="<%= entityId %>">
+      <input type="hidden" name="returnTo" value="<%= returnTo %>">
+      <input name="reason" placeholder="Reason for pausing the clock" required class="col">
+      <button type="submit" class="secondary btn-xs">Start hold</button>
+    </form>
+  </details>
+<% } %>
