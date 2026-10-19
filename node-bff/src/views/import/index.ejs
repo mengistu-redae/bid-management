@@ -45,7 +45,8 @@
             <td>
               <% row.warnings.forEach(w => { %><div class="badge review" style="margin-bottom:2px;"><%= w %></div><% }) %>
             </td>
-            <td><input type="checkbox" class="edit-skip w-auto"></td>
+            <% const isDup = row.warnings.some(w => w.startsWith('Possible duplicate')); %>
+            <td><input type="checkbox" class="edit-skip w-auto" <%= isDup ? 'checked' : '' %>></td>
           </tr>
         <% }) %>
       </tbody>

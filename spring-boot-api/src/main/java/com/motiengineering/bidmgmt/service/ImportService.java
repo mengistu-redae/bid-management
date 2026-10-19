@@ -72,24 +72,55 @@ public class ImportService {
 
     // ---------------------------------------------------------------- preview
 
+    @Transactional(readOnly = true)
     public List<UpcomingBidRow> parseUpcoming(InputStream xlsx, int defaultYear) throws IOException {
+        List<UpcomingBidRow> rows;
         try (Workbook wb = WorkbookFactory.create(xlsx)) {
             Sheet sheet = wb.getSheetAt(0);
-            return UpcomingBidSheetParser.parse(sheet, defaultYear);
+            rows = UpcomingBidSheetParser.parse(sheet, defaultYear);
         }
+        for (UpcomingBidRow row : rows) {
+            flagPossibleDuplicate(row.organizationRaw, row.cleanTitle, row.referenceNumber, row::warn, false);
+        }
+        return rows;
     }
 
+    @Transactional(readOnly = true)
     public Map<String, List<BidsTrackerRow>> parseTracker(InputStream xlsx, int defaultYear) throws IOException {
+        Map<String, List<BidsTrackerRow>> result = new LinkedHashMap<>();
         try (Workbook wb = WorkbookFactory.create(xlsx)) {
-            Map<String, List<BidsTrackerRow>> result = new LinkedHashMap<>();
             for (Map.Entry<String, BidStatus> entry : trackerSheetStatuses().entrySet()) {
                 Sheet sheet = wb.getSheet(entry.getKey());
                 if (sheet != null) {
                     result.put(entry.getKey(), BidsTrackerSheetParser.parse(sheet, entry.getValue(), defaultYear));
                 }
             }
-            return result;
         }
+        for (List<BidsTrackerRow> rows : result.values()) {
+            for (BidsTrackerRow row : rows) {
+                flagPossibleDuplicate(row.organizationRaw, row.cleanTitle, row.referenceNumber, row::warn, true);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Surfaces the same org+title+reference matching {@link #findMatch} already uses at confirm
+     * time, but at preview time so the user sees it coming instead of it happening silently.
+     * Org lookup is read-only ({@link OrganizationResolutionService#find}) - an org preview
+     * hasn't resolved/created yet shouldn't be treated as having no possible duplicate, but it
+     * also can't be confidently scoped to one organization's bids, so unconfident/no matches are
+     * skipped entirely (same treatment {@code resolveOrCreate} gives a low-confidence org name).
+     */
+    // Package-private rather than private so ImportServiceTest can exercise the matching/wording
+    // logic directly, without needing to fabricate an .xlsx InputStream just to reach it via parse*().
+    void flagPossibleDuplicate(String organizationRaw, String cleanTitle, String referenceNumber,
+                                java.util.function.Consumer<String> warn, boolean willAutoMerge) {
+        organizationResolutionService.find(organizationRaw)
+                .filter(OrganizationResolutionService.Match::confident)
+                .map(match -> findMatch(match.organization(), cleanTitle, referenceNumber))
+                .ifPresent(dup -> warn.accept((willAutoMerge ? "Will merge into existing bid: " : "Possible duplicate: ")
+                        + dup.getTitle() + (dup.getReferenceNumber() != null ? " (ref: " + dup.getReferenceNumber() + ")" : "")));
     }
 
     private Map<String, BidStatus> trackerSheetStatuses() {
@@ -173,7 +204,7 @@ public class ImportService {
                 batch.setRowsTotal(batch.getRowsTotal() + 1);
                 Organization org = organizationResolutionService.resolveOrCreate(row.organizationRaw, Sector.OTHER);
 
-                Bid matched = findMatch(org, row);
+                Bid matched = findMatch(org, row.cleanTitle, row.referenceNumber);
                 if (matched != null) {
                     mergeIntoBid(matched, row, importedBy);
                     batch.setRowsMerged(batch.getRowsMerged() + 1);
@@ -190,11 +221,11 @@ public class ImportService {
         return importBatchRepository.save(batch);
     }
 
-    private Bid findMatch(Organization org, BidsTrackerRow row) {
+    private Bid findMatch(Organization org, String cleanTitle, String referenceNumber) {
         List<Bid> candidates = bidRepository.findByOrganization_Id(org.getId());
-        if (row.referenceNumber != null) {
+        if (referenceNumber != null) {
             for (Bid candidate : candidates) {
-                if (row.referenceNumber.equalsIgnoreCase(candidate.getReferenceNumber())) {
+                if (referenceNumber.equalsIgnoreCase(candidate.getReferenceNumber())) {
                     return candidate;
                 }
             }
@@ -205,7 +236,7 @@ public class ImportService {
         // prefix is stripped off the tracker row's title - a reliable signal
         // plain edit-distance similarity misses because the lengths differ
         // so much. Checked before falling back to fuzzy similarity.
-        String rowTitleNoLotPrefix = stripLotPrefix(row.cleanTitle).toLowerCase();
+        String rowTitleNoLotPrefix = stripLotPrefix(cleanTitle).toLowerCase();
         if (rowTitleNoLotPrefix.length() >= 15) {
             for (Bid candidate : candidates) {
                 if (candidate.getTitle().toLowerCase().contains(rowTitleNoLotPrefix)) {
@@ -217,7 +248,7 @@ public class ImportService {
         Bid best = null;
         double bestScore = 0;
         for (Bid candidate : candidates) {
-            double score = TextSimilarity.similarity(row.cleanTitle.toLowerCase(), candidate.getTitle().toLowerCase());
+            double score = TextSimilarity.similarity(cleanTitle.toLowerCase(), candidate.getTitle().toLowerCase());
             if (score > bestScore) {
                 bestScore = score;
                 best = candidate;
