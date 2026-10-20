@@ -103,4 +103,26 @@ public class BidAccessService {
     public boolean canEditLogistics(LogisticsShipment shipment) {
         return canEditContract(shipment.getContract());
     }
+
+    /**
+     * Director/in-scope Division Manager edit any issue; everyone else (Account Officer, Scout,
+     * or a Division Manager outside the issue's division) is limited to one they're personally
+     * assigned to or raised - an issue has no bid/lot to inherit scoping from, so this doesn't
+     * chain through canEdit(Bid) the way canEditContract does.
+     */
+    public boolean canEditIssue(com.motiengineering.bidmgmt.domain.Issue issue) {
+        AppUser user = CurrentUserContext.getUser();
+        if (user == null) {
+            return false;
+        }
+        if (user.getRole() == Role.DIRECTOR) {
+            return true;
+        }
+        if (user.getRole() == Role.DIVISION_MANAGER && issue.getDivision() != null
+                && CurrentUserContext.getDivisionIds().contains(issue.getDivision().getId())) {
+            return true;
+        }
+        return (issue.getAssignedTo() != null && issue.getAssignedTo().getId().equals(user.getId()))
+                || (issue.getCreatedBy() != null && issue.getCreatedBy().getId().equals(user.getId()));
+    }
 }

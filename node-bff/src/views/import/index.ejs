@@ -9,6 +9,7 @@
       <select name="kind">
         <option value="upcoming">Upcoming Bid tracker (tender scouting list)</option>
         <option value="tracker">Bids tracker (Bids on hand / Submitted / drop / cancelled)</option>
+        <option value="issues">Issues log (operational issues / unclosed contracts)</option>
       </select>
     </div>
     <div class="col">
@@ -52,7 +53,7 @@
       </tbody>
     </table>
     </div>
-  <% } else { %>
+  <% } else if (kind === 'tracker') { %>
     <% Object.keys(preview.data).forEach(sheetName => { %>
       <h2><%= sheetName %> (<%= preview.data[sheetName].length %> rows)</h2>
       <div class="table-scroll">
@@ -81,6 +82,34 @@
       </table>
       </div>
     <% }) %>
+  <% } else { %>
+    <h2>Preview - <%= preview.sourceFilename %> (<%= preview.data.length %> rows)</h2>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Organization</th><th>Item</th><th>Category</th><th>Division</th><th>Description</th><th>Warnings</th><th>Skip</th></tr></thead>
+      <tbody>
+        <% preview.data.forEach((row, i) => { %>
+          <tr class="import-row" data-row="<%= i %>">
+            <td><input class="edit-org" value="<%= row.organizationRaw %>" style="min-width:12rem;"></td>
+            <td><input class="edit-title" value="<%= row.itemOrSystem || '' %>" style="min-width:12rem;"></td>
+            <td><span class="badge <%= row.category === 'CONTRACT_CLOSURE' ? 'lost' : 'active' %>"><%= row.category %></span></td>
+            <td>
+              <select class="edit-division">
+                <option value="">-</option>
+                <% divisions.forEach(d => { %>
+                  <option value="<%= d.code %>"><%= d.name %></option>
+                <% }) %>
+              </select>
+            </td>
+            <td style="max-width:24rem;" title="<%= row.description %>"><%= row.description.length > 120 ? row.description.slice(0, 120) + '...' : row.description %></td>
+            <td><% row.warnings.forEach(w => { %><div class="badge review" style="margin-bottom:2px;"><%= w %></div><% }) %></td>
+            <% const isDup = row.warnings.some(w => w.startsWith('Possible duplicate')); %>
+            <td><input type="checkbox" class="edit-skip w-auto" <%= isDup ? 'checked' : '' %>></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
   <% } %>
 
   <form method="post" action="/import/confirm" id="confirm-form" hx-boost="false" class="mt-2">

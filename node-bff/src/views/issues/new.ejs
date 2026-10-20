@@ -1,0 +1,92 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<h1>New issue</h1>
+
+<% if (duplicates && duplicates.length > 0) { %>
+  <div class="warning-box">
+    <strong>Possible duplicate.</strong> <%= duplicates.length %> other open issue(s) already exist for this customer + item:
+    <ul>
+      <% duplicates.forEach(d => { %><li><a href="/issues/<%= d.id %>"><%= d.organization.name %> - <%= d.itemOrSystem %> (<%= d.status %>)</a></li><% }) %>
+    </ul>
+  </div>
+<% } %>
+
+<form class="card" method="post" action="/issues">
+  <input type="hidden" name="confirmDuplicate" value="<%= (duplicates && duplicates.length > 0) ? 'true' : 'false' %>">
+  <div class="row">
+    <div class="col">
+      <label>Category</label>
+      <select name="category">
+        <% categoryOptions.forEach(c => { %><option value="<%= c %>" <%= form.category === c ? 'selected' : '' %>><%= c %></option><% }) %>
+      </select>
+    </div>
+    <div class="col">
+      <label>Severity</label>
+      <select name="severity">
+        <% severityOptions.forEach(s => { %><option value="<%= s %>" <%= (form.severity || 'MEDIUM') === s ? 'selected' : '' %>><%= s %></option><% }) %>
+      </select>
+    </div>
+    <div class="col">
+      <label>Division (optional)</label>
+      <select name="divisionId">
+        <option value="">-</option>
+        <% divisions.forEach(d => { %><option value="<%= d.id %>" <%= form.divisionId === d.id ? 'selected' : '' %>><%= d.name %></option><% }) %>
+      </select>
+    </div>
+  </div>
+
+  <label>Customer (organization name)</label>
+  <input name="organizationName" value="<%= form.organizationName || '' %>" required>
+
+  <label>Item / system</label>
+  <input name="itemOrSystem" value="<%= form.itemOrSystem || '' %>">
+
+  <label>Description</label>
+  <textarea name="description" required><%= form.description || '' %></textarea>
+
+  <div class="row">
+    <div class="col">
+      <label>Current status</label>
+      <textarea name="currentStatusNote"><%= form.currentStatusNote || '' %></textarea>
+    </div>
+    <div class="col">
+      <label>Next action</label>
+      <textarea name="nextAction"><%= form.nextAction || '' %></textarea>
+    </div>
+    <div class="col">
+      <label>Challenge / blocker</label>
+      <textarea name="challenge"><%= form.challenge || '' %></textarea>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <label>Financial impact (optional)</label>
+      <input type="number" step="0.01" name="financialImpact" value="<%= form.financialImpact || '' %>">
+    </div>
+    <div class="col">
+      <label>Currency</label>
+      <select name="financialImpactCurrency">
+        <option value="">-</option>
+        <option value="ETB">ETB</option>
+        <option value="USD">USD</option>
+      </select>
+    </div>
+    <div class="col">
+      <label>Opened date</label>
+      <input type="date" name="openedAt" value="<%= form.openedAt || '' %>">
+    </div>
+    <div class="col">
+      <label>Assigned to (optional)</label>
+      <select name="assignedToId">
+        <option value="">-</option>
+        <% users.forEach(u => { %><option value="<%= u.id %>" <%= form.assignedToId === u.id ? 'selected' : '' %>><%= u.fullName %></option><% }) %>
+      </select>
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <button type="submit"><%= (duplicates && duplicates.length > 0) ? 'Create anyway' : 'Create issue' %></button>
+    <a class="btn secondary" href="/issues">Cancel</a>
+  </div>
+</form>
+<%- include('../partials/footer') %>

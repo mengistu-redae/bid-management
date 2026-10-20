@@ -23,6 +23,7 @@ const buildSettingsRouter = require('./routes/pages/settings');
 const buildStageHistoryRouter = require('./routes/pages/stageHistory');
 const buildHoldsRouter = require('./routes/pages/holds');
 const buildAttachmentsRouter = require('./routes/pages/attachments');
+const buildIssuesRouter = require('./routes/pages/issues');
 
 async function main() {
   const app = express();
@@ -67,13 +68,15 @@ async function main() {
   // Fails open (no badges) rather than breaking the page if either call errors.
   app.use(async (req, res, next) => {
     try {
-      const [followUps, delaysBoard] = await Promise.all([
+      const [followUps, delaysBoard, issues] = await Promise.all([
         req.api.get('/api/my-follow-ups'),
         req.api.get('/api/delays-board'),
+        req.api.get('/api/issues'),
       ]);
       res.locals.navCounts = {
         followUps: (followUps.overdue || []).length + (followUps.dueToday || []).length,
         delays: delaysBoard.length,
+        issues: issues.filter((i) => i.status !== 'RESOLVED' && i.status !== 'CLOSED').length,
       };
     } catch (err) {
       res.locals.navCounts = null;
@@ -96,12 +99,23 @@ async function main() {
   app.use('/stage-history', buildStageHistoryRouter());
   app.use('/holds', buildHoldsRouter());
   app.use('/attachments', buildAttachmentsRouter());
+  app.use('/issues', buildIssuesRouter());
   app.use('/import', buildImportRouter());
 
   app.use((req, res) => res.status(404).render('error', { message: 'Page not found', user: req.session.user }));
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
     console.error(err);
+    // A spring-boot-api call 401ing mid-request (the access token expired a
+    // moment after ensureFreshToken's proactive check passed, or was
+    // otherwise rejected) left the session's tokenSet looking locally valid,
+    // so requireSession let the request through and this is the first place
+    // that actually sees the rejection - same "log them out cleanly" outcome
+    // attachApiClient's invalid_grant branch already gives the more common
+    // "refresh itself failed" case, just reached from a different trigger.
+    if (err.status === 401 && req.session) {
+      return req.session.destroy(() => res.redirect('/auth/login'));
+    }
     const status = err.status && err.status < 600 ? err.status : 500;
     res.status(status).render('error', { message: err.message || 'Something went wrong', user: req.session && req.session.user });
   });

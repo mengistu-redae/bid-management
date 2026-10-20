@@ -36,6 +36,7 @@
           <a href="/dashboard">Dashboard</a>
           <a href="/my-follow-ups">My follow-ups<% if (typeof navCounts !== 'undefined' && navCounts && navCounts.followUps > 0) { %><span class="nav-badge"><%= navCounts.followUps %></span><% } %></a>
           <a href="/delays">Delays<% if (typeof navCounts !== 'undefined' && navCounts && navCounts.delays > 0) { %><span class="nav-badge"><%= navCounts.delays %></span><% } %></a>
+          <a href="/issues">Issues<% if (typeof navCounts !== 'undefined' && navCounts && navCounts.issues > 0) { %><span class="nav-badge"><%= navCounts.issues %></span><% } %></a>
           <a href="/bids/calendar">Calendar</a>
         </div>
       </details>

@@ -1,6 +1,7 @@
 package com.motiengineering.bidmgmt.web;
 
 import com.motiengineering.bidmgmt.domain.ImportBatch;
+import com.motiengineering.bidmgmt.dto.ConfirmIssuesRequest;
 import com.motiengineering.bidmgmt.dto.ConfirmTrackerRequest;
 import com.motiengineering.bidmgmt.dto.ConfirmUpcomingRequest;
 import com.motiengineering.bidmgmt.dto.ImportPreviewResponse;
@@ -9,9 +10,11 @@ import com.motiengineering.bidmgmt.dto.ImportSummaryDto;
 import com.motiengineering.bidmgmt.importer.BidsTrackerRow;
 import com.motiengineering.bidmgmt.importer.ImportPreviewCache;
 import com.motiengineering.bidmgmt.importer.ImportRowEditor;
+import com.motiengineering.bidmgmt.importer.IssueWorkbookRow;
 import com.motiengineering.bidmgmt.importer.UpcomingBidRow;
 import com.motiengineering.bidmgmt.security.CurrentUserContext;
 import com.motiengineering.bidmgmt.service.ImportService;
+import com.motiengineering.bidmgmt.service.IssueImportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -43,6 +46,7 @@ import java.util.UUID;
 public class ImportController {
 
     private final ImportService importService;
+    private final IssueImportService issueImportService;
     private final ImportPreviewCache previewCache;
 
     @PostMapping("/upcoming/preview")
@@ -88,6 +92,26 @@ public class ImportController {
         }
 
         ImportBatch result = importService.confirmTracker(rowsBySheet, batch.sourceFilename(), CurrentUserContext.requireUser());
+        return toDto(result, manuallySkipped);
+    }
+
+    @PostMapping("/issues/preview")
+    public ImportPreviewResponse<List<IssueWorkbookRow>> previewIssues(@RequestParam MultipartFile file) throws IOException {
+        List<IssueWorkbookRow> rows = issueImportService.parse(file.getInputStream());
+        UUID token = previewCache.putIssues(file.getOriginalFilename(), rows);
+        return new ImportPreviewResponse<>(token, file.getOriginalFilename(), rows);
+    }
+
+    @PostMapping("/issues/confirm")
+    public ImportSummaryDto confirmIssues(@RequestBody ConfirmIssuesRequest request) {
+        ImportPreviewCache.IssuesBatch batch = previewCache.takeIssues(request.token());
+        if (batch == null) {
+            throw new NoSuchElementException("Import preview expired or already confirmed - please re-upload.");
+        }
+        List<IssueWorkbookRow> rows = ImportRowEditor.applyToIssues(batch.rows(), request.edits());
+        int manuallySkipped = ImportRowEditor.countSkipped(request.edits());
+
+        ImportBatch result = issueImportService.confirm(rows, batch.sourceFilename(), CurrentUserContext.requireUser());
         return toDto(result, manuallySkipped);
     }
 

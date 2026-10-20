@@ -68,6 +68,32 @@ public final class ImportRowEditor {
         return result;
     }
 
+    /** cleanTitle doubles as itemOrSystem here - same generic "this row's free-text identifier" slot the other two row types use it for. */
+    public static List<IssueWorkbookRow> applyToIssues(List<IssueWorkbookRow> rows, List<ImportRowEditDto> edits) {
+        Map<Integer, ImportRowEditDto> byIndex = indexEdits(edits);
+        List<IssueWorkbookRow> result = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            ImportRowEditDto edit = byIndex.get(i);
+            if (edit != null && edit.skip()) {
+                continue;
+            }
+            IssueWorkbookRow row = rows.get(i);
+            if (edit != null) {
+                if (!isBlank(edit.organizationRaw())) {
+                    row.organizationRaw = edit.organizationRaw().trim();
+                }
+                if (!isBlank(edit.cleanTitle())) {
+                    row.itemOrSystem = edit.cleanTitle().trim();
+                }
+                if (!isBlank(edit.divisionCode())) {
+                    row.overrideDivisionCode = edit.divisionCode().trim();
+                }
+            }
+            result.add(row);
+        }
+        return result;
+    }
+
     public static int countSkipped(List<ImportRowEditDto> edits) {
         return edits == null ? 0 : (int) edits.stream().filter(ImportRowEditDto::skip).count();
     }

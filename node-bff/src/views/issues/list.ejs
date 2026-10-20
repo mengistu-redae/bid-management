@@ -1,0 +1,31 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+<div class="row" style="justify-content:space-between;">
+  <h1 class="mt-0">Issues</h1>
+  <a class="btn" href="/issues/new">+ New issue</a>
+</div>
+
+<% if (issues.length === 0) { %>
+  <p class="muted">No issues yet.</p>
+<% } else { %>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Organization</th><th>Item</th><th>Category</th><th>Division</th><th>Status</th><th>Severity</th><th>Days open</th><th>Assigned to</th></tr></thead>
+    <tbody>
+      <% issues.forEach(i => { %>
+        <tr onclick="window.location='/issues/<%= i.id %>'" style="cursor:pointer;">
+          <td><a href="/issues/<%= i.id %>"><%= i.organization.name %></a></td>
+          <td><%= i.itemOrSystem || '-' %></td>
+          <td><span class="badge <%= i.category === 'CONTRACT_CLOSURE' ? 'lost' : 'active' %>"><%= i.category %></span></td>
+          <td><%= i.division ? i.division.name : '-' %></td>
+          <td><span class="badge <%= statusBadgeClass(i.status) %>"><%= i.status %></span></td>
+          <td><span class="badge <%= severityBadgeClass(i.severity) %>"><%= i.severity %></span></td>
+          <td><%= i.daysOpen %></td>
+          <td><%= i.assignedTo ? i.assignedTo.fullName : '-' %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+<% } %>
+
+<%- include('../partials/footer') %>

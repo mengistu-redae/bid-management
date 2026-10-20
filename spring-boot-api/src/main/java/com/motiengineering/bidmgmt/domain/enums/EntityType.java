@@ -12,5 +12,6 @@ public enum EntityType {
     DEAL_REGISTRATION,
     CHECKLIST_ITEM,
     CONTRACT,
-    LOGISTICS
+    LOGISTICS,
+    ISSUE
 }

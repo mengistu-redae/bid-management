@@ -15,7 +15,7 @@ function buildImportRouter() {
 
   router.post('/preview', upload.single('file'), async (req, res, next) => {
     try {
-      const kind = req.body.kind; // 'upcoming' | 'tracker'
+      const kind = req.body.kind; // 'upcoming' | 'tracker' | 'issues'
       const [preview, divisions] = await Promise.all([
         forwardMultipart(req, `/api/import/${kind}/preview`, req.file),
         req.api.get('/api/divisions'),
@@ -30,9 +30,10 @@ function buildImportRouter() {
     try {
       const kind = req.body.kind;
       const rowEdits = req.body.editsJson ? JSON.parse(req.body.editsJson) : [];
-      const body = kind === 'upcoming'
-        ? { token: req.body.token, edits: rowEdits.map(toUpcomingEdit) }
-        : { token: req.body.token, editsBySheet: groupBySheet(rowEdits) };
+      // issues previews flat like upcoming (one list, not per-sheet) - same edit shape either way.
+      const body = kind === 'tracker'
+        ? { token: req.body.token, editsBySheet: groupBySheet(rowEdits) }
+        : { token: req.body.token, edits: rowEdits.map(toUpcomingEdit) };
       const summary = await req.api.post(`/api/import/${kind}/confirm`, body);
       res.render('import/confirmed', { title: 'Import complete', user: req.session.user, summary, kind });
     } catch (err) {

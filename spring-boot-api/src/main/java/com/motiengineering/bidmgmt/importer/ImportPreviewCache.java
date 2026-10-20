@@ -26,8 +26,12 @@ public class ImportPreviewCache {
     public record TrackerBatch(String sourceFilename, Map<String, List<BidsTrackerRow>> rowsBySheet, Instant createdAt) {
     }
 
+    public record IssuesBatch(String sourceFilename, List<IssueWorkbookRow> rows, Instant createdAt) {
+    }
+
     private final Map<UUID, UpcomingBatch> upcomingBatches = new ConcurrentHashMap<>();
     private final Map<UUID, TrackerBatch> trackerBatches = new ConcurrentHashMap<>();
+    private final Map<UUID, IssuesBatch> issuesBatches = new ConcurrentHashMap<>();
 
     public UUID putUpcoming(String filename, List<UpcomingBidRow> rows) {
         UUID token = UUID.randomUUID();
@@ -51,9 +55,21 @@ public class ImportPreviewCache {
         return trackerBatches.remove(token);
     }
 
+    public UUID putIssues(String filename, List<IssueWorkbookRow> rows) {
+        UUID token = UUID.randomUUID();
+        issuesBatches.put(token, new IssuesBatch(filename, rows, Instant.now()));
+        return token;
+    }
+
+    public IssuesBatch takeIssues(UUID token) {
+        evictExpired();
+        return issuesBatches.remove(token);
+    }
+
     private void evictExpired() {
         Instant cutoff = Instant.now().minusMillis(TTL_MILLIS);
         upcomingBatches.entrySet().removeIf(e -> e.getValue().createdAt().isBefore(cutoff));
         trackerBatches.entrySet().removeIf(e -> e.getValue().createdAt().isBefore(cutoff));
+        issuesBatches.entrySet().removeIf(e -> e.getValue().createdAt().isBefore(cutoff));
     }
 }

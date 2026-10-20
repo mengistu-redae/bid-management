@@ -49,11 +49,22 @@ function formatMoney(amount, currency) {
 function statusBadgeClass(status) {
   if (!status) return '';
   const s = status.toLowerCase();
-  if (['won', 'completed', 'delivered', 'approved'].includes(s)) return 'won';
+  if (['won', 'completed', 'delivered', 'approved', 'resolved', 'closed'].includes(s)) return 'won';
   if (['lost', 'dropped', 'cancelled', 'terminated', 'rejected'].includes(s)) return 'lost';
-  if (s === 'under_review') return 'review';
-  if (['preparing', 'submitted', 'opened', 'under_evaluation', 'signed', 'in_delivery', 'dispatched', 'in_transit', 'customs', 'cleared'].includes(s)) return 'active';
+  if (['under_review', 'waiting_on_customer', 'waiting_on_vendor', 'blocked'].includes(s)) return 'review';
+  if (['preparing', 'submitted', 'opened', 'under_evaluation', 'signed', 'in_delivery', 'dispatched', 'in_transit', 'customs', 'cleared', 'open', 'in_progress'].includes(s)) return 'active';
   if (['identified', 'awarded', 'planning', 'draft'].includes(s)) return 'new';
+  return '';
+}
+
+/** CRITICAL/HIGH/MEDIUM/LOW - reuses the indicator color scale so an issue's severity reads consistently with every other red/amber/green signal in the app. */
+function severityBadgeClass(severity) {
+  if (!severity) return '';
+  const s = severity.toLowerCase();
+  if (s === 'critical') return 'indicator-critical';
+  if (s === 'high') return 'indicator-red';
+  if (s === 'medium') return 'indicator-amber';
+  if (s === 'low') return 'indicator-green';
   return '';
 }
 
@@ -109,6 +120,6 @@ function stageHistoryHref(entityType, entityId, options) {
 }
 
 module.exports = {
-  formatDate, formatDateTime, formatDateInput, formatTimeInput, formatMoney, statusBadgeClass, barWidth, indicatorBadgeClass, indicatorLabel,
+  formatDate, formatDateTime, formatDateInput, formatTimeInput, formatMoney, statusBadgeClass, severityBadgeClass, barWidth, indicatorBadgeClass, indicatorLabel,
   stageHistoryHref,
 };

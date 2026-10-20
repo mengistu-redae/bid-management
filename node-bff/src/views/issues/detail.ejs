@@ -1,0 +1,120 @@
+<%- include('../partials/header', { title: title, user: user }) %>
+
+<div class="toolbar">
+  <div>
+    <h1 style="margin:0;"><%= issue.organization.name %><% if (issue.itemOrSystem) { %> &middot; <%= issue.itemOrSystem %><% } %></h1>
+    <div class="muted"><%= issue.category %><% if (issue.division) { %> &middot; <%= issue.division.name %><% } %> &middot; open <%= issue.daysOpen %> day<%= issue.daysOpen === 1 ? '' : 's' %></div>
+  </div>
+  <span class="badge <%= statusBadgeClass(issue.status) %>" style="font-size:1rem;"><%= issue.status %></span>
+  <span class="badge <%= severityBadgeClass(issue.severity) %>" style="font-size:1rem;"><%= issue.severity %></span>
+</div>
+
+<div class="card">
+  <p><%= issue.description %></p>
+  <div style="display:flex; flex-wrap:wrap; gap:2rem;">
+    <div><strong>Opened</strong><br><%= formatDate(issue.openedAt) %></div>
+    <% if (issue.resolvedAt) { %><div><strong>Resolved</strong><br><%= formatDate(issue.resolvedAt) %></div><% } %>
+    <% if (issue.financialImpact) { %><div><strong>Financial impact</strong><br><%= formatMoney(issue.financialImpact, issue.financialImpactCurrency) %></div><% } %>
+    <div><strong>Assigned to</strong><br><%= issue.assignedTo ? issue.assignedTo.fullName : '-' %></div>
+    <div><strong>Created by</strong><br><%= issue.createdBy ? issue.createdBy.fullName : '-' %></div>
+  </div>
+  <% if (issue.currentStatusNote) { %><p class="mt-2"><strong>Current status:</strong> <%= issue.currentStatusNote %></p><% } %>
+  <% if (issue.nextAction) { %><p class="mt-2"><strong>Next action:</strong> <%= issue.nextAction %></p><% } %>
+  <% if (issue.challenge) { %><p class="mt-2"><strong>Challenge:</strong> <%= issue.challenge %></p><% } %>
+  <% if (issue.resolutionNotes) { %><p class="mt-2"><strong>Resolution:</strong> <%= issue.resolutionNotes %></p><% } %>
+  <% if (issue.bidId) { %><p class="mt-2"><strong>Related bid:</strong> <a href="/bids/<%= issue.bidId %>">View bid</a></p><% } %>
+  <% if (issue.contractId) { %><p class="mt-2"><strong>Related contract:</strong> <a href="/contracts/<%= issue.contractId %>">View contract</a></p><% } %>
+  <% if (issue.opportunityId) { %><p class="mt-2"><strong>Related opportunity:</strong> <a href="/opportunities/<%= issue.opportunityId %>">View opportunity</a></p><% } %>
+</div>
+
+<%- include('../partials/attachmentsSection', { entityType: 'ISSUE', entityId: issue.id, attachments: attachments, returnTo: '/issues/' + issue.id }) %>
+
+<div class="card">
+  <h2 class="mt-0">Edit</h2>
+  <form method="post" action="/issues/<%= issue.id %>/update">
+    <div class="row">
+      <div class="col">
+        <label>Status</label>
+        <select name="status">
+          <% statusOptions.forEach(s => { %><option value="<%= s %>" <%= s === issue.status ? 'selected' : '' %>><%= s %></option><% }) %>
+        </select>
+      </div>
+      <div class="col">
+        <label>Severity</label>
+        <select name="severity">
+          <% severityOptions.forEach(s => { %><option value="<%= s %>" <%= s === issue.severity ? 'selected' : '' %>><%= s %></option><% }) %>
+        </select>
+      </div>
+      <div class="col">
+        <label>Item / system</label>
+        <input name="itemOrSystem" value="<%= issue.itemOrSystem || '' %>">
+      </div>
+      <div class="col">
+        <label>Division</label>
+        <select name="divisionId">
+          <option value="">- unchanged -</option>
+          <% divisions.forEach(d => { %><option value="<%= d.id %>" <%= issue.division && issue.division.id === d.id ? 'selected' : '' %>><%= d.name %></option><% }) %>
+        </select>
+      </div>
+    </div>
+
+    <label>Description</label>
+    <textarea name="description"><%= issue.description || '' %></textarea>
+
+    <div class="row">
+      <div class="col">
+        <label>Current status</label>
+        <textarea name="currentStatusNote"><%= issue.currentStatusNote || '' %></textarea>
+      </div>
+      <div class="col">
+        <label>Next action</label>
+        <textarea name="nextAction"><%= issue.nextAction || '' %></textarea>
+      </div>
+      <div class="col">
+        <label>Challenge / blocker</label>
+        <textarea name="challenge"><%= issue.challenge || '' %></textarea>
+      </div>
+    </div>
+
+    <label>Resolution notes <span class="muted">(required to move to Resolved/Closed)</span></label>
+    <textarea name="resolutionNotes"><%= issue.resolutionNotes || '' %></textarea>
+
+    <div class="row">
+      <div class="col">
+        <label>Financial impact</label>
+        <input type="number" step="0.01" name="financialImpact" value="<%= issue.financialImpact || '' %>">
+      </div>
+      <div class="col">
+        <label>Currency</label>
+        <select name="financialImpactCurrency">
+          <option value="">-</option>
+          <option value="ETB" <%= issue.financialImpactCurrency === 'ETB' ? 'selected' : '' %>>ETB</option>
+          <option value="USD" <%= issue.financialImpactCurrency === 'USD' ? 'selected' : '' %>>USD</option>
+        </select>
+      </div>
+      <div class="col">
+        <label>Assigned to</label>
+        <select name="assignedToId">
+          <option value="">- unchanged -</option>
+          <% users.forEach(u => { %><option value="<%= u.id %>" <%= issue.assignedTo && issue.assignedTo.id === u.id ? 'selected' : '' %>><%= u.fullName %></option><% }) %>
+        </select>
+      </div>
+    </div>
+
+    <div class="mt-2"><button type="submit">Save</button></div>
+  </form>
+</div>
+
+<h2>Activity log</h2>
+<div class="card">
+  <% activity.forEach(entry => { %>
+    <p style="margin:0.4rem 0;"><strong><%= entry.authorName || 'System' %></strong> <span class="muted"><%= formatDateTime(entry.createdAt) %></span><br><%= entry.note %></p>
+  <% }) %>
+  <% if (activity.length === 0) { %><p class="muted">No activity yet.</p><% } %>
+  <form method="post" action="/issues/<%= issue.id %>/activity" style="display:flex; gap:0.5rem; margin-top:0.75rem;">
+    <input name="note" placeholder="Add a note..." class="col" required>
+    <button type="submit">Add</button>
+  </form>
+</div>
+
+<%- include('../partials/footer') %>
