@@ -1,0 +1,34 @@
+<%
+/* One <tr> of the bids list table. Usage: include with local "bid" - already run through
+   bids.js's decorateBid(), so divisionLabel/ownerLabel/ownerNames/bondRequired/progress are
+   precomputed there (shared with the KPI row and the sort comparators) rather than re-derived
+   here. */
+const needsReview = bid.lots.some(l => l.needsReview);
+%>
+<tr onclick="window.location='/bids/<%= bid.id %>'" style="cursor:pointer;">
+  <td>
+    <a href="/bids/<%= bid.id %>"><%= bid.title %></a>
+    <div class="muted" style="font-size:0.8rem;">
+      <%= bid.referenceNumber ? 'Ref: ' + bid.referenceNumber : '' %><% if (bid.referenceNumber && bid.ownerNames.length) { %> &middot; <% } %><%= bid.ownerNames.length ? bid.ownerLabel : (bid.referenceNumber ? '' : 'Unassigned') %>
+    </div>
+  </td>
+  <td><%= bid.organization ? bid.organization.name : '-' %></td>
+  <td><%= bid.divisionLabel %></td>
+  <td class="muted"><%= formatDate(bid.closingAt) %></td>
+  <td><span class="badge <%= bid.bondRequired ? 'review' : '' %>"><%= bid.bondRequired ? 'Required' : 'Not required' %></span></td>
+  <td>
+    <div class="row tight" style="flex-wrap:nowrap;">
+      <div class="progress-bar" style="width:4rem;"><div style="width:<%= bid.progress %>%;"></div></div>
+      <span class="muted" style="font-size:0.78rem;"><%= bid.progress %>%</span>
+    </div>
+  </td>
+  <td>
+    <span class="badge <%= statusBadgeClass(bid.status) %>"><%= bid.status %></span>
+    <% if (bid.worstIndicator && bid.worstIndicator.level !== 'NO_TARGET' && bid.worstIndicator.level !== 'UNKNOWN') { %>
+      <span class="badge <%= indicatorBadgeClass(bid.worstIndicator.level) %>" title="<%= indicatorLabel(bid.worstIndicator) %>"><%= bid.worstIndicator.level %></span>
+    <% } %>
+    <% if (bid.redFlag) { %><span class="badge review"><%= bid.redFlagReason %></span><% } %>
+    <% if (needsReview) { %><span class="badge review">needs review</span><% } %>
+  </td>
+  <td><a class="btn secondary btn-xs w-auto" href="/bids/<%= bid.id %>" onclick="event.stopPropagation()">View</a></td>
+</tr>

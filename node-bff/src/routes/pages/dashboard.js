@@ -12,6 +12,72 @@ function isoDate(date) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TIMEZONE }).format(date);
 }
 
+function hoursUntil(iso) {
+  return (new Date(iso).getTime() - Date.now()) / (60 * 60 * 1000);
+}
+
+/**
+ * Real, already-computed follow-ups surfaced as a short urgency-ranked list - no new data
+ * fetched, no invented urgency score. Urgency reuses the windows the rest of the dashboard
+ * already treats as meaningful: within 48h (the KPI cards' own "close within 48h" cutoff), the
+ * 7-day closing-soon window, and DashboardService's existing 14-day bond "expiring soon"
+ * threshold - never a number made up for this list alone.
+ */
+function buildPriorityActions(data) {
+  const actions = [];
+
+  if (data.missingReadiness.length > 0) {
+    const urgent = data.missingReadiness.some((r) => r.closingAt && hoursUntil(r.closingAt) <= 48);
+    actions.push({
+      icon: 'alert',
+      urgency: urgent ? 'urgent' : 'high',
+      title: 'Complete bid readiness documents',
+      detail: `${data.missingReadiness.length} bid${data.missingReadiness.length === 1 ? '' : 's'} missing MAF or vendor quote`,
+      href: '#readiness-gaps',
+    });
+  }
+
+  if (data.closingThisWeek.length > 0) {
+    const closingWithin48h = data.closingThisWeek.filter((r) => hoursUntil(r.closingAt) <= 48).length;
+    actions.push({
+      icon: 'calendar',
+      urgency: closingWithin48h > 0 ? 'urgent' : 'high',
+      title: 'Review upcoming submission deadlines',
+      detail: `${data.closingThisWeek.length} bid${data.closingThisWeek.length === 1 ? '' : 's'} closing within 7 days${closingWithin48h > 0 ? ` (${closingWithin48h} within 48h)` : ''}`,
+      href: '#closing-soon',
+    });
+  }
+
+  if (data.bondsExpiringWithin90DaysCount > 0) {
+    const expiringSoonCount = data.outstandingBonds.filter((b) => b.expiringSoon).length;
+    actions.push({
+      icon: 'shield',
+      urgency: expiringSoonCount > 0 ? 'urgent' : 'medium',
+      title: 'Review outstanding bid bonds',
+      detail: `${data.bondsExpiringWithin90DaysCount} bond${data.bondsExpiringWithin90DaysCount === 1 ? '' : 's'} expiring within 90 days${expiringSoonCount > 0 ? ` (${expiringSoonCount} within 14 days)` : ''}`,
+      href: '#bonds-outstanding',
+    });
+  }
+
+  const regSummary = data.dealRegistrationSummary;
+  if (regSummary.pendingOemCount > 0 || regSummary.expiringSoonCount > 0) {
+    const parts = [];
+    if (regSummary.pendingOemCount > 0) parts.push(`${regSummary.pendingOemCount} pending OEM approval`);
+    if (regSummary.expiringSoonCount > 0) parts.push(`${regSummary.expiringSoonCount} expiring within 30 days`);
+    actions.push({
+      icon: 'repeat',
+      urgency: regSummary.expiringSoonCount > 0 ? 'high' : 'medium',
+      title: 'Review deal registrations',
+      detail: parts.join(', '),
+      href: '#deal-regs',
+    });
+  }
+
+  const urgencyRank = { urgent: 0, high: 1, medium: 2 };
+  actions.sort((a, b) => urgencyRank[a.urgency] - urgencyRank[b.urgency]);
+  return actions;
+}
+
 /**
  * Flattens division groups of bond rows into one ordered list of divider and
  * row items, stamping "hidden" on everything from the limit-th data row
@@ -99,13 +165,14 @@ function buildDashboardRouter() {
       );
 
       const updatedAtLabel = `${new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric', timeZone: TIMEZONE }).format(now)} · updated ${new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: TIMEZONE }).format(now)}`;
+      const priorityActions = buildPriorityActions(data);
 
       res.render('dashboard', {
         title: 'Dashboard', user: req.session.user, data, dateRanges,
         closingThisWeekByDate, clarificationGroups,
         bondsDisplayItems, bondRowLimit: BOND_ROW_LIMIT,
         currentDivision: divisionParam || null,
-        updatedAtLabel,
+        updatedAtLabel, priorityActions,
       });
     } catch (err) {
       next(err);

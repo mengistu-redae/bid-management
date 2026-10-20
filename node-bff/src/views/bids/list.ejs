@@ -1,24 +1,93 @@
 <%- include('../partials/header', { title: title, user: user }) %>
-<div class="toolbar">
-  <h1 style="margin:0;">Bids <span class="muted" style="font-weight:400; font-size:1rem;">(<%= totalCount %>)</span></h1>
-  <a class="btn" href="/bids/new">+ New Tender</a>
-  <a class="btn secondary" href="/bids/kanban<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">Kanban</a>
-  <a class="btn secondary" href="/bids/calendar">Calendar</a>
-  <a class="btn secondary" href="/bids/by-division<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">By Division</a>
-  <a class="btn secondary" href="/dashboard">Dashboard</a>
-  <a class="btn secondary" hx-boost="false" href="/bids/export<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">Export to Excel</a>
+
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/dashboard">Lifecycle</a> <span aria-hidden="true">&rsaquo;</span> <span>Bids</span></nav>
+
+<div class="dash-header">
+  <div>
+    <h1 class="mt-0">Bid Management</h1>
+    <p class="muted mt-0" style="margin-bottom:0;">Track, manage and win opportunities</p>
+  </div>
+  <div class="row tight page-header-actions">
+    <a class="btn" href="/bids/new">+ New Tender</a>
+    <a class="btn secondary" href="/bids/kanban<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">Kanban</a>
+    <a class="btn secondary" href="/bids/calendar">Calendar</a>
+    <a class="btn secondary" href="/bids/by-division<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">By Division</a>
+    <a class="btn secondary" href="/dashboard">Dashboard</a>
+    <a class="btn secondary" hx-boost="false" href="/bids/export<%= Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '' %>">Export to Excel</a>
+  </div>
+</div>
+
+<% const hasFilters = ['divisionId', 'status', 'officerId', 'organizationId', 'closingFrom', 'closingTo', 'search'].some(k => query[k]); %>
+<div class="stat-grid" hx-boost="false">
+  <div class="stat-card">
+    <span class="stat-icon"><%- include('../partials/icon', { name: 'table' }) %></span>
+    <span class="stat-value"><%= totalCount %></span>
+    <span class="stat-label">Total bids<%= hasFilters ? ' (filtered)' : '' %></span>
+  </div>
+  <a class="stat-card<%= kpis.closingSoonCount > 0 ? ' warn' : '' %>" href="/bids?closingFrom=<%= closingSoonRange.closingFrom %>&closingTo=<%= closingSoonRange.closingTo %>">
+    <span class="stat-icon"><%- include('../partials/icon', { name: 'calendar' }) %></span>
+    <span class="stat-value"><%= kpis.closingSoonCount %></span>
+    <span class="stat-label">Closing soon</span>
+    <span class="muted" style="font-size:0.78rem;">next 7 days</span>
+  </a>
+  <a class="stat-card" href="/dashboard#bonds-outstanding">
+    <span class="stat-icon"><%- include('../partials/icon', { name: 'shield' }) %></span>
+    <span class="stat-value"><%= formatMoney(kpis.bondEtb) %></span>
+    <span class="stat-label">Bid bonds outstanding</span>
+    <span class="muted" style="font-size:0.78rem;">USD <%= new Intl.NumberFormat('en-US').format(kpis.bondUsd) %></span>
+  </a>
+  <a class="stat-card" href="/dashboard#pipeline">
+    <span class="stat-icon"><%- include('../partials/icon', { name: 'trending' }) %></span>
+    <span class="stat-value"><%= formatMoney(kpis.pipelineEtb) %></span>
+    <span class="stat-label">Pipeline value</span>
+    <span class="muted" style="font-size:0.78rem;">USD <%= new Intl.NumberFormat('en-US').format(kpis.pipelineUsd) %></span>
+  </a>
 </div>
 
 <%- include('../partials/bidFilterForm') %>
 
-<div class="bid-card-list">
-  <% bids.forEach(bid => { %>
-    <%- include('../partials/bidRow', { bid }) %>
-  <% }) %>
-  <% if (bids.length === 0) { %>
-    <p class="muted">No bids match these filters.</p>
-  <% } %>
+<%
+  /* Clicking a sortable column header: same key again flips direction; a different key starts
+     ascending; re-sorting always jumps back to page 1 since the old page number no longer lines
+     up with the newly-ordered list. */
+  function sortLink(key) {
+    const params = new URLSearchParams(query);
+    const nextDir = (sortKey === key && sortDir === 'asc') ? 'desc' : 'asc';
+    params.set('sort', key);
+    params.set('dir', nextDir);
+    params.delete('page');
+    return '/bids?' + params.toString();
+  }
+  function sortIndicator(key) {
+    if (sortKey !== key) return '';
+    return sortDir === 'asc' ? ' ▲' : ' ▼';
+  }
+  const columns = [
+    ['title', 'Bid title'], ['customer', 'Customer'], ['division', 'Division'], ['deadline', 'Deadline'],
+    ['bond', 'Bid bond'], ['readiness', 'Readiness'], ['status', 'Status'],
+  ];
+%>
+<% if (bids.length === 0) { %>
+  <p class="muted">No bids match these filters.</p>
+<% } else { %>
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr>
+      <% columns.forEach(([key, label]) => { %>
+        <th><a class="sort-link<%= sortKey === key ? ' active' : '' %>" href="<%= sortLink(key) %>"><%= label %><%= sortIndicator(key) %></a></th>
+      <% }) %>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% bids.forEach(bid => { %>
+      <%- include('../partials/bidTableRow', { bid }) %>
+    <% }) %>
+  </tbody>
+</table>
 </div>
+<% } %>
 
 <% if (totalPages > 1) { %>
 <%

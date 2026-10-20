@@ -15,25 +15,175 @@ const HISTORY_LIMIT = 8;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const URGENT_CLOSING_DAYS = 5; // matches the dashboard's own red-flag window
 
+/**
+ * The checklist's 12 canonical item titles (exact strings, from V2__seed_reference_data.sql),
+ * bucketed into the 4 visual groupings the bid-detail redesign spec suggests. Grouping is purely
+ * a display concern - it doesn't touch stored data or add a "category" field - so any item whose
+ * title isn't one of these 12 (i.e. a custom item someone added via "Add checklist item") falls
+ * into its own "Additional items" bucket rather than being silently dropped.
+ */
+const CHECKLIST_GROUPS = [
+  { label: 'Tender & Clarifications', titles: ['Tender document purchased', 'Clarification questions sent'] },
+  { label: 'OEM & Commercial', titles: ['MAF from OEM', 'Vendor/distributor quotation', 'Price protection confirmed', 'Lead time confirmed'] },
+  { label: 'Technical & Delivery', titles: ['Implementation partner quote', 'Training quote', 'Scope of work / HLD / LLD', 'Technical compliance sheet'] },
+  { label: 'Financial & Submission', titles: ['Bid bond arranged', 'Financial offer approved', 'Final submission'] },
+];
+
+/** Splits one lot's checklist items into the 4 known groups (in their existing order) plus a trailing "Additional items" group for anything that doesn't match a canonical title. */
+function groupChecklistItems(items) {
+  const groups = CHECKLIST_GROUPS.map((g) => ({ label: g.label, items: items.filter((i) => g.titles.includes(i.title)) }));
+  const grouped = new Set(CHECKLIST_GROUPS.flatMap((g) => g.titles));
+  const extra = items.filter((i) => !grouped.has(i.title));
+  if (extra.length > 0) groups.push({ label: 'Additional items', items: extra });
+  return groups.filter((g) => g.items.length > 0);
+}
+
+/**
+ * The bid-detail page's "Bid health summary" row - every figure here is derived from the same
+ * `bid` object the page already rendered the long way, no new API calls. Value totals are kept
+ * separate per currency (never summed), matching the rest of the app's money-display rule.
+ */
+function buildBidHealthSummary(bid) {
+  const lots = bid.lots;
+  const overallProgress = lots.length === 0 ? 0 : Math.round(lots.reduce((sum, l) => sum + l.checklistProgressPercent, 0) / lots.length);
+  let totalItems = 0;
+  let doneItems = 0;
+  let valueEtb = 0;
+  let valueUsd = 0;
+  let anyPriced = false;
+  for (const lot of lots) {
+    totalItems += lot.checklistItems.length;
+    doneItems += lot.checklistItems.filter((i) => i.done).length;
+    if (lot.estimatedValue) {
+      anyPriced = true;
+      if (lot.estimatedValueCurrency === 'USD') valueUsd += lot.estimatedValue;
+      else valueEtb += lot.estimatedValue;
+    }
+  }
+  return {
+    overallProgress, totalItems, doneItems, outstandingItems: totalItems - doneItems,
+    lotCount: lots.length, valueEtb, valueUsd, anyPriced,
+  };
+}
+
+/** Average checklist completion across a bid's lots - same simple-average formula DashboardService uses server-side, just computed here from the lot data the list page already fetched. */
+function averageProgress(bid) {
+  if (bid.lots.length === 0) return 0;
+  return Math.round(bid.lots.reduce((sum, l) => sum + l.checklistProgressPercent, 0) / bid.lots.length);
+}
+
+/**
+ * Attaches the list/table-row view's derived fields once, up front - division/owner labels, bond
+ * requirement, readiness - so the table partial, the KPI totals and the sort comparators below
+ * all read the exact same values instead of three places recomputing them (and risking drift).
+ */
+function decorateBid(bid) {
+  const divisionNames = [...new Set(bid.lots.map((l) => (l.division ? l.division.name : null)).filter(Boolean))];
+  const ownerNames = [...new Set(bid.lots.flatMap((l) => l.accountOfficers.map((o) => o.fullName)))];
+  return {
+    ...bid,
+    divisionNames,
+    divisionLabel: divisionNames.length ? divisionNames.join(', ') : 'No division',
+    ownerNames,
+    ownerLabel: ownerNames.length ? ownerNames.join(', ') : 'Unassigned',
+    bondRequired: bid.lots.some((l) => l.bidBondAmount),
+    progress: averageProgress(bid),
+  };
+}
+
+/** One comparator-key function per sortable table column - every bid passed in must already be decorateBid()'d. */
+const SORT_KEY_FNS = {
+  title: (b) => b.title.toLowerCase(),
+  customer: (b) => (b.organization ? b.organization.name.toLowerCase() : ''),
+  division: (b) => b.divisionLabel.toLowerCase(),
+  deadline: (b) => (b.closingAt ? new Date(b.closingAt).getTime() : Number.POSITIVE_INFINITY),
+  bond: (b) => (b.bondRequired ? 1 : 0),
+  readiness: (b) => b.progress,
+  status: (b) => b.status,
+};
+
+/**
+ * Stable sort (Array.prototype.sort is stable since Node 12) so ties keep their prior relative
+ * order rather than jumping around on every click - the comparator sign flips for "desc" instead
+ * of sorting ascending then reversing, since reversing would also flip (and so un-stabilize) ties.
+ */
+function sortBids(bids, sortKey, dir) {
+  const keyFn = SORT_KEY_FNS[sortKey];
+  if (!keyFn) return bids;
+  const sign = dir === 'desc' ? -1 : 1;
+  return [...bids].sort((a, b) => {
+    const av = keyFn(a);
+    const bv = keyFn(b);
+    if (av < bv) return -1 * sign;
+    if (av > bv) return 1 * sign;
+    return 0;
+  });
+}
+
+/**
+ * Derives the list page's KPI row entirely from the already-fetched, already-filtered bid list -
+ * no extra API calls. Mirrors the dashboard's own "closing soon" (7 days) and "outstanding bond"
+ * (not yet returned) definitions so the numbers mean the same thing in both places.
+ */
+function buildListKpis(allBids) {
+  const now = Date.now();
+  const sevenDaysMs = 7 * DAY_MS;
+  let closingSoonCount = 0;
+  let bondEtb = 0;
+  let bondUsd = 0;
+  let pipelineEtb = 0;
+  let pipelineUsd = 0;
+
+  for (const bid of allBids) {
+    const isTerminal = TERMINAL_STATUSES.includes(bid.status);
+    if (!isTerminal && bid.closingAt) {
+      const msUntilClose = new Date(bid.closingAt).getTime() - now;
+      if (msUntilClose >= 0 && msUntilClose <= sevenDaysMs) closingSoonCount++;
+    }
+    for (const lot of bid.lots) {
+      if (lot.bidBondAmount && !lot.bidBondReturned) {
+        if (lot.bidBondCurrency === 'USD') bondUsd += lot.bidBondAmount;
+        else bondEtb += lot.bidBondAmount;
+      }
+      if (lot.estimatedValue) {
+        if (lot.estimatedValueCurrency === 'USD') pipelineUsd += lot.estimatedValue;
+        else pipelineEtb += lot.estimatedValue;
+      }
+    }
+  }
+  return { closingSoonCount, bondEtb, bondUsd, pipelineEtb, pipelineUsd };
+}
+
 function buildBidsRouter() {
   const router = express.Router();
 
   router.get('/', async (req, res, next) => {
     try {
-      const [allBids, divisions, users, organizations] = await Promise.all([
+      const [rawBids, divisions, users, organizations] = await Promise.all([
         req.api.get(`/api/bids${buildFilterQuery(req.query)}`),
         req.api.get('/api/divisions'),
         req.api.get('/api/users'),
         req.api.get('/api/organizations'),
       ]);
+      const decorated = rawBids.map(decorateBid);
+      const sortKey = SORT_KEY_FNS[req.query.sort] ? req.query.sort : null;
+      const sortDir = req.query.dir === 'desc' ? 'desc' : 'asc';
+      const allBids = sortKey ? sortBids(decorated, sortKey, sortDir) : decorated;
       const totalCount = allBids.length;
       const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
       const page = Math.min(Math.max(1, Number(req.query.page) || 1), totalPages);
       const bids = allBids.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+      const kpis = buildListKpis(allBids);
+      const now = new Date();
+      const closingSoonRange = {
+        closingFrom: new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Addis_Ababa' }).format(now),
+        closingTo: new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Addis_Ababa' }).format(new Date(now.getTime() + 7 * DAY_MS)),
+      };
       res.render('bids/list', {
         title: 'Bids', user: req.session.user, bids, divisions, users, organizations,
         statusOptions: STATUS_OPTIONS, query: req.query,
-        page, totalPages, totalCount, pageSize: PAGE_SIZE,
+        page, totalPages, totalCount, pageSize: PAGE_SIZE, kpis, closingSoonRange,
+        sortKey, sortDir,
       });
     } catch (err) {
       next(err);
@@ -225,12 +375,16 @@ function buildBidsRouter() {
         const contracts = await req.api.get('/api/contracts');
         contract = contracts.find((c) => c.bidId === bid.id) || null;
       }
+      const health = buildBidHealthSummary(bid);
+      const checklistGroupsByLot = {};
+      bid.lots.forEach((lot) => { checklistGroupsByLot[lot.id] = groupChecklistItems(lot.checklistItems); });
       res.render('bids/detail', {
         title: bid.title, user: req.session.user, bid, history, activity, dealRegistrations, statusOptions: STATUS_OPTIONS,
         daysUntilClosing, closingUrgent, historyLimit: HISTORY_LIMIT,
         delayReasonCodes: delayReasonCodes.filter((c) => c.active),
         waitingOnOptions: WAITING_ON_OPTIONS,
         contract, divisions, scopeTypes: SCOPE_TYPES, lotOnHold, attachments, keyDates,
+        health, checklistGroupsByLot,
       });
     } catch (err) {
       next(err);

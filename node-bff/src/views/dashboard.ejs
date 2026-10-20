@@ -3,7 +3,7 @@
 <div class="dash-header">
   <div>
     <p class="muted mt-0" style="margin-bottom:0.15rem;"><%= updatedAtLabel %></p>
-    <h1 class="mt-0">Dashboard</h1>
+    <h1 class="mt-0">Executive Overview</h1>
   </div>
   <form method="get" action="/bids" class="dash-search" role="search">
     <%- include('partials/icon', { name: 'search', size: 16 }) %>
@@ -72,6 +72,70 @@
 </div>
 
 <div class="row top">
+  <div class="col" style="flex:3; min-width:22rem;">
+    <h2 class="mt-1"><%- include('partials/icon', { name: 'alert' }) %> Priority actions</h2>
+    <% if (priorityActions.length === 0) { %>
+      <p class="muted">Nothing needs attention right now.</p>
+    <% } else { %>
+      <div class="priority-list">
+        <% priorityActions.forEach(action => { %>
+          <a class="priority-item <%= action.urgency %>" href="<%= action.href %>">
+            <span class="priority-item-icon"><%- include('partials/icon', { name: action.icon, size: 18 }) %></span>
+            <span class="priority-item-body">
+              <span class="priority-item-title"><%= action.title %></span>
+              <span class="priority-item-detail"><%= action.detail %></span>
+            </span>
+            <span class="priority-item-badge badge <%= action.urgency === 'urgent' ? 'lost' : (action.urgency === 'high' ? 'review' : 'active') %>"><%= action.urgency %></span>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+
+  <div class="col" style="flex:2; min-width:18rem;">
+    <h2 class="mt-1"><%- include('partials/icon', { name: 'trending' }) %> Bid pipeline</h2>
+    <% const maxStageCount = Math.max(1, ...data.lifecycleStages.map(s => s.bidCount)); %>
+    <% if (data.lifecycleStages.every(s => s.bidCount === 0)) { %>
+      <p class="muted">No open bids in the tracked lifecycle stages yet.</p>
+    <% } else { %>
+      <div class="bar-chart">
+        <% data.lifecycleStages.forEach(stage => { %>
+          <div class="bar-row">
+            <span class="bar-label"><%= stage.stageLabel %></span>
+            <div class="bar-track"><div class="bar-fill" style="width: <%= Math.round((stage.bidCount / maxStageCount) * 100) %>%;"></div></div>
+            <span class="bar-value"><%= stage.bidCount %><% if (Number(stage.totalEtb) > 0) { %> &middot; <%= formatMoney(stage.totalEtb) %><% } %></span>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<% if (data.missingReadiness.length > 0) { %>
+<h2 id="readiness-gaps" class="mt-3"><%- include('partials/icon', { name: 'alert' }) %> Bid readiness gaps</h2>
+<p class="muted mt-0">Open bids still missing a MAF or vendor quote, regardless of closing date</p>
+<div class="table-scroll">
+<table>
+  <thead><tr><th>Bid</th><th>Division</th><th>Gaps</th><th>Owner</th><th>Closing</th></tr></thead>
+  <tbody>
+    <% data.missingReadiness.forEach(row => { %>
+      <tr onclick="window.location='/bids/<%= row.bidId %>'" style="cursor:pointer;">
+        <td>
+          <a href="/bids/<%= row.bidId %>"><%= row.title %></a>
+          <div class="muted" style="font-size:0.8rem;"><%= row.organizationName %></div>
+        </td>
+        <td><%= row.divisionNames.length ? row.divisionNames.join(', ') : '-' %></td>
+        <td><% row.readinessGaps.forEach(gap => { %><span class="badge gap-badge"><%= gap %></span><% }) %></td>
+        <td><%= row.ownerLabel || 'Unassigned' %></td>
+        <td class="muted"><%= row.closingAt ? formatDate(row.closingAt) : 'No closing date' %></td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+</div>
+<% } %>
+
+<div class="row top mt-3">
   <div class="col" style="flex:2; min-width:28rem;">
     <h2 id="closing-soon" class="mt-1"><%- include('partials/icon', { name: 'calendar' }) %> Closing in the next 7 days</h2>
     <p class="muted mt-0">Sorted by closing time &middot; one row per bid, lots grouped</p>
@@ -191,17 +255,6 @@
     <% if (data.pipelineByDivision.length === 0) { %><tr><td colspan="4" class="muted">No priced lots yet.</td></tr><% } %>
   </tbody>
 </table>
-</div>
-
-<h2 class="mt-3">By lifecycle stage</h2>
-<div class="lifecycle-cards">
-  <% data.lifecycleStages.forEach(stage => { %>
-    <div class="card lifecycle-card">
-      <div class="muted" style="font-size:0.85rem;"><%= stage.stageLabel %></div>
-      <div class="stat-value"><%= stage.bidCount %></div>
-      <div class="muted" style="font-size:0.8rem;"><%= Number(stage.totalEtb) > 0 ? formatMoney(stage.totalEtb) : (stage.bidCount > 0 ? 'unpriced' : '-') %></div>
-    </div>
-  <% }) %>
 </div>
 
 <h2 class="mt-3">Win rate</h2>

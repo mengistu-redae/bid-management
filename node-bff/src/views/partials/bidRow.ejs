@@ -8,6 +8,7 @@ const needsReview = bid.lots.some(l => l.needsReview);
 const rowHidden = typeof hidden !== 'undefined' && hidden;
 const divisionNames = [...new Set(bid.lots.map(l => l.division ? l.division.name : null).filter(Boolean))];
 const divisionLabel = divisionNames.length ? divisionNames.join(', ') : 'No division';
+const ownerNames = [...new Set(bid.lots.flatMap(l => l.accountOfficers.map(o => o.fullName)))];
 /* Icon reflects the bid's division where that's unambiguous, so a scan down
    the list reads division at a glance instead of every card looking the
    same - "box" (storage) is also the sensible default for no/mixed division. */
@@ -31,6 +32,7 @@ function divisionIcon(names) {
     <div class="bid-card-footer">
       <span>Closing <%= formatDate(bid.closingAt) %></span>
       <span><%= bid.lots.length %> lot<%= bid.lots.length === 1 ? '' : 's' %></span>
+      <span><%= ownerNames.length ? ownerNames.join(', ') : 'Unassigned' %></span>
     </div>
   </div>
   <div class="bid-card-side">

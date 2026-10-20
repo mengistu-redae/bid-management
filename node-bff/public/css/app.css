@@ -9,22 +9,22 @@
  * alongside everything else.
  */
 :root {
-  --border: #d7dbe0;
-  --text: #1b1f24;
-  --muted: #5b6370;
+  --border: #e4e7ec;
+  --text: #172b3a;
+  --muted: #667085;
   --bg: #ffffff;
-  --bg-alt: #f6f7f9;
-  --accent: #1f5eab;
-  --accent-bg: #e6eef9;
-  --danger: #a3231f;
-  --warn: #8a5a00;
-  --ok: #176a33;
-  --ok-bg: #e3f3e8;
-  --danger-bg: #f7e7e6;
-  --warn-bg: #fff3da;
+  --bg-alt: #f5f7fa;
+  --accent: #2477d4;
+  --accent-bg: #e8f1fc;
+  --danger: #c24141;
+  --warn: #b45f09;
+  --ok: #16845b;
+  --ok-bg: #e2f5ed;
+  --danger-bg: #faeaea;
+  --warn-bg: #fdf1e3;
   --new: #5b3fa0;
   --new-bg: #efe9f8;
-  --topbar-bg: #1b1f24;
+  --topbar-bg: #10243a;
   --hover-bg: #fafbfc;
   --secondary-hover-bg: #ebedf0;
 }
@@ -169,7 +169,12 @@ a, a:visited { color: var(--accent); }
 
 main { max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; }
 
-.table-scroll { overflow-x: auto; }
+/* min-width:0 overrides the flex/grid "automatic minimum size" default (which is
+   otherwise the content's own min-content width, i.e. effectively "don't shrink below
+   the widest unbreakable content") - without it, a wide table still forces its flex/grid
+   ancestors wider instead of staying capped at the container and scrolling internally,
+   which is this element's entire purpose. */
+.table-scroll { overflow-x: auto; min-width: 0; }
 
 /* Layout utilities - the small, repeated set of inline flex/spacing patterns
    that kept appearing across views, pulled out so templates read as markup
@@ -204,6 +209,12 @@ h3 { font-size: 1rem; font-weight: 600; margin: 1.1rem 0 0.5rem; }
 table { width: 100%; border-collapse: collapse; background: var(--bg); }
 th, td { border-bottom: 1px solid var(--border); padding: 0.5rem 0.6rem; text-align: left; font-size: 0.92rem; }
 th { background: var(--bg-alt); font-weight: 600; }
+
+/* A sortable column header - plain text until hovered/active, so a table that mixes sortable and
+   non-sortable (e.g. "Actions") headers doesn't read as "everything here is a link". */
+.sort-link, .sort-link:visited { color: inherit; text-decoration: none; white-space: nowrap; }
+.sort-link:hover { color: var(--accent); }
+.sort-link.active { color: var(--accent); }
 tr td { transition: background-color 0.1s ease-in-out; }
 tr:hover td { background: var(--hover-bg); }
 
@@ -418,6 +429,30 @@ a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 
 .stat-card .stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .stat-card .stat-label { color: var(--muted); font-size: 0.82rem; }
 
+/* Priority Actions - a short, urgency-ranked list of real follow-ups built
+   from data the dashboard already computes elsewhere (readiness gaps,
+   closing deadlines, bond expiry, deal-registration status) - see
+   dashboard.js's buildPriorityActions. Urgency reuses the same thresholds
+   already established by that underlying data (48h/7d/90d windows), not an
+   invented score. */
+.priority-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.priority-item {
+  display: flex; align-items: flex-start; gap: 0.75rem; text-decoration: none; color: inherit;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 0.75rem 0.9rem;
+  transition: background-color 0.12s ease-in-out, border-color 0.12s ease-in-out;
+}
+.priority-item:hover { background: var(--hover-bg); }
+.priority-item-icon {
+  flex-shrink: 0; width: 2.1rem; height: 2.1rem; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  background: var(--warn-bg); color: var(--warn);
+}
+.priority-item.urgent .priority-item-icon { background: var(--danger-bg); color: var(--danger); }
+.priority-item.medium .priority-item-icon { background: var(--accent-bg); color: var(--accent); }
+.priority-item-body { flex: 1; min-width: 0; }
+.priority-item-title { font-weight: 600; font-size: 0.92rem; }
+.priority-item-detail { color: var(--muted); font-size: 0.82rem; margin-top: 0.1rem; }
+.priority-item-badge { flex-shrink: 0; align-self: center; }
+
 .checklist-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0; border-bottom: 1px dashed var(--border); }
 .checklist-item.done { color: var(--muted); text-decoration: line-through; }
 
@@ -426,6 +461,57 @@ a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 
 /* A long list/table truncated to its most urgent rows links out to the full,
    already-filtered view rather than growing the page - see dashboard.ejs. */
 .view-all { display: inline-block; margin-top: 0.5rem; font-size: 0.88rem; font-weight: 600; }
+
+.breadcrumb { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
+.breadcrumb a { color: var(--muted); }
+.breadcrumb a:hover { color: var(--accent); }
+.breadcrumb span:last-child { color: var(--text); font-weight: 600; }
+
+/* Pushes a .dash-header's trailing action-button group to the far right on desktop, where it
+   shares a row with the title block - reset once .dash-header wraps them onto separate lines
+   (phone width) so the buttons don't end up stranded against the right edge with dead space
+   to their left. */
+.page-header-actions { margin-left: auto; display: flex; gap: 0.5rem; flex-wrap: wrap; align-self: flex-start; }
+@media (max-width: 640px) {
+  .page-header-actions { margin-left: 0; }
+}
+
+/* Real same-page anchor navigation (bid detail's Overview/Documents/Lots/.../Activity) - plain
+   links to #ids already on the page, not a fake tab widget with hidden panels. Horizontally
+   scrollable so it degrades to a swipeable strip on phone width instead of wrapping awkwardly. */
+.anchor-nav {
+  display: flex; gap: 0.25rem; overflow-x: auto; margin: 0 0 1.25rem; padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.anchor-nav a, .anchor-nav a:visited {
+  flex-shrink: 0; padding: 0.5rem 0.9rem; color: var(--muted); text-decoration: none; font-size: 0.88rem; font-weight: 600;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.anchor-nav a:hover { color: var(--accent); }
+
+/* A lot's collapsible card - the native <details>/<summary> disclosure already gives free
+   keyboard support and an accessible expanded/collapsed state, so this only restyles the
+   clickable summary row to read as a header instead of a bullet point. */
+.lot-card > details > summary.lot-summary {
+  cursor: pointer; list-style: none; display: flex; align-items: center; gap: 0.5rem;
+}
+.lot-card > details > summary.lot-summary::-webkit-details-marker { display: none; }
+.lot-card > details > summary.lot-summary::before {
+  content: ''; flex-shrink: 0; width: 7px; height: 7px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted);
+  transform: rotate(-45deg); transition: transform 0.15s ease-in-out;
+}
+.lot-card > details[open] > summary.lot-summary::before { transform: rotate(45deg); }
+
+/* Status history: a real table on desktop, a stacked record list on mobile (same underlying
+   rows, toggled via display rather than two separate fetches) - a wide 5-column table is
+   unreadable once it has to either shrink every column or scroll horizontally on a phone. */
+.history-stacked { display: none; }
+.history-record { padding: 0.6rem 0; border-bottom: 1px dashed var(--border); font-size: 0.88rem; }
+.history-record:last-child { border-bottom: none; }
+@media (max-width: 640px) {
+  .history-table { display: none; }
+  .history-stacked { display: block; }
+}
 
 /* Dashboard page header: title/timestamp, search, and primary actions. */
 .dash-header { display: flex; align-items: flex-start; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
@@ -483,9 +569,6 @@ a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 
 
 .delay-item { cursor: pointer; padding: 0.85rem 1rem; }
 
-.lifecycle-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
-.lifecycle-card { padding: 0.85rem; gap: 0.3rem; margin-bottom: 0; }
-
 /* Below this width the sidebar becomes an off-canvas drawer (closed by
    default, toggled via the hamburger button) instead of a permanent
    column, so narrow screens get their full width back for content. */
@@ -504,8 +587,21 @@ a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 
 @media (max-width: 640px) {
   main { margin: 1rem auto; }
   .card { padding: 0.75rem; }
-  .row, form[style*="display:flex"], div[style*="display:flex"] { flex-direction: column; }
+  /* align-items defaults to center on .row (and is unset on a raw display:flex div), which
+     only matters once flex-direction flips to column here: center means each stacked child
+     sizes to its own content's natural width instead of filling the container, so a .col
+     whose content is wider than the phone screen (a multi-column table, mostly) overflows
+     sideways instead of either wrapping or triggering its own .table-scroll. Stretching them
+     to the container's full width is what makes "stacked into one column" actually mean one
+     column, width-wise too. */
+  .row, form[style*="display:flex"], div[style*="display:flex"] { flex-direction: column; flex-wrap: nowrap; align-items: stretch !important; }
+  /* Many views set a desktop-only "don't wrap below Xrem" min-width on .col via an inline
+     style (so a two/three-up row reads well on a laptop) - inline styles beat any stylesheet
+     rule except !important, so without this override that same min-width (often 16-28rem,
+     i.e. wider than a phone screen) forces the whole page to scroll horizontally once .row
+     above has already stacked everything into one column. */
+  .col[style*="min-width"] { min-width: 0 !important; }
   .bar-row { grid-template-columns: 1fr; gap: 0.2rem; }
   .bid-card { flex-wrap: wrap; }
-  .bid-card-side { margin-left: 0; flex-direction: row; align-items: center; }
+  .bid-card-side { margin-left: 0; width: 100%; flex-direction: row; align-items: center; flex-wrap: wrap; }
 }

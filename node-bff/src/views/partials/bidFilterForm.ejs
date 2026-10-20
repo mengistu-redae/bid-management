@@ -3,8 +3,11 @@
    bids/list.ejs and bids/by-division.ejs - divisions, statusOptions, users,
    organizations, query - and an optional "action" (defaults to /bids). */
 const formAction = typeof action !== 'undefined' ? action : '/bids';
+const hasActiveFilters = ['divisionId', 'status', 'officerId', 'organizationId', 'closingFrom', 'closingTo', 'search'].some(k => query[k]);
 %>
 <form method="get" action="<%= formAction %>" class="card toolbar" style="margin-bottom:1rem;">
+  <label class="muted" style="margin:0;" for="filter-search">Search</label>
+  <input id="filter-search" type="search" name="search" value="<%= query.search || '' %>" placeholder="Title, customer, reference..." class="w-auto" style="min-width:12rem;">
   <label class="muted" style="margin:0;" for="filter-division">Division</label>
   <select id="filter-division" name="divisionId" class="w-auto">
     <option value="">All divisions</option>
@@ -30,5 +33,5 @@ const formAction = typeof action !== 'undefined' ? action : '/bids';
   <label class="muted" style="margin:0;" for="filter-closing-to">to</label>
   <input id="filter-closing-to" type="date" name="closingTo" value="<%= query.closingTo || '' %>" class="w-auto">
   <button type="submit" class="secondary">Filter</button>
-  <a class="btn secondary" href="<%= formAction %>">Clear</a>
+  <% if (hasActiveFilters) { %><a class="btn secondary" href="<%= formAction %>">Reset filters</a><% } %>
 </form>
