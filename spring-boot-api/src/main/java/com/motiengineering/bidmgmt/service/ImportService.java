@@ -38,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -69,6 +70,7 @@ public class ImportService {
     private final ChecklistService checklistService;
     private final ActivityLogService activityLogService;
     private final ImportBatchRepository importBatchRepository;
+    private final AuditService auditService;
 
     // ---------------------------------------------------------------- preview
 
@@ -273,6 +275,11 @@ public class ImportService {
             if (lot.getStatus() == oldStatus) {
                 lot.setStatus(row.sheetStatus);
             }
+        }
+        if (row.submissionDeadline != null) {
+            Instant newClosingAt = row.submissionDeadline.atZone(ZONE).toInstant();
+            auditService.recordIfChanged("BID", bid.getId(), "closingAt", bid.getClosingAt(), newClosingAt, importedBy);
+            bid.setClosingAt(newClosingAt);
         }
         bidRepository.save(bid);
 

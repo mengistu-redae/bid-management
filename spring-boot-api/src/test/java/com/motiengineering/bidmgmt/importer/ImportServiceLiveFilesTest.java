@@ -1,8 +1,11 @@
 package com.motiengineering.bidmgmt.importer;
 
+import com.motiengineering.bidmgmt.domain.AuditLogEntry;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
 import com.motiengineering.bidmgmt.domain.Organization;
+import com.motiengineering.bidmgmt.domain.enums.BidStatus;
+import com.motiengineering.bidmgmt.repository.AuditLogRepository;
 import com.motiengineering.bidmgmt.repository.BidLotRepository;
 import com.motiengineering.bidmgmt.repository.BidRepository;
 import com.motiengineering.bidmgmt.repository.OrganizationRepository;
@@ -16,7 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.FileInputStream;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.time.Year;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
@@ -60,6 +65,8 @@ class ImportServiceLiveFilesTest {
     private BidLotRepository bidLotRepository;
     @Autowired
     private OrganizationRepository organizationRepository;
+    @Autowired
+    private AuditLogRepository auditLogRepository;
 
     @Test
     void importsBothSampleFilesAndMergesAcrossThem() throws Exception {
@@ -104,5 +111,55 @@ class ImportServiceLiveFilesTest {
         List<BidLot> allLots = bidLotRepository.findAll();
         assertThat(allLots).isNotEmpty();
         assertThat(allLots).allSatisfy(lot -> assertThat(lot.getChecklistItems()).hasSize(13));
+    }
+
+    /**
+     * Re-running the tracker import against an already-imported bid (same org+title+reference,
+     * so {@code findMatch} merges rather than creates) must carry forward a changed submission
+     * deadline onto the existing bid, and record it in the audit trail the same way a manual
+     * edit through {@code BidService.updateKeyDates} does - otherwise a deadline extension in a
+     * re-uploaded spreadsheet is silently dropped and {@code KeyDateHistoryService}/delay
+     * analytics never see it.
+     */
+    @Test
+    void reimportingATrackerRowWithAChangedDeadlineExtendsTheExistingBidsClosingDate() {
+        BidsTrackerRow firstPass = new BidsTrackerRow();
+        firstPass.sheetName = "Bids on hand";
+        firstPass.sheetStatus = BidStatus.PREPARING;
+        firstPass.organizationRaw = "Deadline Extension Test Bank";
+        firstPass.cleanTitle = "Supply and Installation of Branch Network Equipment";
+        firstPass.referenceNumber = "DETB/IT/001/2026";
+        firstPass.submissionDeadline = LocalDateTime.of(2026, 11, 10, 14, 0);
+
+        importService.confirmTracker(Map.of("Bids on hand", List.of(firstPass)), "first.xlsx", null);
+
+        Organization org = organizationRepository.findAll().stream()
+                .filter(o -> o.getName().equals("Deadline Extension Test Bank"))
+                .findFirst().orElseThrow();
+        Bid created = bidRepository.findByOrganization_Id(org.getId()).get(0);
+        assertThat(created.getClosingAt())
+                .isEqualTo(LocalDateTime.of(2026, 11, 10, 14, 0).atZone(ZoneId.of("Africa/Addis_Ababa")).toInstant());
+
+        BidsTrackerRow secondPass = new BidsTrackerRow();
+        secondPass.sheetName = "Bids on hand";
+        secondPass.sheetStatus = BidStatus.PREPARING;
+        secondPass.organizationRaw = "Deadline Extension Test Bank";
+        secondPass.cleanTitle = "Supply and Installation of Branch Network Equipment";
+        secondPass.referenceNumber = "DETB/IT/001/2026";
+        secondPass.submissionDeadline = LocalDateTime.of(2026, 11, 24, 14, 0); // extended two weeks
+
+        importService.confirmTracker(Map.of("Bids on hand", List.of(secondPass)), "second.xlsx", null);
+
+        Bid merged = bidRepository.findById(created.getId()).orElseThrow();
+        assertThat(merged.getClosingAt())
+                .isEqualTo(LocalDateTime.of(2026, 11, 24, 14, 0).atZone(ZoneId.of("Africa/Addis_Ababa")).toInstant());
+
+        List<AuditLogEntry> closingAtHistory = auditLogRepository.findByEntityTypeAndEntityIdOrderByChangedAtDesc("BID", merged.getId())
+                .stream().filter(e -> e.getFieldName().equals("closingAt")).toList();
+        assertThat(closingAtHistory).hasSize(1);
+        assertThat(closingAtHistory.get(0).getOldValue())
+                .isEqualTo(LocalDateTime.of(2026, 11, 10, 14, 0).atZone(ZoneId.of("Africa/Addis_Ababa")).toInstant().toString());
+        assertThat(closingAtHistory.get(0).getNewValue())
+                .isEqualTo(LocalDateTime.of(2026, 11, 24, 14, 0).atZone(ZoneId.of("Africa/Addis_Ababa")).toInstant().toString());
     }
 }

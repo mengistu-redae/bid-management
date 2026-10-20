@@ -51,7 +51,8 @@ class ImportServiceTest {
                 mock(UserResolutionService.class),
                 mock(ChecklistService.class),
                 mock(ActivityLogService.class),
-                mock(ImportBatchRepository.class));
+                mock(ImportBatchRepository.class),
+                mock(AuditService.class));
     }
 
     private Organization organization() {
