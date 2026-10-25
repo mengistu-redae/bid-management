@@ -60,6 +60,9 @@ bidmgmt:
     alert-cron: ${BIDMGMT_ALERT_CRON:0 0/30 * * * *}
     # Weekly bottleneck summary - Monday 7am by default.
     weekly-digest-cron: ${BIDMGMT_WEEKLY_DIGEST_CRON:0 0 7 * * MON}
+    # Daily dashboard-KPI snapshot (DashboardKpiSnapshotJob) - just after midnight by default,
+    # so "vs last week" trend comparisons have a full day's numbers to compare against.
+    kpi-snapshot-cron: ${BIDMGMT_KPI_SNAPSHOT_CRON:0 10 0 * * *}
     # Empty by default - TelegramNotificationChannel.supports() returns false
     # for everyone until a real bot token (from @BotFather) is set here.
     telegram-bot-token: ${BIDMGMT_TELEGRAM_BOT_TOKEN:}

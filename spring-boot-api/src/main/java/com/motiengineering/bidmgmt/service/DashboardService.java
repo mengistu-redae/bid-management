@@ -1,15 +1,19 @@
 package com.motiengineering.bidmgmt.service;
 
+import com.motiengineering.bidmgmt.domain.ActivityLogEntry;
 import com.motiengineering.bidmgmt.domain.AppUser;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
+import com.motiengineering.bidmgmt.domain.BidStatusHistory;
 import com.motiengineering.bidmgmt.domain.DealRegistration;
+import com.motiengineering.bidmgmt.domain.DashboardKpiSnapshot;
 import com.motiengineering.bidmgmt.domain.Division;
 import com.motiengineering.bidmgmt.domain.LotAccountOfficer;
 import com.motiengineering.bidmgmt.domain.enums.BidBondForm;
 import com.motiengineering.bidmgmt.domain.enums.BidStatus;
 import com.motiengineering.bidmgmt.domain.enums.Currency;
 import com.motiengineering.bidmgmt.domain.enums.DealRegistrationStatus;
+import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.domain.enums.Outcome;
 import com.motiengineering.bidmgmt.dto.ClarificationRowDto;
 import com.motiengineering.bidmgmt.dto.ClosingSoonRowDto;
@@ -18,13 +22,18 @@ import com.motiengineering.bidmgmt.dto.DealRegistrationSummaryDto;
 import com.motiengineering.bidmgmt.dto.DelaySummaryDto;
 import com.motiengineering.bidmgmt.dto.DivisionPillDto;
 import com.motiengineering.bidmgmt.dto.ExpiringDealRegistrationRowDto;
+import com.motiengineering.bidmgmt.dto.KpiTrendsDto;
 import com.motiengineering.bidmgmt.dto.LifecycleStageRowDto;
 import com.motiengineering.bidmgmt.dto.OpenNoResultRowDto;
 import com.motiengineering.bidmgmt.dto.OutstandingBondRowDto;
 import com.motiengineering.bidmgmt.dto.PipelineValueRowDto;
+import com.motiengineering.bidmgmt.dto.RecentActivityRowDto;
 import com.motiengineering.bidmgmt.dto.WinRateRowDto;
+import com.motiengineering.bidmgmt.repository.ActivityLogRepository;
 import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.repository.BidRepository;
+import com.motiengineering.bidmgmt.repository.BidStatusHistoryRepository;
+import com.motiengineering.bidmgmt.repository.DashboardKpiSnapshotRepository;
 import com.motiengineering.bidmgmt.repository.DealRegistrationRepository;
 import com.motiengineering.bidmgmt.repository.DivisionRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
@@ -42,9 +51,12 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -74,8 +86,14 @@ public class DashboardService {
     private final LotScopeTypeRepository lotScopeTypeRepository;
     private final ChecklistService checklistService;
     private final DelaysBoardService delaysBoardService;
+    private final DashboardKpiSnapshotRepository dashboardKpiSnapshotRepository;
+    private final ActivityLogRepository activityLogRepository;
+    private final BidStatusHistoryRepository bidStatusHistoryRepository;
 
     private static final int TOP_DELAYED_LIMIT = 10;
+    /** How old a snapshot must be, at minimum, to count as "last week" - tolerant of the job missing a day or two. */
+    private static final int TREND_MIN_AGE_DAYS = 5;
+    private static final int RECENT_ACTIVITY_LIMIT = 10;
 
     public DashboardDto build() {
         return build(null);
@@ -98,27 +116,102 @@ public class DashboardService {
 
         List<ExpiringDealRegistrationRowDto> expiringRegs = expiringDealRegistrations(today);
 
+        // Captured as locals (instead of inline constructor-argument calls) so the same
+        // numbers feed both the live DashboardDto fields below and the trend comparison -
+        // one computation, not two that could silently drift apart.
+        List<ClosingSoonRowDto> closingSoon = closingWithin(scoped, now, 0, 7);
+        List<ClosingSoonRowDto> missingReadinessRows = missingReadiness(scoped);
+        DelaySummaryDto delaySummaryDto = delaySummary(divisionFilter);
+        int behindStageTargetCount = delaySummaryDto.amberCount() + delaySummaryDto.redCount() + delaySummaryDto.criticalCount();
+        List<PipelineValueRowDto> pipelineByDivisionRows = pipelineByDivision(scoped);
+        BigDecimal openPipelineEtb = pipelineByDivisionRows.stream().map(PipelineValueRowDto::totalEtb).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal openPipelineUsd = pipelineByDivisionRows.stream().map(PipelineValueRowDto::totalUsd).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal bidBondsOutstandingEtb = sumBondsByCurrency(scoped, Currency.ETB);
+
         return new DashboardDto(
-                closingWithin(scoped, now, 0, 7),
+                closingSoon,
                 closingWithin(scoped, now, 7, 14),
                 upcomingClarifications(scoped, now),
-                pipelineByDivision(scoped),
+                pipelineByDivisionRows,
                 pipelineByStatus(scoped),
                 winRateByDivision(scoped),
                 winRateByOfficer(scoped),
                 winRateByOem(scoped),
                 outstandingBonds(scoped, today),
-                sumBondsByCurrency(scoped, Currency.ETB),
+                bidBondsOutstandingEtb,
                 sumBondsByCurrency(scoped, Currency.USD),
                 expiringRegs,
-                delaySummary(divisionFilter),
-                missingReadiness(scoped),
+                delaySummaryDto,
+                missingReadinessRows,
                 lifecycleStageSummary(scoped),
                 bidsPastOpeningNoResult(scoped, now),
                 dealRegistrationSummary(scoped, expiringRegs),
                 divisionFilters,
                 unpricedBidCount(scoped),
-                bondsExpiringWithinDaysCount(scoped, today, BOND_EXPIRING_WITHIN_DAYS));
+                bondsExpiringWithinDaysCount(scoped, today, BOND_EXPIRING_WITHIN_DAYS),
+                trends(divisionFilter, today, closingSoon.size(), missingReadinessRows.size(), behindStageTargetCount,
+                        openPipelineEtb, openPipelineUsd, bidBondsOutstandingEtb, expiringRegs.size()),
+                recentActivity(scoped));
+    }
+
+    /**
+     * Compares today's 6 KPI numbers against the nearest dashboard_kpi_snapshot row at least
+     * TREND_MIN_AGE_DAYS old. The snapshot is always captured portfolio-wide (see
+     * DashboardKpiSnapshotJob), so comparing it against a division-filtered "today" would be
+     * misleading - returns KpiTrendsDto.EMPTY whenever a specific division is selected, or
+     * when no snapshot old enough exists yet.
+     */
+    private KpiTrendsDto trends(String divisionFilter, LocalDate today, int closingSoonCount, int missingReadinessCount,
+            int behindStageTargetCount, BigDecimal openPipelineEtb, BigDecimal openPipelineUsd, BigDecimal bidBondsOutstandingEtb,
+            int dealRegsExpiringCount) {
+        if (divisionFilter != null && !divisionFilter.isBlank()) {
+            return KpiTrendsDto.EMPTY;
+        }
+        return dashboardKpiSnapshotRepository.findFirstBySnapshotDateLessThanEqualOrderBySnapshotDateDesc(today.minusDays(TREND_MIN_AGE_DAYS))
+                .map(s -> new KpiTrendsDto(s.getSnapshotDate(), s.getClosingSoonCount(), s.getMissingReadinessCount(),
+                        s.getBehindStageTargetCount(), s.getOpenPipelineEtb(), s.getOpenPipelineUsd(), s.getBidBondsOutstandingEtb(),
+                        s.getDealRegsExpiringCount()))
+                .orElse(KpiTrendsDto.EMPTY);
+    }
+
+    /**
+     * Merges bid_status_history ("status changed to X") and activity_log notes (BID entity
+     * type only - see the Overview tab redesign's scope note) across the current division
+     * scope, newest first, capped at RECENT_ACTIVITY_LIMIT. Both sources are already capped
+     * at 50 by the repository query before this filters/merges in memory.
+     */
+    private List<RecentActivityRowDto> recentActivity(List<Bid> scoped) {
+        Set<UUID> scopedBidIds = new HashSet<>();
+        Map<UUID, Bid> scopedById = new LinkedHashMap<>();
+        for (Bid bid : scoped) {
+            scopedBidIds.add(bid.getId());
+            scopedById.put(bid.getId(), bid);
+        }
+
+        List<RecentActivityRowDto> rows = new ArrayList<>();
+        for (BidStatusHistory h : bidStatusHistoryRepository.findTop50ByOrderByChangedAtDesc()) {
+            if (h.getBid() == null || !scopedBidIds.contains(h.getBid().getId())) {
+                continue;
+            }
+            Bid bid = scopedById.get(h.getBid().getId());
+            rows.add(new RecentActivityRowDto(bid.getId(), bid.getTitle(), organizationName(bid),
+                    "Status changed to " + h.getToStatus(), h.getChangedBy() == null ? null : h.getChangedBy().getFullName(), h.getChangedAt()));
+        }
+        for (ActivityLogEntry e : activityLogRepository.findTop50ByEntityTypeOrderByCreatedAtDesc(EntityType.BID)) {
+            if (!scopedBidIds.contains(e.getEntityId())) {
+                continue;
+            }
+            Bid bid = scopedById.get(e.getEntityId());
+            rows.add(new RecentActivityRowDto(bid.getId(), bid.getTitle(), organizationName(bid),
+                    e.getNote(), e.getAuthor() == null ? null : e.getAuthor().getFullName(), e.getCreatedAt()));
+        }
+
+        rows.sort(Comparator.comparing(RecentActivityRowDto::occurredAt).reversed());
+        return rows.size() > RECENT_ACTIVITY_LIMIT ? rows.subList(0, RECENT_ACTIVITY_LIMIT) : rows;
+    }
+
+    private static String organizationName(Bid bid) {
+        return bid.getOrganization() == null ? null : bid.getOrganization().getName();
     }
 
     /** Same delay summary the dashboard embeds, exposed standalone for the weekly bottleneck email. */

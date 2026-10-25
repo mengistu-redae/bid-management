@@ -37,6 +37,22 @@ function formatDateTime(value) {
   return `${formatDate(value)} ${time}`;
 }
 
+/** "2h ago"/"3d ago" relative label for the dashboard's Recent activity feed - falls back to formatDate() beyond 7 days, since "14d ago" reads worse than an actual date. */
+function timeAgo(value) {
+  if (!value) {
+    return '-';
+  }
+  const diffMs = Date.now() - new Date(value).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatDate(value);
+}
+
 /** Thousand separators, never mixing currencies - the brief is explicit that ETB and USD must never be summed/blended. */
 function formatMoney(amount, currency) {
   if (amount === null || amount === undefined) {
@@ -120,6 +136,6 @@ function stageHistoryHref(entityType, entityId, options) {
 }
 
 module.exports = {
-  formatDate, formatDateTime, formatDateInput, formatTimeInput, formatMoney, statusBadgeClass, severityBadgeClass, barWidth, indicatorBadgeClass, indicatorLabel,
+  formatDate, formatDateTime, formatDateInput, formatTimeInput, formatMoney, timeAgo, statusBadgeClass, severityBadgeClass, barWidth, indicatorBadgeClass, indicatorLabel,
   stageHistoryHref,
 };

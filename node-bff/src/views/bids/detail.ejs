@@ -1,4 +1,5 @@
 <%- include('../partials/header', { title: title, user: user }) %>
+<script>document.documentElement.classList.add('tab-js');</script>
 
 <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/dashboard">Lifecycle</a> <span aria-hidden="true">&rsaquo;</span> <a href="/bids">Bids</a> <span aria-hidden="true">&rsaquo;</span> <span><%= bid.title %></span></nav>
 
@@ -24,15 +25,15 @@
   </div>
 </div>
 
-<nav class="anchor-nav" aria-label="Section navigation">
-  <a href="#overview">Overview</a>
-  <a href="#documents">Documents</a>
-  <a href="#lots">Lots &amp; Checklist</a>
-  <a href="#deal-registrations">Deal Registrations</a>
-  <a href="#activity">Activity &amp; History</a>
+<nav class="anchor-nav" role="tablist" aria-label="Section navigation">
+  <a href="#overview" id="tab-overview" role="tab" aria-controls="overview">Overview</a>
+  <a href="#documents" id="tab-documents" role="tab" aria-controls="documents">Documents</a>
+  <a href="#lots" id="tab-lots" role="tab" aria-controls="lots">Lots &amp; Checklist</a>
+  <a href="#deal-registrations" id="tab-deal-registrations" role="tab" aria-controls="deal-registrations">Deal Registrations</a>
+  <a href="#activity" id="tab-activity" role="tab" aria-controls="activity">Activity &amp; History</a>
 </nav>
 
-<section id="overview">
+<section id="overview" class="tab-panel" role="tabpanel" aria-labelledby="tab-overview" tabindex="-1">
   <div class="stat-grid" hx-boost="false">
     <div class="stat-card">
       <span class="stat-value"><%= bid.status %></span>
@@ -177,11 +178,11 @@
   <% } %>
 </section>
 
-<section id="documents">
+<section id="documents" class="tab-panel" role="tabpanel" aria-labelledby="tab-documents" tabindex="-1">
   <%- include('../partials/attachmentsSection', { entityType: 'BID', entityId: bid.id, attachments: attachments, returnTo: '/bids/' + bid.id }) %>
 </section>
 
-<section id="lots">
+<section id="lots" class="tab-panel" role="tabpanel" aria-labelledby="tab-lots" tabindex="-1">
   <h2><%- include('../partials/icon', { name: 'box' }) %> Lots &amp; checklist</h2>
   <% bid.lots.forEach((lot, lotIndex) => { %>
     <div class="card lot-card">
@@ -486,7 +487,7 @@
   })();
 </script>
 
-<section id="deal-registrations">
+<section id="deal-registrations" class="tab-panel" role="tabpanel" aria-labelledby="tab-deal-registrations" tabindex="-1">
   <h2><%- include('../partials/icon', { name: 'repeat' }) %> Deal registrations</h2>
   <div class="card">
     <% dealRegistrations.forEach(r => { %>
@@ -501,7 +502,7 @@
   </div>
 </section>
 
-<section id="activity">
+<section id="activity" class="tab-panel" role="tabpanel" aria-labelledby="tab-activity" tabindex="-1">
   <h2><%- include('../partials/icon', { name: 'clock' }) %> Activity log</h2>
   <div class="card">
     <% activity.forEach(entry => { %>
@@ -550,5 +551,7 @@
   <% } %>
   </div>
 </section>
+
+<%- include('../partials/tabNavScript') %>
 
 <%- include('../partials/footer') %>

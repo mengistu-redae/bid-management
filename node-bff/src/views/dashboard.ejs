@@ -1,8 +1,11 @@
 <%- include('partials/header', { title: title, user: user }) %>
+<script>document.documentElement.classList.add('tab-js');</script>
+
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/dashboard">Lifecycle</a> <span aria-hidden="true">&rsaquo;</span> <span>Executive Overview</span></nav>
 
 <div class="dash-header">
   <div>
-    <p class="muted mt-0" style="margin-bottom:0.15rem;"><%= updatedAtLabel %></p>
+    <p class="muted mt-0" style="margin-bottom:0.15rem;"><span class="live-dot" aria-hidden="true"></span> <%= updatedAtLabel %></p>
     <h1 class="mt-0">Executive Overview</h1>
   </div>
   <form method="get" action="/bids" class="dash-search" role="search">
@@ -31,376 +34,733 @@
   const notStartedCount = data.closingThisWeek.filter(r => r.readinessGaps.includes('Go / no-go')).length;
   const unassignedCount = data.closingThisWeek.filter(r => r.readinessGaps.includes('Owner')).length;
   const behindTarget = data.delaySummary.amberCount + data.delaySummary.redCount + data.delaySummary.criticalCount;
+
+  // Trend lines: data.trends is DashboardService's KpiTrendsDto, already null throughout
+  // when no snapshot is ~a week old yet, or when a division pill narrows the view (the
+  // stored snapshot is always portfolio-wide - see DashboardKpiSnapshotJob) - trendCount/
+  // trendPercent return null in that case and the card just renders without a trend line.
+  const hasTrend = !!data.trends.previousSnapshotDate;
+  function trendCount(current, previous) {
+    if (!hasTrend || previous === null || previous === undefined) return null;
+    const delta = current - previous;
+    return `${delta > 0 ? '+' : ''}${delta} vs last week`;
+  }
+  function trendPercent(current, previous) {
+    if (!hasTrend || previous === null || previous === undefined) return null;
+    const prevNum = Number(previous);
+    if (prevNum === 0) return Number(current) === 0 ? '0% vs last week' : null;
+    const pct = Math.round(((Number(current) - prevNum) / prevNum) * 100);
+    return `${pct > 0 ? '+' : ''}${pct}% vs last week`;
+  }
 %>
+<!-- KPI strip + division pills above stay visible on every tab - the tab panels below only
+     split up the long content that used to follow them. -->
 <div class="stat-grid" hx-boost="false">
   <a class="stat-card<%= behindTarget > 0 ? ' warn' : '' %>" href="#closing-soon">
-    <span class="stat-icon"><%- include('partials/icon', { name: 'calendar' }) %></span>
+    <span class="stat-icon chip-blue"><%- include('partials/icon', { name: 'calendar' }) %></span>
     <span class="stat-value"><%= data.closingThisWeek.length %></span>
     <span class="stat-label">Closing in 7 days</span>
     <span class="muted" style="font-size:0.78rem;"><%= notStartedCount %> not started &middot; <%= unassignedCount %> unassigned</span>
+    <% const t1 = trendCount(data.closingThisWeek.length, data.trends.closingSoonCountPrevious); %>
+    <% if (t1) { %><span class="trend-line"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t1 %></span><% } %>
   </a>
   <a class="stat-card<%= data.missingReadiness.length > 0 ? ' warn' : '' %>" href="#closing-soon">
-    <span class="stat-icon"><%- include('partials/icon', { name: 'alert' }) %></span>
+    <span class="stat-icon chip-amber"><%- include('partials/icon', { name: 'alert' }) %></span>
     <span class="stat-value"><%= data.missingReadiness.length %></span>
     <span class="stat-label">Missing MAF or quote</span>
     <span class="muted" style="font-size:0.78rem;"><%= missingWithin48h %> close within 48h</span>
+    <% const t2 = trendPercent(data.missingReadiness.length, data.trends.missingReadinessCountPrevious); %>
+    <% if (t2) { %><span class="trend-line <%= t2.startsWith('+') ? 'bad' : (t2.startsWith('-') ? 'good' : '') %>"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t2 %></span><% } %>
   </a>
   <a class="stat-card<%= (data.delaySummary.criticalCount + data.delaySummary.redCount) > 0 ? ' danger' : (data.delaySummary.amberCount > 0 ? ' warn' : '') %>" href="#stuck">
-    <span class="stat-icon"><%- include('partials/icon', { name: 'alert' }) %></span>
+    <span class="stat-icon chip-red"><%- include('partials/icon', { name: 'alert' }) %></span>
     <span class="stat-value"><%= behindTarget %></span>
     <span class="stat-label">Behind stage target</span>
     <span class="muted" style="font-size:0.78rem;"><%= data.delaySummary.criticalCount %> critical &middot; <%= data.delaySummary.redCount %> red &middot; <%= data.delaySummary.amberCount %> amber</span>
+    <% const t3 = trendPercent(behindTarget, data.trends.behindStageTargetCountPrevious); %>
+    <% if (t3) { %><span class="trend-line <%= t3.startsWith('+') ? 'bad' : (t3.startsWith('-') ? 'good' : '') %>"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t3 %></span><% } %>
   </a>
-  <a class="stat-card" href="#pipeline">
-    <span class="stat-icon"><%- include('partials/icon', { name: 'trending' }) %></span>
-    <span class="stat-value"><%= formatMoney(pipelineEtbTotal) %></span>
+  <a class="stat-card" href="#pipeline-performance">
+    <span class="stat-icon chip-green"><%- include('partials/icon', { name: 'trending' }) %></span>
+    <span class="stat-value">USD <%= new Intl.NumberFormat('en-US').format(pipelineUsdTotal) %></span>
     <span class="stat-label">Open pipeline</span>
-    <span class="muted" style="font-size:0.78rem;">USD <%= new Intl.NumberFormat('en-US').format(pipelineUsdTotal) %> &middot; <%= data.unpricedBidCount %> bids unpriced</span>
+    <span class="muted" style="font-size:0.78rem;"><%= formatMoney(pipelineEtbTotal) %> &middot; <%= data.unpricedBidCount %> bids unpriced</span>
+    <% const t4 = trendPercent(pipelineUsdTotal, data.trends.openPipelineUsdPrevious); %>
+    <% if (t4) { %><span class="trend-line"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t4 %></span><% } %>
   </a>
   <a class="stat-card<%= data.bondsExpiringWithin90DaysCount > 0 ? ' warn' : '' %>" href="#bonds-outstanding">
-    <span class="stat-icon"><%- include('partials/icon', { name: 'shield' }) %></span>
+    <span class="stat-icon chip-purple"><%- include('partials/icon', { name: 'shield' }) %></span>
     <span class="stat-value"><%= formatMoney(data.outstandingBondTotalEtb) %></span>
     <span class="stat-label">Bid bonds outstanding</span>
     <span class="muted" style="font-size:0.78rem;"><%= data.bondsExpiringWithin90DaysCount %> expires within 90 days</span>
+    <% const t5 = trendPercent(data.outstandingBondTotalEtb, data.trends.bidBondsOutstandingEtbPrevious); %>
+    <% if (t5) { %><span class="trend-line <%= t5.startsWith('+') ? 'bad' : (t5.startsWith('-') ? 'good' : '') %>"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t5 %></span><% } %>
   </a>
   <a class="stat-card<%= data.expiringDealRegistrations.length > 0 ? ' warn' : '' %>" href="#deal-regs">
-    <span class="stat-icon"><%- include('partials/icon', { name: 'repeat' }) %></span>
+    <span class="stat-icon chip-blue"><%- include('partials/icon', { name: 'repeat' }) %></span>
     <span class="stat-value"><%= data.expiringDealRegistrations.length %></span>
     <span class="stat-label">Deal regs expiring</span>
     <span class="muted" style="font-size:0.78rem;">next 30 days</span>
+    <% const t6 = trendCount(data.expiringDealRegistrations.length, data.trends.dealRegsExpiringCountPrevious); %>
+    <% if (t6) { %><span class="trend-line"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t6 %></span><% } %>
   </a>
 </div>
 
-<div class="row top">
-  <div class="col" style="flex:3; min-width:22rem;">
-    <h2 class="mt-1"><%- include('partials/icon', { name: 'alert' }) %> Priority actions</h2>
-    <% if (priorityActions.length === 0) { %>
-      <p class="muted">Nothing needs attention right now.</p>
-    <% } else { %>
-      <div class="priority-list">
-        <% priorityActions.forEach(action => { %>
-          <a class="priority-item <%= action.urgency %>" href="<%= action.href %>">
-            <span class="priority-item-icon"><%- include('partials/icon', { name: action.icon, size: 18 }) %></span>
-            <span class="priority-item-body">
-              <span class="priority-item-title"><%= action.title %></span>
-              <span class="priority-item-detail"><%= action.detail %></span>
-            </span>
-            <span class="priority-item-badge badge <%= action.urgency === 'urgent' ? 'lost' : (action.urgency === 'high' ? 'review' : 'active') %>"><%= action.urgency %></span>
-          </a>
-        <% }) %>
+<nav class="anchor-nav" role="tablist" aria-label="Section navigation">
+  <a href="#overview" id="tab-overview" role="tab" aria-controls="overview">Overview</a>
+  <a href="#closing-readiness" id="tab-closing-readiness" role="tab" aria-controls="closing-readiness">Closing &amp; Readiness</a>
+  <a href="#delays" id="tab-delays" role="tab" aria-controls="delays">Delays</a>
+  <a href="#pipeline-performance" id="tab-pipeline-performance" role="tab" aria-controls="pipeline-performance">Pipeline &amp; Performance</a>
+  <a href="#bonds-deal-regs" id="tab-bonds-deal-regs" role="tab" aria-controls="bonds-deal-regs">Bonds &amp; Deal Regs</a>
+</nav>
+
+<section id="overview" class="tab-panel" role="tabpanel" aria-labelledby="tab-overview" tabindex="-1">
+  <div class="card pipeline-kanban-card">
+    <div class="row top" style="justify-content:space-between;">
+      <div>
+        <h2 class="mt-0"><%- include('partials/icon', { name: 'trending' }) %> Bid pipeline</h2>
+        <p class="muted mt-0">Track your opportunities from opportunity to award</p>
       </div>
-    <% } %>
-  </div>
-
-  <div class="col" style="flex:2; min-width:18rem;">
-    <h2 class="mt-1"><%- include('partials/icon', { name: 'trending' }) %> Bid pipeline</h2>
-    <% const maxStageCount = Math.max(1, ...data.lifecycleStages.map(s => s.bidCount)); %>
-    <% if (data.lifecycleStages.every(s => s.bidCount === 0)) { %>
-      <p class="muted">No open bids in the tracked lifecycle stages yet.</p>
-    <% } else { %>
-      <div class="bar-chart">
-        <% data.lifecycleStages.forEach(stage => { %>
-          <div class="bar-row">
-            <span class="bar-label"><%= stage.stageLabel %></span>
-            <div class="bar-track"><div class="bar-fill" style="width: <%= Math.round((stage.bidCount / maxStageCount) * 100) %>%;"></div></div>
-            <span class="bar-value"><%= stage.bidCount %><% if (Number(stage.totalEtb) > 0) { %> &middot; <%= formatMoney(stage.totalEtb) %><% } %></span>
-          </div>
-        <% }) %>
+      <div class="row tight" id="kanban-filters" role="group" aria-label="Filter pipeline">
+        <button type="button" class="pill active" data-filter="all">All <span class="pill-count"><%= pipelineKanban.allCount %></span></button>
+        <button type="button" class="pill" data-filter="open">Open <span class="pill-count"><%= pipelineKanban.openCount %></span></button>
+        <button type="button" class="pill" data-filter="won">Won <span class="pill-count"><%= pipelineKanban.wonCount %></span></button>
+        <button type="button" class="pill" data-filter="lost">Lost <span class="pill-count"><%= pipelineKanban.lostCount %></span></button>
       </div>
-    <% } %>
-  </div>
-</div>
+    </div>
 
-<% if (data.missingReadiness.length > 0) { %>
-<h2 id="readiness-gaps" class="mt-3"><%- include('partials/icon', { name: 'alert' }) %> Bid readiness gaps</h2>
-<p class="muted mt-0">Open bids still missing a MAF or vendor quote, regardless of closing date</p>
-<div class="table-scroll">
-<table>
-  <thead><tr><th>Bid</th><th>Division</th><th>Gaps</th><th>Owner</th><th>Closing</th></tr></thead>
-  <tbody>
-    <% data.missingReadiness.forEach(row => { %>
-      <tr onclick="window.location='/bids/<%= row.bidId %>'" style="cursor:pointer;">
-        <td>
-          <a href="/bids/<%= row.bidId %>"><%= row.title %></a>
-          <div class="muted" style="font-size:0.8rem;"><%= row.organizationName %></div>
-        </td>
-        <td><%= row.divisionNames.length ? row.divisionNames.join(', ') : '-' %></td>
-        <td><% row.readinessGaps.forEach(gap => { %><span class="badge gap-badge"><%= gap %></span><% }) %></td>
-        <td><%= row.ownerLabel || 'Unassigned' %></td>
-        <td class="muted"><%= row.closingAt ? formatDate(row.closingAt) : 'No closing date' %></td>
-      </tr>
-    <% }) %>
-  </tbody>
-</table>
-</div>
-<% } %>
-
-<div class="row top mt-3">
-  <div class="col" style="flex:2; min-width:28rem;">
-    <h2 id="closing-soon" class="mt-1"><%- include('partials/icon', { name: 'calendar' }) %> Closing in the next 7 days</h2>
-    <p class="muted mt-0">Sorted by closing time &middot; one row per bid, lots grouped</p>
-    <% if (data.closingThisWeek.length === 0) { %>
-      <p class="muted">Nothing closing in the next 7 days.</p>
-    <% } else { %>
-      <div class="table-scroll">
-      <table>
-        <thead><tr><th>Time</th><th>Bid</th><th>Division</th><th>Readiness gaps</th><th>Owner</th><th>Bid bond</th></tr></thead>
-        <tbody>
-          <% closingThisWeekByDate.forEach(group => { %>
-            <tr class="date-divider">
-              <td colspan="6">
-                <%= group.label %><% if (group.relative) { %> <span class="badge"><%= group.relative %></span><% } %>
-                <span class="muted"><%= group.rows.length %> bid<%= group.rows.length === 1 ? '' : 's' %></span>
-              </td>
-            </tr>
-            <% group.rows.forEach(row => { %>
-              <tr onclick="window.location='/bids/<%= row.bidId %>'" style="cursor:pointer;">
-                <td class="muted"><%= new Date(row.closingAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Africa/Addis_Ababa' }) %></td>
-                <td>
-                  <a href="/bids/<%= row.bidId %>"><%= row.title %></a>
-                  <div class="muted" style="font-size:0.8rem;"><%= row.organizationName %></div>
-                </td>
-                <td><%= row.divisionNames.length ? row.divisionNames.join(', ') : '-' %></td>
-                <td>
-                  <% row.readinessGaps.forEach(gap => { %><span class="badge gap-badge"><%= gap %></span><% }) %>
-                  <% if (row.readinessGaps.length === 0) { %><span class="badge won">Ready</span><% } %>
-                </td>
-                <td><%= row.ownerLabel || 'Unassigned' %></td>
-                <td>
-                  <% if (Number(row.bidBondAmountEtb) > 0) { %><%= formatMoney(row.bidBondAmountEtb, 'ETB') %><% } %>
-                  <% if (Number(row.bidBondAmountUsd) > 0) { %><%= formatMoney(row.bidBondAmountUsd, 'USD') %><% } %>
-                  <% if (Number(row.bidBondAmountEtb) === 0 && Number(row.bidBondAmountUsd) === 0) { %><span class="muted">-</span><% } %>
-                </td>
-              </tr>
-            <% }) %>
-          <% }) %>
-        </tbody>
-      </table>
-      </div>
-      <a class="view-all" href="/bids?<%= new URLSearchParams(dateRanges.closingThisWeek).toString() %>">Open in bid list &rarr;</a>
-    <% } %>
-
-    <h3 class="mt-3">Next week</h3>
-    <% if (data.closingNextWeek.length === 0) { %>
-      <p class="muted">Nothing closing 7-14 days out.</p>
-    <% } else { %>
-      <div class="next-week-strip">
-        <% data.closingNextWeek.forEach(row => { %>
-          <a class="next-week-item" href="/bids/<%= row.bidId %>">
-            <strong><%= formatDate(row.closingAt) %></strong> &middot; <%= row.organizationName %> <%= row.title %>
-            <span class="badge <%= statusBadgeClass(row.status) %>"><%= row.status %></span>
-          </a>
-        <% }) %>
-      </div>
-    <% } %>
-  </div>
-
-  <div class="col" style="flex:1; min-width:20rem;">
-    <h2 id="stuck" class="mt-1"><%- include('partials/icon', { name: 'alert' }) %> Where deals are stuck</h2>
-    <a class="view-all" href="/delays">Delays board &rarr;</a>
     <%
-      const segTotal = data.delaySummary.criticalCount + data.delaySummary.redCount + data.delaySummary.amberCount + data.delaySummary.greenCount;
-      const segPct = (n) => segTotal > 0 ? (n / segTotal * 100) : 0;
+      const STAGE_EMPTY = {
+        preparing: { icon: 'clipboard', helper: 'Move opportunities here as you start preparing.' },
+        submitted: { icon: 'send', helper: 'Submit your proposals to move forward.' },
+        evaluation: { icon: 'search', helper: 'Track evaluation progress and feedback.' },
+        won: { icon: 'trophy', helper: 'Great opportunities await!' },
+      };
     %>
-    <div class="segmented-bar mt-1">
-      <% if (data.delaySummary.criticalCount > 0) { %><div class="segment critical" style="width:<%= segPct(data.delaySummary.criticalCount) %>%;"></div><% } %>
-      <% if (data.delaySummary.redCount > 0) { %><div class="segment red" style="width:<%= segPct(data.delaySummary.redCount) %>%;"></div><% } %>
-      <% if (data.delaySummary.amberCount > 0) { %><div class="segment amber" style="width:<%= segPct(data.delaySummary.amberCount) %>%;"></div><% } %>
-      <% if (data.delaySummary.greenCount > 0) { %><div class="segment green" style="width:<%= segPct(data.delaySummary.greenCount) %>%;"></div><% } %>
-    </div>
-    <div class="row tight mt-1" style="font-size:0.82rem;">
-      <span><span class="status-dot" style="background:var(--danger);"></span> Critical <%= data.delaySummary.criticalCount %></span>
-      <span><span class="status-dot" style="background:var(--danger);opacity:0.6;"></span> Red <%= data.delaySummary.redCount %></span>
-      <span><span class="status-dot" style="background:var(--warn);"></span> Amber <%= data.delaySummary.amberCount %></span>
-      <span><span class="status-dot" style="background:var(--ok);"></span> On track <%= data.delaySummary.greenCount %></span>
-    </div>
-    <p class="muted" style="font-size:0.82rem;">Stale <%= data.delaySummary.staleCount %></p>
-
-    <% if (data.delaySummary.topDelayed.length === 0) { %>
-      <p class="muted">Nothing behind target right now.</p>
-    <% } else { %>
-      <div class="stack mt-2">
-        <% data.delaySummary.topDelayed.slice(0, 5).forEach(row => { %>
-          <div class="card delay-item" onclick="window.location='<%= row.detailHref %>'">
-            <div class="row" style="justify-content:space-between; align-items:flex-start;">
-              <div>
-                <div class="bid-card-title"><%= row.bidTitle %><% if (row.entityType !== 'LOT') { %> <span class="badge" style="margin-left:0.4rem;"><%= row.entityType %></span><% } %></div>
-                <div class="muted" style="font-size:0.8rem;"><%= row.lotLabel %><% if (row.divisionName) { %> &middot; <%= row.divisionName %><% } %></div>
-              </div>
-              <a class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>" onclick="event.stopPropagation()"
-                 <% if (row.daysUsed !== null && row.targetDays !== null) { %>title="<%= row.daysUsed.toFixed(1) %>d / <%= row.targetDays.toFixed(1) %>d target"<% } %>
-                 href="<%= stageHistoryHref(row.entityType, row.entityId, { title: row.bidTitle, subtitle: row.lotLabel, backHref: row.detailHref, backLabel: 'Back' }) %>"><%= row.indicatorLevel %><% if (row.percentUsed !== null) { %> &middot; <%= Math.round(row.percentUsed) %>%<% } %></a>
+    <div class="row top mt-2" style="align-items:stretch;">
+      <div class="kanban-board" style="flex:3; min-width:0;">
+        <% pipelineKanban.columns.forEach((col, colIndex) => {
+          const stageKey = col.stage.toLowerCase();
+          const emptyState = STAGE_EMPTY[stageKey] || { icon: 'box', helper: 'Move opportunities here as you progress.' };
+          const chainClass = colIndex === 0 ? ' chain-start' : (colIndex === pipelineKanban.columns.length - 1 ? ' chain-end' : '');
+        %>
+          <div class="kanban-column stage-<%= stageKey %><%= chainClass %>" data-stage="<%= stageKey %>">
+            <div class="kanban-column-header">
+              <span><%= col.stage %></span>
+              <span class="kanban-column-count"><%= col.count %></span>
             </div>
-            <div class="progress-bar mt-1"><div style="width:<%= Math.min(100, row.percentUsed || 0) %>%; background:<%= row.indicatorLevel === 'CRITICAL' || row.indicatorLevel === 'RED' ? 'var(--danger)' : 'var(--warn)' %>;"></div></div>
-            <div class="row tight mt-1" style="font-size:0.78rem;">
-              <span class="muted"><% if (row.daysUsed !== null && row.targetDays !== null) { %><%= Math.round(row.daysUsed) %>d in stage &middot; target <%= Math.round(row.targetDays) %>d<% } %></span>
-              <% if (row.waitingOnParty) { %><span class="muted">Waiting on <strong><%= row.waitingOnParty %></strong></span><% } %>
+            <div class="kanban-column-body">
+              <% if (col.bids.length === 0) { %>
+                <div class="kanban-empty">
+                  <span class="kanban-empty-icon"><%- include('partials/icon', { name: emptyState.icon, size: 22 }) %></span>
+                  <p><%= stageKey === 'won' ? 'No won deals yet' : 'No bids in this stage' %></p>
+                  <p class="muted" style="font-size:0.75rem;"><%= emptyState.helper %></p>
+                </div>
+              <% } else { %>
+                <ul class="pipeline-list">
+                <% col.bids.forEach(b => {
+                  const cardLabel = (b.organizationName ? b.organizationName + ' - ' : '') + b.title;
+                %>
+                  <li>
+                    <a href="/bids/<%= b.id %>" title="<%= cardLabel %>">
+                      <strong class="pipeline-card-title"><%= cardLabel %></strong>
+                      <span class="muted"><%= b.organizationName || 'No customer' %> &middot; <%= b.closingAt ? formatDate(b.closingAt) : 'No closing date' %></span>
+                    </a>
+                  </li>
+                <% }) %>
+                </ul>
+                <% if (col.count > col.bids.length) { %>
+                  <a class="view-all" href="/bids?status=<%= col.primaryStatus %>">View all <%= col.count %> &rarr;</a>
+                <% } %>
+              <% } %>
             </div>
           </div>
         <% }) %>
       </div>
-    <% } %>
+
+      <div class="pipeline-donut-wrap" style="flex:1; min-width:14rem;">
+        <h3 class="mt-0" style="font-size:0.95rem;">Pipeline distribution</h3>
+        <%
+          const donutColors = { Identified: 'var(--accent)', Preparing: '#5b9bf0', Submitted: '#8b5cf6', Evaluation: 'var(--warn)', Won: 'var(--ok)' };
+          const donutTotal = Math.max(1, data.lifecycleStages.reduce((s, r) => s + r.bidCount, 0));
+          const donutR = 60, donutCirc = 2 * Math.PI * donutR;
+          let donutOffset = 0;
+        %>
+        <svg viewBox="0 0 160 160" class="donut-chart" role="img" aria-label="Pipeline distribution by stage">
+          <circle cx="80" cy="80" r="<%= donutR %>" fill="none" stroke="var(--border)" stroke-width="18"/>
+          <% data.lifecycleStages.forEach(stage => {
+            const segLen = (stage.bidCount / donutTotal) * donutCirc;
+            if (stage.bidCount > 0) { %>
+            <circle cx="80" cy="80" r="<%= donutR %>" fill="none" stroke="<%= donutColors[stage.stageLabel] %>" stroke-width="18"
+                    stroke-dasharray="<%= segLen %> <%= donutCirc - segLen %>" stroke-dashoffset="<%= -donutOffset %>" transform="rotate(-90 80 80)"/>
+            <% }
+            donutOffset += segLen;
+          %>
+          <% }) %>
+          <text x="80" y="76" text-anchor="middle" class="donut-total"><%= data.lifecycleStages.reduce((s, r) => s + r.bidCount, 0) %></text>
+          <text x="80" y="94" text-anchor="middle" class="donut-total-label">Total bids</text>
+        </svg>
+        <div class="donut-legend">
+          <% data.lifecycleStages.forEach(stage => { %>
+            <div class="donut-legend-row">
+              <span class="donut-dot" style="background:<%= donutColors[stage.stageLabel] %>;"></span>
+              <span><%= stage.stageLabel %></span>
+              <strong><%= stage.bidCount %></strong>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+    <p class="muted mt-1" id="kanban-lost-note" hidden>Lost/dropped/cancelled bids aren't shown on the live pipeline board - <a href="/bids?status=LOST">see them in the full bid list &rarr;</a></p>
   </div>
-</div>
 
-<h2 id="pipeline" class="mt-3"><%- include('partials/icon', { name: 'trending' }) %> Pipeline by division</h2>
-<p class="muted mt-0">ETB and USD are tracked separately, never summed</p>
-<div class="table-scroll">
-<table>
-  <thead><tr><th>Division</th><th>ETB</th><th>USD</th><th>Lots</th></tr></thead>
-  <tbody>
-    <% data.pipelineByDivision.forEach(row => { %>
-      <tr><td><%= row.groupLabel %></td><td><%= formatMoney(row.totalEtb) %></td><td><%= formatMoney(row.totalUsd) %></td><td><%= row.lotCount %></td></tr>
-    <% }) %>
-    <% if (data.pipelineByDivision.length === 0) { %><tr><td colspan="4" class="muted">No priced lots yet.</td></tr><% } %>
-  </tbody>
-</table>
-</div>
+  <div class="row top mt-2">
+    <div class="col" style="flex:1; min-width:20rem;">
+      <h2 class="mt-1"><%- include('partials/icon', { name: 'alert' }) %> Priority actions</h2>
+      <% if (priorityActions.length === 0) { %>
+        <p class="muted">Nothing needs attention right now.</p>
+      <% } else { %>
+        <div class="priority-list">
+          <% priorityActions.forEach(action => { %>
+            <a class="priority-item <%= action.urgency %>" href="<%= action.href %>">
+              <span class="priority-item-icon"><%- include('partials/icon', { name: action.icon, size: 18 }) %></span>
+              <span class="priority-item-body">
+                <span class="priority-item-title"><%= action.title %></span>
+                <span class="priority-item-detail"><%= action.detail %></span>
+              </span>
+              <span class="priority-item-badge badge <%= action.urgency === 'urgent' ? 'lost' : (action.urgency === 'high' ? 'review' : 'active') %>"><%= action.urgency %></span>
+            </a>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
 
-<h2 class="mt-3">Win rate</h2>
-<div class="card">
-  <% const anyDecided = data.winRateByDivision.some(r => r.wonCount + r.lostCount > 0); %>
-  <% if (!anyDecided) { %>
-    <p class="muted mt-0">No outcomes recorded yet. Win rate by division, officer and OEM appears once bids are marked won or lost.</p>
-  <% } else { %>
-    <div class="bar-chart">
-      <% data.winRateByDivision.filter(r => r.wonCount + r.lostCount > 0).forEach(row => { %>
-        <% const total = row.wonCount + row.lostCount; %>
-        <div class="bar-row">
-          <span class="bar-label" title="<%= row.groupLabel %>"><%= row.groupLabel %></span>
-          <div class="bar-track stacked">
-            <div class="bar-fill won" style="width: <%= Math.round((row.wonCount / total) * 100) %>%;"></div>
-            <div class="bar-fill lost" style="width: <%= Math.round((row.lostCount / total) * 100) %>%;"></div>
+    <div class="col" style="flex:1; min-width:20rem;">
+      <h2 class="mt-1"><%- include('partials/icon', { name: 'clock' }) %> Recent activity</h2>
+      <div class="card">
+        <% if (data.recentActivity.length === 0) { %>
+          <p class="muted">No activity recorded yet.</p>
+        <% } else { %>
+          <div class="activity-timeline">
+            <% data.recentActivity.forEach(entry => { %>
+              <div class="activity-timeline-item">
+                <span class="activity-timeline-dot"></span>
+                <div class="activity-timeline-body">
+                  <a href="/bids/<%= entry.bidId %>"><%= entry.organizationName ? entry.organizationName + ' - ' : '' %><%= entry.bidTitle %></a>
+                  <div class="muted" style="font-size:0.82rem;"><%= entry.message %></div>
+                </div>
+                <span class="muted activity-timeline-time"><%= timeAgo(entry.occurredAt) %></span>
+              </div>
+            <% }) %>
           </div>
-          <span class="bar-value"><%= row.winRatePercent %>% (<%= row.wonCount %>W / <%= row.lostCount %>L)</span>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="col promo-card" style="flex:1; min-width:18rem;">
+      <svg viewBox="0 0 160 100" class="promo-illustration" aria-hidden="true">
+        <polygon points="5,95 55,30 90,68 108,45 155,95" fill="var(--accent-bg)" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+        <polygon points="65,95 108,45 155,95" fill="var(--bg-alt)" stroke="var(--border)" stroke-width="2" stroke-linejoin="round"/>
+        <line x1="108" y1="45" x2="118" y2="30" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
+        <polygon points="118,30 135,36 118,42" fill="var(--danger)"/>
+      </svg>
+      <h3 class="mt-1">Stay ahead of your opportunities</h3>
+      <p class="muted">Keep your pipeline healthy, meet deadlines and win more bids.</p>
+      <a class="btn w-auto" href="#pipeline-performance">View full pipeline &rarr;</a>
+    </div>
+  </div>
+</section>
+
+<script>
+  (function () {
+    var filterBar = document.getElementById('kanban-filters');
+    if (!filterBar) return;
+    var buttons = filterBar.querySelectorAll('[data-filter]');
+    var columns = document.querySelectorAll('.kanban-column');
+    var lostNote = document.getElementById('kanban-lost-note');
+
+    function applyFilter(filter) {
+      var visible = [];
+      columns.forEach(function (col) {
+        var stage = col.getAttribute('data-stage');
+        var show = filter === 'all' || (filter === 'open' && stage !== 'won') || (filter === 'won' && stage === 'won');
+        col.hidden = !show;
+        col.classList.remove('chain-start', 'chain-end');
+        if (show) visible.push(col);
+      });
+      // The interlocking chevron chain only has a flat left/right edge at whichever columns
+      // are currently first/last among the VISIBLE set - recomputed on every filter change
+      // (hiding "Won" shifts the flat-right edge onto whatever stage is now last, etc.).
+      if (visible.length) {
+        visible[0].classList.add('chain-start');
+        visible[visible.length - 1].classList.add('chain-end');
+      }
+      lostNote.hidden = filter !== 'lost';
+    }
+
+    buttons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        buttons.forEach(function (b) { b.classList.toggle('active', b === btn); });
+        applyFilter(btn.getAttribute('data-filter'));
+      });
+    });
+  })();
+</script>
+
+<section id="closing-readiness" class="tab-panel" role="tabpanel" aria-labelledby="tab-closing-readiness" tabindex="-1">
+  <div class="section-header">
+    <h2 class="mt-0"><%- include('partials/icon', { name: 'calendar' }) %> Closing &amp; Readiness</h2>
+    <p class="muted mt-0">Monitor submission deadlines, resolve readiness gaps, and track clarifications.</p>
+  </div>
+
+  <%
+    const readinessGapTotal = data.missingReadiness.reduce((sum, r) => sum + r.readinessGaps.length, 0);
+    const unassignedReadinessCount = data.missingReadiness.filter(r => !r.ownerLabel).length;
+    const criticalRedDelayCount = data.delaySummary.criticalCount + data.delaySummary.redCount;
+  %>
+  <div class="stat-grid" hx-boost="false">
+    <div class="stat-card<%= data.closingThisWeek.length > 0 ? ' warn' : '' %>">
+      <span class="stat-icon"><%- include('partials/icon', { name: 'calendar' }) %></span>
+      <span class="stat-value"><%= data.closingThisWeek.length %></span>
+      <span class="stat-label">Closing Soon</span>
+      <span class="muted" style="font-size:0.78rem;">Within next 7 days</span>
+    </div>
+    <div class="stat-card<%= readinessGapTotal > 0 ? ' warn' : '' %>">
+      <span class="stat-icon"><%- include('partials/icon', { name: 'alert' }) %></span>
+      <span class="stat-value"><%= readinessGapTotal %></span>
+      <span class="stat-label">Readiness Gaps</span>
+      <span class="muted" style="font-size:0.78rem;">Across <%= data.missingReadiness.length %> bids</span>
+    </div>
+    <div class="stat-card<%= unassignedReadinessCount > 0 ? ' warn' : '' %>">
+      <span class="stat-icon"><%- include('partials/icon', { name: 'user' }) %></span>
+      <span class="stat-value"><%= unassignedReadinessCount %></span>
+      <span class="stat-label">Unassigned</span>
+      <span class="muted" style="font-size:0.78rem;">Among bids missing readiness</span>
+    </div>
+    <div class="stat-card<%= criticalRedDelayCount > 0 ? ' danger' : '' %>">
+      <span class="stat-icon"><%- include('partials/icon', { name: 'alert' }) %></span>
+      <span class="stat-value"><%= criticalRedDelayCount %></span>
+      <span class="stat-label">Critical/Red Delays</span>
+      <span class="muted" style="font-size:0.78rem;">Stage-target critical or red</span>
+    </div>
+  </div>
+
+  <nav class="anchor-nav sub-nav" role="tablist" aria-label="Closing &amp; Readiness sections">
+    <a href="#closing-schedule" id="tab-closing-schedule" role="tab" aria-controls="closing-schedule"><%- include('partials/icon', { name: 'calendar', size: 16 }) %> Closing Schedule</a>
+    <a href="#readiness-gaps-tab" id="tab-readiness-gaps-tab" role="tab" aria-controls="readiness-gaps-tab"><%- include('partials/icon', { name: 'alert', size: 16 }) %> Readiness Gaps</a>
+    <a href="#clarifications-tab" id="tab-clarifications-tab" role="tab" aria-controls="clarifications-tab"><%- include('partials/icon', { name: 'clock', size: 16 }) %> Clarifications</a>
+  </nav>
+
+  <section id="closing-schedule" class="tab-panel" role="tabpanel" aria-labelledby="tab-closing-schedule" tabindex="-1">
+    <%# id="closing-soon" preserves the page-level "Closing in 7 days"/"Missing MAF" KPI cards' and the Priority Actions list's existing links into this now-nested sub-tab - see buildPriorityActions in dashboard.js and the stat-grid above. %>
+    <span id="closing-soon"></span>
+    <% if (closingScheduleRows.length === 0) { %>
+      <p class="muted mt-2">Nothing closing in the next 14 days.</p>
+    <% } else { %>
+    <div class="schedule-toolbar" id="schedule-toolbar">
+      <div class="row tight" role="group" aria-label="Quick date range">
+        <button type="button" class="pill" data-range="today">Today</button>
+        <button type="button" class="pill" data-range="3">Next 3 Days</button>
+        <button type="button" class="pill active" data-range="7">Next 7 Days</button>
+        <button type="button" class="pill" data-range="14">14 Days</button>
+      </div>
+      <div class="row tight">
+        <input type="search" id="schedule-search" placeholder="Search bids, customers..." class="w-auto">
+        <select id="schedule-division-filter" class="w-auto">
+          <option value="">All divisions</option>
+          <% closingScheduleDivisions.forEach(d => { %><option value="<%= d %>"><%= d %></option><% }) %>
+        </select>
+        <select id="schedule-owner-filter" class="w-auto">
+          <option value="">All owners</option>
+          <option value="Unassigned">Unassigned</option>
+          <% closingScheduleOwners.forEach(o => { %><option value="<%= o %>"><%= o %></option><% }) %>
+        </select>
+        <select id="schedule-readiness-filter" class="w-auto">
+          <option value="">All readiness</option>
+          <option value="ready">Ready</option>
+          <option value="gaps">Has gaps</option>
+        </select>
+        <button type="button" class="secondary w-auto" id="schedule-sort-toggle" data-dir="asc">Sort: Closing date &uarr;</button>
+      </div>
+    </div>
+
+    <div id="schedule-groups">
+      <% closingScheduleByDate.forEach((group, groupIndex) => {
+        const chipClass = group.relative === 'Today' ? 'lost' : (group.relative === 'Tomorrow' ? 'review' : '');
+        const chipLabel = group.relative === 'Today' ? 'Due Today' : (group.relative === 'Tomorrow' ? 'Due Tomorrow' : (group.relative ? 'Due ' + group.relative : null));
+      %>
+      <div class="schedule-date-group" data-group data-group-key="<%= group.key %>">
+        <details<%= groupIndex === 0 ? ' open' : '' %>>
+          <summary class="schedule-date-summary">
+            <span class="row tight">
+              <strong><%= group.label %></strong>
+              <% if (group.relative) { %><span class="badge"><%= group.relative %></span><% } %>
+            </span>
+            <span class="muted" data-group-count><%= group.rows.length %> bid<%= group.rows.length === 1 ? '' : 's' %></span>
+          </summary>
+          <div class="schedule-rows">
+            <% group.rows.forEach(row => { %>
+            <div class="schedule-row" data-row
+                 data-closing-at="<%= row.closingAt %>"
+                 data-search="<%= (row.title + ' ' + row.organizationName).toLowerCase() %>"
+                 data-division="<%= row.divisionNames.join('|') %>"
+                 data-owner="<%= row.ownerLabel || 'Unassigned' %>"
+                 data-readiness="<%= row.readinessGaps.length === 0 ? 'ready' : 'gaps' %>">
+              <div class="schedule-row-time">
+                <strong><%= new Date(row.closingAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Africa/Addis_Ababa' }) %></strong>
+                <% if (chipLabel) { %><span class="badge <%= chipClass %>"><%= chipLabel %></span><% } %>
+              </div>
+              <div class="schedule-row-main">
+                <a href="/bids/<%= row.bidId %>"><%= row.title %></a>
+                <div class="muted" style="font-size:0.8rem;"><%= row.organizationName %></div>
+              </div>
+              <div class="schedule-row-meta">
+                <span class="row tight"><%- include('partials/icon', { name: 'building', size: 15 }) %> <%= row.divisionNames.length ? row.divisionNames.join(', ') : 'Not assigned' %></span>
+                <span class="row tight"><%- include('partials/icon', { name: 'user', size: 15 }) %> <%= row.ownerLabel || 'Unassigned' %></span>
+              </div>
+              <div class="schedule-row-readiness">
+                <% if (row.readinessGaps.length === 0) { %><span class="badge won">Ready</span>
+                <% } else { %><span class="badge gap-badge"><%= row.readinessGaps.length %> gap<%= row.readinessGaps.length === 1 ? '' : 's' %></span><% } %>
+              </div>
+              <div class="schedule-row-bond muted">
+                <% if (Number(row.bidBondAmountEtb) > 0) { %><%= formatMoney(row.bidBondAmountEtb, 'ETB') %><% } %>
+                <% if (Number(row.bidBondAmountUsd) > 0) { %><%= formatMoney(row.bidBondAmountUsd, 'USD') %><% } %>
+                <% if (Number(row.bidBondAmountEtb) === 0 && Number(row.bidBondAmountUsd) === 0) { %>-<% } %>
+              </div>
+              <a class="btn secondary w-auto btn-xs" href="/bids/<%= row.bidId %>">View</a>
+            </div>
+            <% }) %>
+          </div>
+        </details>
+      </div>
+      <% }) %>
+    </div>
+    <p class="muted mt-1" id="schedule-empty" hidden>No bids match the current filters.</p>
+    <a class="view-all" href="/bids?<%= new URLSearchParams({ closingFrom: dateRanges.closingThisWeek.closingFrom, closingTo: dateRanges.closingNextWeek.closingTo }).toString() %>">Open full 14-day range in bid list &rarr;</a>
+
+    <script>
+      // Pure client-side filtering/sorting over the already-rendered rows above - every row
+      // carries its own closing time/search text/division/owner/readiness as data-* attributes,
+      // so narrowing the view needs no page reload or extra fetch. "Today/Next 3/7/14 Days" are
+      // cumulative upper bounds (not exclusive buckets), matching how the ranges read in the UI.
+      (function () {
+        var toolbar = document.getElementById('schedule-toolbar');
+        if (!toolbar) return;
+        var rangeButtons = toolbar.querySelectorAll('[data-range]');
+        var search = document.getElementById('schedule-search');
+        var divisionFilter = document.getElementById('schedule-division-filter');
+        var ownerFilter = document.getElementById('schedule-owner-filter');
+        var readinessFilter = document.getElementById('schedule-readiness-filter');
+        var sortToggle = document.getElementById('schedule-sort-toggle');
+        var groupsContainer = document.getElementById('schedule-groups');
+        var emptyMsg = document.getElementById('schedule-empty');
+        var activeRange = '7';
+        var RANGE_HOURS = { today: 24, '3': 72, '7': 168, '14': 336 };
+
+        function applyFilters() {
+          var now = Date.now();
+          var rangeHours = RANGE_HOURS[activeRange] || RANGE_HOURS['14'];
+          var searchText = search.value.trim().toLowerCase();
+          var division = divisionFilter.value;
+          var owner = ownerFilter.value;
+          var readiness = readinessFilter.value;
+          var anyVisible = false;
+
+          groupsContainer.querySelectorAll('[data-group]').forEach(function (group) {
+            var groupHasVisible = false;
+            group.querySelectorAll('[data-row]').forEach(function (row) {
+              var hoursUntil = (new Date(row.getAttribute('data-closing-at')).getTime() - now) / 3600000;
+              var matches = hoursUntil <= rangeHours
+                && (!searchText || row.getAttribute('data-search').indexOf(searchText) !== -1)
+                && (!division || row.getAttribute('data-division').split('|').indexOf(division) !== -1)
+                && (!owner || row.getAttribute('data-owner') === owner)
+                && (!readiness || row.getAttribute('data-readiness') === readiness);
+              row.hidden = !matches;
+              if (matches) { groupHasVisible = true; anyVisible = true; }
+            });
+            group.hidden = !groupHasVisible;
+            var countEl = group.querySelector('[data-group-count]');
+            if (countEl) {
+              var visibleCount = group.querySelectorAll('[data-row]:not([hidden])').length;
+              countEl.textContent = visibleCount + ' bid' + (visibleCount === 1 ? '' : 's');
+            }
+          });
+
+          emptyMsg.hidden = anyVisible;
+        }
+
+        rangeButtons.forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            rangeButtons.forEach(function (b) { b.classList.toggle('active', b === btn); });
+            activeRange = btn.getAttribute('data-range');
+            applyFilters();
+          });
+        });
+        search.addEventListener('input', applyFilters);
+        divisionFilter.addEventListener('change', applyFilters);
+        ownerFilter.addEventListener('change', applyFilters);
+        readinessFilter.addEventListener('change', applyFilters);
+
+        sortToggle.addEventListener('click', function () {
+          var dir = sortToggle.getAttribute('data-dir') === 'asc' ? 'desc' : 'asc';
+          sortToggle.setAttribute('data-dir', dir);
+          sortToggle.textContent = 'Sort: Closing date ' + (dir === 'asc' ? '↑' : '↓');
+          var groups = Array.prototype.slice.call(groupsContainer.querySelectorAll('[data-group]'));
+          groups.sort(function (a, b) {
+            var ka = a.getAttribute('data-group-key'), kb = b.getAttribute('data-group-key');
+            return dir === 'asc' ? ka.localeCompare(kb) : kb.localeCompare(ka);
+          });
+          groups.forEach(function (g) { groupsContainer.appendChild(g); });
+        });
+
+        applyFilters();
+      })();
+    </script>
+    <% } %>
+  </section>
+
+  <section id="readiness-gaps-tab" class="tab-panel" role="tabpanel" aria-labelledby="tab-readiness-gaps-tab" tabindex="-1">
+    <h2 id="readiness-gaps" class="mt-1"><%- include('partials/icon', { name: 'alert' }) %> Bid readiness gaps</h2>
+    <p class="muted mt-0">Open bids still missing a MAF or vendor quote, regardless of closing date</p>
+    <% if (data.missingReadiness.length === 0) { %>
+      <p class="muted">No readiness gaps right now.</p>
+    <% } else { %>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Bid</th><th>Division</th><th>Gaps</th><th>Owner</th><th>Closing</th></tr></thead>
+      <tbody>
+        <% data.missingReadiness.forEach(row => { %>
+          <tr onclick="window.location='/bids/<%= row.bidId %>'" style="cursor:pointer;">
+            <td>
+              <a href="/bids/<%= row.bidId %>"><%= row.title %></a>
+              <div class="muted" style="font-size:0.8rem;"><%= row.organizationName %></div>
+            </td>
+            <td><%= row.divisionNames.length ? row.divisionNames.join(', ') : '-' %></td>
+            <td><% row.readinessGaps.forEach(gap => { %><span class="badge gap-badge"><%= gap %></span><% }) %></td>
+            <td><%= row.ownerLabel || 'Unassigned' %></td>
+            <td class="muted"><%= row.closingAt ? formatDate(row.closingAt) : 'No closing date' %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    </div>
+    <% } %>
+  </section>
+
+  <section id="clarifications-tab" class="tab-panel" role="tabpanel" aria-labelledby="tab-clarifications-tab" tabindex="-1">
+    <h2 class="mt-1"><%- include('partials/icon', { name: 'clock' }) %> Upcoming clarification deadlines</h2>
+    <div class="card">
+      <% if (data.upcomingClarifications.length === 0) { %><p class="muted">None upcoming.</p><% } %>
+      <% clarificationGroups.forEach(group => { %>
+        <div class="subgroup-heading"><%= group.label %></div>
+        <% group.rows.forEach(row => { %>
+          <div class="checklist-item">
+            <a href="/bids/<%= row.bidId %>"><%= row.title %></a> - <%= row.organizationName %>
+            <% if (row.divisionNames.length) { %><span class="badge"><%= row.divisionNames.join(', ') %></span><% } %>
+            <span class="muted"><%= formatDateTime(row.clarificationDeadline) %></span>
+          </div>
+        <% }) %>
+      <% }) %>
+    </div>
+  </section>
+</section>
+
+<section id="delays" class="tab-panel" role="tabpanel" aria-labelledby="tab-delays" tabindex="-1">
+  <h2 id="stuck" class="mt-1"><%- include('partials/icon', { name: 'alert' }) %> Where deals are stuck</h2>
+  <a class="view-all" href="/delays">Delays board &rarr;</a>
+  <%
+    const segTotal = data.delaySummary.criticalCount + data.delaySummary.redCount + data.delaySummary.amberCount + data.delaySummary.greenCount;
+    const segPct = (n) => segTotal > 0 ? (n / segTotal * 100) : 0;
+  %>
+  <div class="segmented-bar mt-1">
+    <% if (data.delaySummary.criticalCount > 0) { %><div class="segment critical" style="width:<%= segPct(data.delaySummary.criticalCount) %>%;"></div><% } %>
+    <% if (data.delaySummary.redCount > 0) { %><div class="segment red" style="width:<%= segPct(data.delaySummary.redCount) %>%;"></div><% } %>
+    <% if (data.delaySummary.amberCount > 0) { %><div class="segment amber" style="width:<%= segPct(data.delaySummary.amberCount) %>%;"></div><% } %>
+    <% if (data.delaySummary.greenCount > 0) { %><div class="segment green" style="width:<%= segPct(data.delaySummary.greenCount) %>%;"></div><% } %>
+  </div>
+  <div class="row tight mt-1" style="font-size:0.82rem;">
+    <span><span class="status-dot" style="background:var(--danger);"></span> Critical <%= data.delaySummary.criticalCount %></span>
+    <span><span class="status-dot" style="background:var(--danger);opacity:0.6;"></span> Red <%= data.delaySummary.redCount %></span>
+    <span><span class="status-dot" style="background:var(--warn);"></span> Amber <%= data.delaySummary.amberCount %></span>
+    <span><span class="status-dot" style="background:var(--ok);"></span> On track <%= data.delaySummary.greenCount %></span>
+  </div>
+  <p class="muted" style="font-size:0.82rem;">Stale <%= data.delaySummary.staleCount %></p>
+
+  <% if (data.delaySummary.topDelayed.length === 0) { %>
+    <p class="muted">Nothing behind target right now.</p>
+  <% } else { %>
+    <div class="stack mt-2" style="max-width:40rem;">
+      <% data.delaySummary.topDelayed.slice(0, 5).forEach(row => { %>
+        <div class="card delay-item" onclick="window.location='<%= row.detailHref %>'">
+          <div class="row" style="justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div class="bid-card-title"><%= row.bidTitle %><% if (row.entityType !== 'LOT') { %> <span class="badge" style="margin-left:0.4rem;"><%= row.entityType %></span><% } %></div>
+              <div class="muted" style="font-size:0.8rem;"><%= row.lotLabel %><% if (row.divisionName) { %> &middot; <%= row.divisionName %><% } %></div>
+            </div>
+            <a class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>" onclick="event.stopPropagation()"
+               <% if (row.daysUsed !== null && row.targetDays !== null) { %>title="<%= row.daysUsed.toFixed(1) %>d / <%= row.targetDays.toFixed(1) %>d target"<% } %>
+               href="<%= stageHistoryHref(row.entityType, row.entityId, { title: row.bidTitle, subtitle: row.lotLabel, backHref: row.detailHref, backLabel: 'Back' }) %>"><%= row.indicatorLevel %><% if (row.percentUsed !== null) { %> &middot; <%= Math.round(row.percentUsed) %>%<% } %></a>
+          </div>
+          <div class="progress-bar mt-1"><div style="width:<%= Math.min(100, row.percentUsed || 0) %>%; background:<%= row.indicatorLevel === 'CRITICAL' || row.indicatorLevel === 'RED' ? 'var(--danger)' : 'var(--warn)' %>;"></div></div>
+          <div class="row tight mt-1" style="font-size:0.78rem;">
+            <span class="muted"><% if (row.daysUsed !== null && row.targetDays !== null) { %><%= Math.round(row.daysUsed) %>d in stage &middot; target <%= Math.round(row.targetDays) %>d<% } %></span>
+            <% if (row.waitingOnParty) { %><span class="muted">Waiting on <strong><%= row.waitingOnParty %></strong></span><% } %>
+          </div>
         </div>
       <% }) %>
     </div>
   <% } %>
-  <% if (data.bidsPastOpeningNoResult.length > 0) { %>
-    <div class="warning-box mt-2">
-      <strong><%= data.bidsPastOpeningNoResult.length %> bid<%= data.bidsPastOpeningNoResult.length === 1 ? ' is' : 's are' %> past opening with no result</strong>
-      <div class="mt-1"><%= data.bidsPastOpeningNoResult.map(r => r.title + ' (' + formatDate(r.openingAt) + ')').join(', ') %></div>
-      <a class="view-all" href="/bids?status=UNDER_EVALUATION">Record outcomes &rarr;</a>
-    </div>
-  <% } %>
-</div>
+</section>
 
-<div class="row top mt-3">
-  <div class="col" style="flex:2; min-width:28rem;">
-    <h2 id="bonds-outstanding"><%- include('partials/icon', { name: 'shield' }) %> Bid bonds outstanding</h2>
-    <p class="muted mt-0">ETB <%= new Intl.NumberFormat('en-US').format(data.outstandingBondTotalEtb) %> &middot; USD <%= new Intl.NumberFormat('en-US').format(data.outstandingBondTotalUsd) %> &middot; <%= data.outstandingBonds.length %> bonds &middot; soonest expiry first</p>
-    <div class="table-scroll">
-    <table>
-      <thead><tr><th>Customer &middot; bid</th><th>Lot</th><th>Amount</th><th>Bid closes/closed</th><th>Bond expires</th></tr></thead>
-      <tbody id="bonds-tbody">
-        <% bondsDisplayItems.forEach(item => { %>
-          <% if (item.kind === 'divider') { %>
-            <tr<%= item.hidden ? ' hidden' : '' %>><td colspan="5" class="subgroup-heading" style="margin:0;"><%= item.label %></td></tr>
-          <% } else { %>
-            <% const row = item.row; %>
-            <tr<%= item.hidden ? ' hidden' : '' %> onclick="window.location='/bids/<%= row.bidId %>'" style="cursor:pointer;">
-              <td><strong><%= row.organizationName %></strong><div class="muted" style="font-size:0.8rem;"><%= row.bidTitle %></div></td>
-              <td><%= row.lotLabel %></td>
-              <td><%= formatMoney(row.amount, row.currency) %></td>
-              <td><%= row.bidClosingAt && new Date(row.bidClosingAt).getTime() < Date.now() ? 'Closed ' : 'Closes ' %><%= formatDate(row.bidClosingAt) %></td>
-              <td><% if (row.expiringSoon) { %><span class="badge review"><%= formatDate(row.estimatedExpiry) %></span><% } else { %><%= formatDate(row.estimatedExpiry) %><% } %></td>
-            </tr>
-          <% } %>
+<section id="pipeline-performance" class="tab-panel" role="tabpanel" aria-labelledby="tab-pipeline-performance" tabindex="-1">
+  <h2 id="pipeline" class="mt-1"><%- include('partials/icon', { name: 'trending' }) %> Pipeline by division</h2>
+  <p class="muted mt-0">ETB and USD are tracked separately, never summed</p>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Division</th><th>ETB</th><th>USD</th><th>Lots</th></tr></thead>
+    <tbody>
+      <% data.pipelineByDivision.forEach(row => { %>
+        <tr><td><%= row.groupLabel %></td><td><%= formatMoney(row.totalEtb) %></td><td><%= formatMoney(row.totalUsd) %></td><td><%= row.lotCount %></td></tr>
+      <% }) %>
+      <% if (data.pipelineByDivision.length === 0) { %><tr><td colspan="4" class="muted">No priced lots yet.</td></tr><% } %>
+    </tbody>
+  </table>
+  </div>
+
+  <h2 class="mt-3">Win rate</h2>
+  <div class="card">
+    <% const anyDecided = data.winRateByDivision.some(r => r.wonCount + r.lostCount > 0); %>
+    <% if (!anyDecided) { %>
+      <p class="muted mt-0">No outcomes recorded yet. Win rate by division, officer and OEM appears once bids are marked won or lost.</p>
+    <% } else { %>
+      <div class="bar-chart">
+        <% data.winRateByDivision.filter(r => r.wonCount + r.lostCount > 0).forEach(row => { %>
+          <% const total = row.wonCount + row.lostCount; %>
+          <div class="bar-row">
+            <span class="bar-label" title="<%= row.groupLabel %>"><%= row.groupLabel %></span>
+            <div class="bar-track stacked">
+              <div class="bar-fill won" style="width: <%= Math.round((row.wonCount / total) * 100) %>%;"></div>
+              <div class="bar-fill lost" style="width: <%= Math.round((row.lostCount / total) * 100) %>%;"></div>
+            </div>
+            <span class="bar-value"><%= row.winRatePercent %>% (<%= row.wonCount %>W / <%= row.lostCount %>L)</span>
+          </div>
         <% }) %>
-        <% if (data.outstandingBonds.length === 0) { %><tr><td colspan="5" class="muted">No outstanding bid bonds.</td></tr><% } %>
-      </tbody>
-    </table>
-    </div>
-    <% if (data.outstandingBonds.length > bondRowLimit) { %>
-      <button type="button" class="secondary w-auto mt-1" id="bonds-show-all">Show all <%= data.outstandingBonds.length %></button>
-      <script>
-        document.getElementById('bonds-show-all').addEventListener('click', function () {
-          document.querySelectorAll('#bonds-tbody [hidden]').forEach(function (el) { el.hidden = false; });
-          this.remove();
-        });
-      </script>
+      </div>
     <% } %>
-    <p class="muted">Expiry is estimated from the bond's issue date, or from the bid opening date when no issue date is recorded.</p>
-  </div>
-
-  <div class="col" style="flex:1; min-width:18rem;">
-    <h2 id="deal-regs"><%- include('partials/icon', { name: 'repeat' }) %> Deal registrations</h2>
-    <div class="stat-grid" style="grid-template-columns:repeat(3, 1fr);" hx-boost="false">
-      <div class="stat-card">
-        <span class="stat-value"><%= data.dealRegistrationSummary.expiringSoonCount %></span>
-        <span class="stat-label">Expiring 30d</span>
+    <% if (data.bidsPastOpeningNoResult.length > 0) { %>
+      <div class="warning-box mt-2">
+        <strong><%= data.bidsPastOpeningNoResult.length %> bid<%= data.bidsPastOpeningNoResult.length === 1 ? ' is' : 's are' %> past opening with no result</strong>
+        <div class="mt-1"><%= data.bidsPastOpeningNoResult.map(r => r.title + ' (' + formatDate(r.openingAt) + ')').join(', ') %></div>
+        <a class="view-all" href="/bids?status=UNDER_EVALUATION">Record outcomes &rarr;</a>
       </div>
-      <div class="stat-card">
-        <span class="stat-value"><%= data.dealRegistrationSummary.pendingOemCount %></span>
-        <span class="stat-label">Pending OEM</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value"><%= data.dealRegistrationSummary.approvedCount %></span>
-        <span class="stat-label">Approved</span>
-      </div>
-    </div>
-    <% if (data.dealRegistrationSummary.bidsPreparingWithoutRegistration.length > 0) { %>
-      <p class="mt-1">Bids preparing without a registration: <%= data.dealRegistrationSummary.bidsPreparingWithoutRegistration.join(', ') %>.</p>
     <% } %>
-    <a class="view-all" href="/deal-registrations/new">Register a deal &rarr;</a>
   </div>
-</div>
 
-<h2 class="mt-3">Upcoming clarification deadlines</h2>
-<div class="card">
-  <% if (data.upcomingClarifications.length === 0) { %><p class="muted">None upcoming.</p><% } %>
-  <% clarificationGroups.forEach(group => { %>
-    <div class="subgroup-heading"><%= group.label %></div>
-    <% group.rows.forEach(row => { %>
-      <div class="checklist-item">
-        <a href="/bids/<%= row.bidId %>"><%= row.title %></a> - <%= row.organizationName %>
-        <% if (row.divisionNames.length) { %><span class="badge"><%= row.divisionNames.join(', ') %></span><% } %>
-        <span class="muted"><%= formatDateTime(row.clarificationDeadline) %></span>
+  <h2 class="mt-3">By division / status (detail)</h2>
+  <div class="card">
+    <div style="display:flex; gap:2rem; flex-wrap:wrap;">
+      <div style="flex:1; min-width:16rem;">
+        <strong>By status</strong>
+        <table>
+          <thead><tr><th>Status</th><th>ETB</th><th>USD</th><th>Lots</th></tr></thead>
+          <tbody>
+            <% data.pipelineByStatus.forEach(row => { %>
+              <tr><td><%= row.groupLabel %></td><td><%= formatMoney(row.totalEtb) %></td><td><%= formatMoney(row.totalUsd) %></td><td><%= row.lotCount %></td></tr>
+            <% }) %>
+          </tbody>
+        </table>
       </div>
-    <% }) %>
-  <% }) %>
-</div>
-
-<h2 class="mt-3">By division / status (detail)</h2>
-<div class="card">
-  <div style="display:flex; gap:2rem; flex-wrap:wrap;">
-    <div style="flex:1; min-width:16rem;">
-      <strong>By status</strong>
-      <table>
-        <thead><tr><th>Status</th><th>ETB</th><th>USD</th><th>Lots</th></tr></thead>
-        <tbody>
-          <% data.pipelineByStatus.forEach(row => { %>
-            <tr><td><%= row.groupLabel %></td><td><%= formatMoney(row.totalEtb) %></td><td><%= formatMoney(row.totalUsd) %></td><td><%= row.lotCount %></td></tr>
-          <% }) %>
-        </tbody>
-      </table>
-    </div>
-    <div style="flex:1; min-width:16rem;">
-      <strong>By officer</strong>
-      <table>
-        <thead><tr><th></th><th>Won</th><th>Lost</th><th>Rate</th></tr></thead>
-        <tbody>
-          <% data.winRateByOfficer.forEach(row => { %>
-            <tr><td><%= row.groupLabel %></td><td><%= row.wonCount %></td><td><%= row.lostCount %></td><td><%= row.winRatePercent %>%</td></tr>
-          <% }) %>
-          <% if (data.winRateByOfficer.length === 0) { %><tr><td colspan="4" class="muted">No decided bids yet.</td></tr><% } %>
-        </tbody>
-      </table>
-    </div>
-    <div style="flex:1; min-width:16rem;">
-      <strong>By OEM</strong>
-      <table>
-        <thead><tr><th></th><th>Won</th><th>Lost</th><th>Rate</th></tr></thead>
-        <tbody>
-          <% data.winRateByOem.forEach(row => { %>
-            <tr><td><%= row.groupLabel %></td><td><%= row.wonCount %></td><td><%= row.lostCount %></td><td><%= row.winRatePercent %>%</td></tr>
-          <% }) %>
-          <% if (data.winRateByOem.length === 0) { %><tr><td colspan="4" class="muted">No decided bids yet.</td></tr><% } %>
-        </tbody>
-      </table>
+      <div style="flex:1; min-width:16rem;">
+        <strong>By officer</strong>
+        <table>
+          <thead><tr><th></th><th>Won</th><th>Lost</th><th>Rate</th></tr></thead>
+          <tbody>
+            <% data.winRateByOfficer.forEach(row => { %>
+              <tr><td><%= row.groupLabel %></td><td><%= row.wonCount %></td><td><%= row.lostCount %></td><td><%= row.winRatePercent %>%</td></tr>
+            <% }) %>
+            <% if (data.winRateByOfficer.length === 0) { %><tr><td colspan="4" class="muted">No decided bids yet.</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+      <div style="flex:1; min-width:16rem;">
+        <strong>By OEM</strong>
+        <table>
+          <thead><tr><th></th><th>Won</th><th>Lost</th><th>Rate</th></tr></thead>
+          <tbody>
+            <% data.winRateByOem.forEach(row => { %>
+              <tr><td><%= row.groupLabel %></td><td><%= row.wonCount %></td><td><%= row.lostCount %></td><td><%= row.winRatePercent %>%</td></tr>
+            <% }) %>
+            <% if (data.winRateByOem.length === 0) { %><tr><td colspan="4" class="muted">No decided bids yet.</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
-</div>
+</section>
+
+<section id="bonds-deal-regs" class="tab-panel" role="tabpanel" aria-labelledby="tab-bonds-deal-regs" tabindex="-1">
+  <div class="row top">
+    <div class="col" style="flex:2; min-width:28rem;">
+      <h2 id="bonds-outstanding" class="mt-1"><%- include('partials/icon', { name: 'shield' }) %> Bid bonds outstanding</h2>
+      <p class="muted mt-0">ETB <%= new Intl.NumberFormat('en-US').format(data.outstandingBondTotalEtb) %> &middot; USD <%= new Intl.NumberFormat('en-US').format(data.outstandingBondTotalUsd) %> &middot; <%= data.outstandingBonds.length %> bonds &middot; soonest expiry first</p>
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Customer &middot; bid</th><th>Lot</th><th>Amount</th><th>Bid closes/closed</th><th>Bond expires</th></tr></thead>
+        <tbody id="bonds-tbody">
+          <% bondsDisplayItems.forEach(item => { %>
+            <% if (item.kind === 'divider') { %>
+              <tr<%= item.hidden ? ' hidden' : '' %>><td colspan="5" class="subgroup-heading" style="margin:0;"><%= item.label %></td></tr>
+            <% } else { %>
+              <% const row = item.row; %>
+              <tr<%= item.hidden ? ' hidden' : '' %> onclick="window.location='/bids/<%= row.bidId %>'" style="cursor:pointer;">
+                <td><strong><%= row.organizationName %></strong><div class="muted" style="font-size:0.8rem;"><%= row.bidTitle %></div></td>
+                <td><%= row.lotLabel %></td>
+                <td><%= formatMoney(row.amount, row.currency) %></td>
+                <td><%= row.bidClosingAt && new Date(row.bidClosingAt).getTime() < Date.now() ? 'Closed ' : 'Closes ' %><%= formatDate(row.bidClosingAt) %></td>
+                <td><% if (row.expiringSoon) { %><span class="badge review"><%= formatDate(row.estimatedExpiry) %></span><% } else { %><%= formatDate(row.estimatedExpiry) %><% } %></td>
+              </tr>
+            <% } %>
+          <% }) %>
+          <% if (data.outstandingBonds.length === 0) { %><tr><td colspan="5" class="muted">No outstanding bid bonds.</td></tr><% } %>
+        </tbody>
+      </table>
+      </div>
+      <% if (data.outstandingBonds.length > bondRowLimit) { %>
+        <button type="button" class="secondary w-auto mt-1" id="bonds-show-all">Show all <%= data.outstandingBonds.length %></button>
+        <script>
+          document.getElementById('bonds-show-all').addEventListener('click', function () {
+            document.querySelectorAll('#bonds-tbody [hidden]').forEach(function (el) { el.hidden = false; });
+            this.remove();
+          });
+        </script>
+      <% } %>
+      <p class="muted">Expiry is estimated from the bond's issue date, or from the bid opening date when no issue date is recorded.</p>
+    </div>
+
+    <div class="col" style="flex:1; min-width:18rem;">
+      <h2 id="deal-regs" class="mt-1"><%- include('partials/icon', { name: 'repeat' }) %> Deal registrations</h2>
+      <div class="stat-grid" style="grid-template-columns:repeat(3, 1fr);" hx-boost="false">
+        <div class="stat-card">
+          <span class="stat-value"><%= data.dealRegistrationSummary.expiringSoonCount %></span>
+          <span class="stat-label">Expiring 30d</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value"><%= data.dealRegistrationSummary.pendingOemCount %></span>
+          <span class="stat-label">Pending OEM</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value"><%= data.dealRegistrationSummary.approvedCount %></span>
+          <span class="stat-label">Approved</span>
+        </div>
+      </div>
+      <% if (data.dealRegistrationSummary.bidsPreparingWithoutRegistration.length > 0) { %>
+        <p class="mt-1">Bids preparing without a registration: <%= data.dealRegistrationSummary.bidsPreparingWithoutRegistration.join(', ') %>.</p>
+      <% } %>
+      <a class="view-all" href="/deal-registrations/new">Register a deal &rarr;</a>
+    </div>
+  </div>
+</section>
+
+<%- include('partials/tabNavScript') %>
 
 <%- include('partials/footer') %>

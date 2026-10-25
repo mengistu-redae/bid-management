@@ -13,4 +13,7 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLogEntry, U
 
     /** For the Director's daily digest's "what changed yesterday" section. */
     List<ActivityLogEntry> findByCreatedAtBetweenOrderByCreatedAtDesc(Instant from, Instant to);
+
+    /** For the dashboard's "Recent activity" feed - capped before the division/scoped-bid filtering happens in Java. */
+    List<ActivityLogEntry> findTop50ByEntityTypeOrderByCreatedAtDesc(EntityType entityType);
 }

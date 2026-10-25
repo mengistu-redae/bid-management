@@ -14,4 +14,7 @@ public interface BidStatusHistoryRepository extends JpaRepository<BidStatusHisto
 
     /** For the Director's daily digest's "what changed yesterday" section. */
     List<BidStatusHistory> findByChangedAtBetweenOrderByChangedAt(Instant from, Instant to);
+
+    /** For the dashboard's "Recent activity" feed - capped before the division/scoped-bid filtering happens in Java. */
+    List<BidStatusHistory> findTop50ByOrderByChangedAtDesc();
 }

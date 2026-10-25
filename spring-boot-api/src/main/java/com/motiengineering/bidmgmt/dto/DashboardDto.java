@@ -25,5 +25,9 @@ public record DashboardDto(
         List<DivisionPillDto> divisionFilters,
         /** Open bids where no lot has an estimated value recorded yet. */
         int unpricedBidCount,
-        int bondsExpiringWithin90DaysCount) {
+        int bondsExpiringWithin90DaysCount,
+        /** Null fields throughout when no snapshot is old enough yet - see KpiTrendsDto. */
+        KpiTrendsDto trends,
+        /** Most recent real status changes/notes across bids in the current division scope, newest first, capped at 10. */
+        List<RecentActivityRowDto> recentActivity) {
 }

@@ -16,6 +16,73 @@ function hoursUntil(iso) {
   return (new Date(iso).getTime() - Date.now()) / (60 * 60 * 1000);
 }
 
+/** Mirrors DashboardService's lifecycleBucket() exactly, so the Kanban columns agree with the KPI strip's own stage counts. */
+const STAGE_BUCKET = {
+  IDENTIFIED: 'Identified', UNDER_REVIEW: 'Identified',
+  PREPARING: 'Preparing',
+  SUBMITTED: 'Submitted', OPENED: 'Submitted',
+  UNDER_EVALUATION: 'Evaluation',
+  WON: 'Won',
+};
+const STAGES = ['Identified', 'Preparing', 'Submitted', 'Evaluation', 'Won'];
+// The real BidStatus value a stage's "View all" link filters /bids by - an approximation for
+// buckets that merge two statuses (Identified = IDENTIFIED or UNDER_REVIEW, Submitted =
+// SUBMITTED or OPENED): picks the more common/primary one rather than a lossless OR, which
+// the /bids list's single-value status filter doesn't support.
+const STAGE_PRIMARY_STATUS = { Identified: 'IDENTIFIED', Preparing: 'PREPARING', Submitted: 'SUBMITTED', Evaluation: 'UNDER_EVALUATION', Won: 'WON' };
+const KANBAN_CARD_LIMIT = 3;
+
+/** Mirrors DashboardService's applyDivisionFilter() exactly, so the Kanban board stays in sync with the rest of the page when a division pill is active. */
+function filterBidsByDivision(allBids, divisionParam) {
+  if (!divisionParam) return allBids;
+  if (divisionParam === 'none') {
+    return allBids.filter((b) => b.lots.every((l) => !l.division));
+  }
+  return allBids.filter((b) => b.lots.some((l) => l.division && l.division.id === divisionParam));
+}
+
+/**
+ * Builds the Overview tab's pipeline Kanban from the real bid list - one additional call to
+ * the existing GET /api/bids (already used by the /bids list page), no new backend endpoint.
+ * All/Open/Won/Lost counts and each stage's bid cards all come from this one real list (after
+ * the same division-pill scoping the rest of the page already applies), so they can never
+ * disagree with each other or with the KPI strip above.
+ */
+function buildPipelineKanban(allBids, divisionParam) {
+  const scoped = filterBidsByDivision(allBids, divisionParam);
+  const columns = STAGES.map((stage) => ({ stage, bids: [], count: 0, primaryStatus: STAGE_PRIMARY_STATUS[stage] }));
+  const byStage = new Map(columns.map((c) => [c.stage, c]));
+  let wonCount = 0;
+  let lostCount = 0;
+
+  for (const bid of scoped) {
+    const stage = STAGE_BUCKET[bid.status];
+    if (stage) {
+      const column = byStage.get(stage);
+      column.count++;
+      if (column.bids.length < KANBAN_CARD_LIMIT) {
+        column.bids.push({
+          id: bid.id,
+          title: bid.title,
+          organizationName: bid.organization ? bid.organization.name : null,
+          closingAt: bid.closingAt,
+        });
+      }
+      if (stage === 'Won') wonCount++;
+    } else {
+      lostCount++; // LOST/DROPPED/CANCELLED
+    }
+  }
+
+  return {
+    columns,
+    allCount: scoped.length,
+    openCount: scoped.length - wonCount - lostCount,
+    wonCount,
+    lostCount,
+  };
+}
+
 /**
  * Real, already-computed follow-ups surfaced as a short urgency-ranked list - no new data
  * fetched, no invented urgency score. Urgency reuses the windows the rest of the dashboard
@@ -136,17 +203,23 @@ function groupByClosingDate(rows) {
   return groups;
 }
 
+function distinctSorted(values) {
+  return [...new Set(values)].sort((a, b) => a.localeCompare(b));
+}
+
 function buildDashboardRouter() {
   const router = express.Router();
 
   router.get('/', async (req, res, next) => {
     try {
       const divisionParam = req.query.division ? String(req.query.division) : undefined;
-      const [data, divisions] = await Promise.all([
+      const [data, divisions, allBids] = await Promise.all([
         req.api.get(`/api/dashboard${divisionParam ? `?division=${encodeURIComponent(divisionParam)}` : ''}`),
         req.api.get('/api/divisions'),
+        req.api.get('/api/bids'),
       ]);
       const divisionNames = divisions.map((d) => d.name);
+      const pipelineKanban = buildPipelineKanban(allBids, divisionParam);
       const now = new Date();
       // Exact date-range equivalents of the dashboard's own "this week"/"next
       // week" windows, so each section's "View all" link reopens the same
@@ -158,6 +231,14 @@ function buildDashboardRouter() {
 
       const byDivisionNames = (row) => row.divisionNames;
       const closingThisWeekByDate = groupByClosingDate(data.closingThisWeek);
+      // The Closing & Readiness tab's "Closing Schedule" sub-tab shows one continuous
+      // date-grouped list spanning both already-fetched windows (0-14 days) - both are
+      // already sorted ascending by closingAt server-side and don't overlap, so
+      // concatenating them keeps the combined list in order without re-sorting.
+      const closingScheduleRows = [...data.closingThisWeek, ...data.closingNextWeek];
+      const closingScheduleByDate = groupByClosingDate(closingScheduleRows);
+      const closingScheduleDivisions = distinctSorted(closingScheduleRows.flatMap((r) => r.divisionNames));
+      const closingScheduleOwners = distinctSorted(closingScheduleRows.filter((r) => r.ownerLabel).map((r) => r.ownerLabel));
       const clarificationGroups = groupByDivision(data.upcomingClarifications, divisionNames, byDivisionNames);
       const bondsDisplayItems = buildBondsDisplayItems(
         groupByDivision(data.outstandingBonds, divisionNames, byDivisionNames),
@@ -170,6 +251,8 @@ function buildDashboardRouter() {
       res.render('dashboard', {
         title: 'Dashboard', user: req.session.user, data, dateRanges,
         closingThisWeekByDate, clarificationGroups,
+        closingScheduleByDate, closingScheduleRows, closingScheduleDivisions, closingScheduleOwners,
+        pipelineKanban,
         bondsDisplayItems, bondRowLimit: BOND_ROW_LIMIT,
         currentDivision: divisionParam || null,
         updatedAtLabel, priorityActions,

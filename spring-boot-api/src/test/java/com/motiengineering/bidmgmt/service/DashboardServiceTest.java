@@ -1,19 +1,27 @@
 package com.motiengineering.bidmgmt.service;
 
+import com.motiengineering.bidmgmt.domain.ActivityLogEntry;
+import com.motiengineering.bidmgmt.domain.AppUser;
 import com.motiengineering.bidmgmt.domain.Bid;
 import com.motiengineering.bidmgmt.domain.BidLot;
+import com.motiengineering.bidmgmt.domain.BidStatusHistory;
 import com.motiengineering.bidmgmt.domain.ChecklistItem;
+import com.motiengineering.bidmgmt.domain.DashboardKpiSnapshot;
 import com.motiengineering.bidmgmt.domain.Division;
 import com.motiengineering.bidmgmt.domain.LotScopeType;
 import com.motiengineering.bidmgmt.domain.Organization;
 import com.motiengineering.bidmgmt.domain.enums.BidBondForm;
 import com.motiengineering.bidmgmt.domain.enums.BidStatus;
 import com.motiengineering.bidmgmt.domain.enums.Currency;
+import com.motiengineering.bidmgmt.domain.enums.EntityType;
 import com.motiengineering.bidmgmt.domain.enums.GoNoGo;
 import com.motiengineering.bidmgmt.domain.enums.Outcome;
 import com.motiengineering.bidmgmt.dto.DashboardDto;
+import com.motiengineering.bidmgmt.repository.ActivityLogRepository;
 import com.motiengineering.bidmgmt.repository.AppUserRepository;
 import com.motiengineering.bidmgmt.repository.BidRepository;
+import com.motiengineering.bidmgmt.repository.BidStatusHistoryRepository;
+import com.motiengineering.bidmgmt.repository.DashboardKpiSnapshotRepository;
 import com.motiengineering.bidmgmt.repository.DealRegistrationRepository;
 import com.motiengineering.bidmgmt.repository.DivisionRepository;
 import com.motiengineering.bidmgmt.repository.LotAccountOfficerRepository;
@@ -23,9 +31,12 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +50,9 @@ class DashboardServiceTest {
     private LotAccountOfficerRepository lotAccountOfficerRepository;
     private LotScopeTypeRepository lotScopeTypeRepository;
     private DivisionRepository divisionRepository;
+    private DashboardKpiSnapshotRepository dashboardKpiSnapshotRepository;
+    private ActivityLogRepository activityLogRepository;
+    private BidStatusHistoryRepository bidStatusHistoryRepository;
     private DashboardService service;
 
     @BeforeEach
@@ -58,8 +72,16 @@ class DashboardServiceTest {
         DelaysBoardService delaysBoardService = mock(DelaysBoardService.class);
         when(delaysBoardService.summary(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyBoolean(), org.mockito.ArgumentMatchers.anyInt()))
                 .thenReturn(new com.motiengineering.bidmgmt.dto.DelaySummaryDto(0, 0, 0, 0, 0, List.of()));
+        dashboardKpiSnapshotRepository = mock(DashboardKpiSnapshotRepository.class);
+        when(dashboardKpiSnapshotRepository.findFirstBySnapshotDateLessThanEqualOrderBySnapshotDateDesc(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(Optional.empty());
+        activityLogRepository = mock(ActivityLogRepository.class);
+        when(activityLogRepository.findTop50ByEntityTypeOrderByCreatedAtDesc(EntityType.BID)).thenReturn(List.of());
+        bidStatusHistoryRepository = mock(BidStatusHistoryRepository.class);
+        when(bidStatusHistoryRepository.findTop50ByOrderByChangedAtDesc()).thenReturn(List.of());
         service = new DashboardService(bidRepository, lotAccountOfficerRepository, appUserRepository, dealRegistrationRepository,
-                divisionRepository, lotScopeTypeRepository, checklistService, delaysBoardService);
+                divisionRepository, lotScopeTypeRepository, checklistService, delaysBoardService,
+                dashboardKpiSnapshotRepository, activityLogRepository, bidStatusHistoryRepository);
     }
 
     private Organization org(String name) {
@@ -264,5 +286,80 @@ class DashboardServiceTest {
         var networkPill = filtered.divisionFilters().stream().filter(p -> "Network".equals(p.label())).findFirst().orElseThrow();
         assertThat(securityPill.closingSoonCount()).isEqualTo(1);
         assertThat(networkPill.closingSoonCount()).isEqualTo(1); // unfiltered - the other division's bid still counts here
+    }
+
+    @Test
+    void trendsAreEmptyWhenNoSnapshotIsOldEnoughYet() {
+        when(bidRepository.findAll()).thenReturn(List.of());
+        // dashboardKpiSnapshotRepository already stubbed to Optional.empty() in setUp()
+
+        DashboardDto dashboard = service.build();
+
+        assertThat(dashboard.trends().previousSnapshotDate()).isNull();
+        assertThat(dashboard.trends().closingSoonCountPrevious()).isNull();
+    }
+
+    @Test
+    void trendsComparesAgainstTheStoredSnapshotWhenNoDivisionIsSelected() {
+        when(bidRepository.findAll()).thenReturn(List.of());
+        DashboardKpiSnapshot snapshot = new DashboardKpiSnapshot();
+        snapshot.setSnapshotDate(LocalDate.now(ZoneId.of("Africa/Addis_Ababa")).minusDays(7));
+        snapshot.setClosingSoonCount(5);
+        snapshot.setMissingReadinessCount(10);
+        snapshot.setBehindStageTargetCount(2);
+        snapshot.setOpenPipelineEtb(new BigDecimal("1000"));
+        snapshot.setOpenPipelineUsd(BigDecimal.ZERO);
+        snapshot.setBidBondsOutstandingEtb(new BigDecimal("500"));
+        snapshot.setDealRegsExpiringCount(1);
+        when(dashboardKpiSnapshotRepository.findFirstBySnapshotDateLessThanEqualOrderBySnapshotDateDesc(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(Optional.of(snapshot));
+
+        DashboardDto dashboard = service.build(null);
+
+        assertThat(dashboard.trends().closingSoonCountPrevious()).isEqualTo(5);
+        assertThat(dashboard.trends().missingReadinessCountPrevious()).isEqualTo(10);
+    }
+
+    @Test
+    void trendsAreOmittedWhenASpecificDivisionIsSelectedEvenIfASnapshotExists() {
+        Division security = division("Security");
+        when(bidRepository.findAll()).thenReturn(List.of());
+        when(divisionRepository.findAll()).thenReturn(List.of(security));
+        DashboardKpiSnapshot snapshot = new DashboardKpiSnapshot();
+        snapshot.setSnapshotDate(LocalDate.now(ZoneId.of("Africa/Addis_Ababa")).minusDays(7));
+        when(dashboardKpiSnapshotRepository.findFirstBySnapshotDateLessThanEqualOrderBySnapshotDateDesc(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(Optional.of(snapshot));
+
+        DashboardDto dashboard = service.build(security.getId().toString());
+
+        assertThat(dashboard.trends().previousSnapshotDate()).isNull();
+    }
+
+    @Test
+    void recentActivityMergesStatusHistoryAndNotesScopedToVisibleBidsNewestFirst() {
+        Bid bid = bidWithLots("Visible bid", null, BidStatus.PREPARING);
+        Bid otherDivisionBid = bidWithLots("Other bid", null, BidStatus.PREPARING);
+        when(bidRepository.findAll()).thenReturn(List.of(bid, otherDivisionBid));
+
+        BidStatusHistory statusChange = new BidStatusHistory();
+        statusChange.setBid(bid);
+        statusChange.setToStatus(BidStatus.SUBMITTED);
+        statusChange.setChangedAt(Instant.now().minus(2, ChronoUnit.HOURS));
+        when(bidStatusHistoryRepository.findTop50ByOrderByChangedAtDesc()).thenReturn(List.of(statusChange));
+
+        AppUser author = new AppUser();
+        author.setFullName("Jane Doe");
+        ActivityLogEntry note = new ActivityLogEntry(EntityType.BID, bid.getId(), author, "Quote received");
+        note.setCreatedAt(Instant.now().minus(1, ChronoUnit.HOURS));
+        ActivityLogEntry noteOnBidNotInScope = new ActivityLogEntry(EntityType.BID, UUID.randomUUID(), author, "Unrelated");
+        noteOnBidNotInScope.setCreatedAt(Instant.now());
+        when(activityLogRepository.findTop50ByEntityTypeOrderByCreatedAtDesc(EntityType.BID)).thenReturn(List.of(noteOnBidNotInScope, note));
+
+        DashboardDto dashboard = service.build();
+
+        assertThat(dashboard.recentActivity()).hasSize(2);
+        assertThat(dashboard.recentActivity().get(0).message()).isEqualTo("Quote received"); // most recent first
+        assertThat(dashboard.recentActivity().get(1).message()).isEqualTo("Status changed to SUBMITTED");
+        assertThat(dashboard.recentActivity()).extracting("bidId").containsOnly(bid.getId()); // the other bid's note never appears
     }
 }

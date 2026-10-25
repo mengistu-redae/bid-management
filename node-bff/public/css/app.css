@@ -476,8 +476,9 @@ a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 
   .page-header-actions { margin-left: 0; }
 }
 
-/* Real same-page anchor navigation (bid detail's Overview/Documents/Lots/.../Activity) - plain
-   links to #ids already on the page, not a fake tab widget with hidden panels. Horizontally
+/* Same-page tab navigation (bid detail's Overview/Documents/Lots/.../Activity) - real links to
+   #ids already on the page (so direct linking/back-forward keeps working), progressively
+   enhanced by the inline script below each page's nav to show one panel at a time. Horizontally
    scrollable so it degrades to a swipeable strip on phone width instead of wrapping awkwardly. */
 .anchor-nav {
   display: flex; gap: 0.25rem; overflow-x: auto; margin: 0 0 1.25rem; padding-bottom: 0.25rem;
@@ -488,19 +489,30 @@ a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 
   border-bottom: 2px solid transparent; margin-bottom: -1px;
 }
 .anchor-nav a:hover { color: var(--accent); }
+.anchor-nav a.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-/* A lot's collapsible card - the native <details>/<summary> disclosure already gives free
-   keyboard support and an accessible expanded/collapsed state, so this only restyles the
-   clickable summary row to read as a header instead of a bullet point. */
-.lot-card > details > summary.lot-summary {
+/* Hidden by default only once the tab script confirms it ran (see .tab-js below) - so a visitor
+   without JavaScript still gets every section on one scrollable page, same as before tabs. */
+.tab-js .tab-panel { display: none; }
+.tab-js .tab-panel.tab-active { display: block; }
+
+/* A lot's (or a Closing Schedule date group's) collapsible card - the native
+   <details>/<summary> disclosure already gives free keyboard support and an accessible
+   expanded/collapsed state, so this only restyles the clickable summary row to read as a
+   header instead of a bullet point. */
+.lot-card > details > summary.lot-summary,
+.schedule-date-group > details > summary.schedule-date-summary {
   cursor: pointer; list-style: none; display: flex; align-items: center; gap: 0.5rem;
 }
-.lot-card > details > summary.lot-summary::-webkit-details-marker { display: none; }
-.lot-card > details > summary.lot-summary::before {
+.lot-card > details > summary.lot-summary::-webkit-details-marker,
+.schedule-date-group > details > summary.schedule-date-summary::-webkit-details-marker { display: none; }
+.lot-card > details > summary.lot-summary::before,
+.schedule-date-group > details > summary.schedule-date-summary::before {
   content: ''; flex-shrink: 0; width: 7px; height: 7px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted);
   transform: rotate(-45deg); transition: transform 0.15s ease-in-out;
 }
-.lot-card > details[open] > summary.lot-summary::before { transform: rotate(45deg); }
+.lot-card > details[open] > summary.lot-summary::before,
+.schedule-date-group > details[open] > summary.schedule-date-summary::before { transform: rotate(45deg); }
 
 /* Status history: a real table on desktop, a stacked record list on mobile (same underlying
    rows, toggled via display rather than two separate fetches) - a wide 5-column table is
@@ -583,6 +595,215 @@ a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 
   .app-content main { margin-top: 4rem; } /* clears the fixed hamburger button */
 }
 
+/* Closing & Readiness tab: a short in-tab header, then a 4-card mini KPI row (reuses
+   .stat-grid/.stat-card as-is), then its own nested Closing Schedule/Readiness Gaps/
+   Clarifications sub-tabs - any .anchor-nav/.tab-panel pair nests independently of the outer
+   5-tab dashboard nav (see tabNavScript.ejs). */
+.section-header { margin-bottom: 1rem; }
+.section-header h2 { display: flex; align-items: center; gap: 0.5rem; }
+.anchor-nav.sub-nav { margin-top: 0.25rem; }
+.anchor-nav.sub-nav a { display: flex; align-items: center; gap: 0.4rem; }
+
+/* Closing Schedule's filter toolbar and date-grouped row cards. Quick-range/sort buttons
+   reuse the .pill shape (normally an <a> for the division filter) on plain <button>s - same
+   visual language, this one's state is held in JS rather than a page navigation. */
+.schedule-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; margin: 1rem 0; }
+.schedule-toolbar select, .schedule-toolbar input[type="search"] {
+  padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--bg); color: var(--text); font-size: 0.85rem;
+}
+.schedule-date-group { margin-bottom: 0.75rem; }
+.schedule-date-group[hidden] { display: none; }
+.schedule-date-summary { justify-content: space-between; background: var(--bg-alt); border: 1px solid var(--border); border-radius: 10px; padding: 0.6rem 0.9rem; }
+.schedule-rows { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.6rem 0.2rem 0; }
+.schedule-row {
+  display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1rem;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--bg); flex-wrap: wrap;
+}
+.schedule-row[hidden] { display: none; }
+.schedule-row-time { display: flex; flex-direction: column; gap: 0.25rem; min-width: 5.5rem; font-size: 0.85rem; }
+.schedule-row-main { flex: 2; min-width: 12rem; }
+.schedule-row-meta { display: flex; flex-direction: column; gap: 0.25rem; min-width: 10rem; color: var(--muted); font-size: 0.82rem; }
+.schedule-row-readiness { min-width: 6rem; }
+.schedule-row-bond { min-width: 6rem; text-align: right; font-size: 0.85rem; }
+
+/* Executive Overview redesign: colored KPI icon chips + trend lines, the pipeline Kanban
+   board + donut chart, the Recent activity timeline, and the decorative promo card. The
+   breadcrumb and "live" status dot reuse the existing .breadcrumb/.muted classes. */
+.live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-right: 0.2rem; vertical-align: 1px; }
+
+.stat-icon.chip-blue { background: var(--accent-bg); color: var(--accent); }
+.stat-icon.chip-amber { background: var(--warn-bg); color: var(--warn); }
+.stat-icon.chip-red { background: var(--danger-bg); color: var(--danger); }
+.stat-icon.chip-green { background: var(--ok-bg); color: var(--ok); }
+.stat-icon.chip-purple { background: var(--new-bg); color: var(--new); }
+
+.trend-line { display: flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; font-weight: 600; color: var(--ok); margin-top: 0.1rem; }
+.trend-line.bad { color: var(--danger); }
+.trend-line.good { color: var(--ok); }
+.trend-line .icon { width: 13px; height: 13px; }
+
+/* Pipeline Kanban board - a column per live-pipeline stage (mirrors DashboardService's
+   lifecycleBucket()), each listing its first few real bids - see dashboard.js's
+   buildPipelineKanban(). LOST/DROPPED/CANCELLED bids have no column (the backend's own
+   "live pipeline, not historical outcomes" design) - the Lost filter pill explains this
+   instead of showing a silently empty board. */
+.pipeline-kanban-card { padding: 1.25rem; }
+/* The board itself (not each column) owns the outer border/radius/background - overflow:
+   hidden clips whichever column currently ends up first/last (the All/Open/Won/Lost filter
+   buttons can hide any subset) to those rounded corners automatically, so no per-column
+   radius bookkeeping is needed for that. Zero gap - columns sit flush so the header arrows
+   below form one unbroken chain, not five separate floating blocks. */
+.kanban-board {
+  display: flex !important;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+.kanban-column {
+  position: relative;
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.kanban-column[hidden] { display: none; }
+.kanban-column:not(:last-child) { border-right: 1px solid var(--border); }
+
+/*
+ * Interlocking arrow headers via a CSS-triangle ::after (not clip-path on the header itself):
+ * each header except the chain-end one grows a small right-pointing triangle that overflows
+ * 14px past its own column's right edge into the next column. z-index (keyed off the real
+ * data-stage attribute, so it's correct no matter which columns a filter currently hides)
+ * keeps the EARLIER stage's triangle painted on top at that shared boundary. Left padding
+ * (32px on every non-first header) keeps the stage label clear of the incoming triangle's
+ * ~14px reach so it never covers text.
+ *
+ * .chain-end (kept in sync by the filter script below - the same mechanism prior rounds used
+ * for clip-path shaping) also hides the triangle: a plain :not(:last-child) selector is
+ * structural and doesn't know Won can be [hidden], so without this, filtering to "Open" would
+ * leave Evaluation's triangle pointing into an invisible Won column instead of disappearing.
+ */
+.kanban-column-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0 35px 0 20px !important;
+}
+.kanban-column:not(:first-child) .kanban-column-header {
+  padding-left: 32px !important;
+}
+.kanban-column[data-stage="identified"] { z-index: 5; }
+.kanban-column[data-stage="preparing"]  { z-index: 4; }
+.kanban-column[data-stage="submitted"]  { z-index: 3; }
+.kanban-column[data-stage="evaluation"] { z-index: 2; }
+.kanban-column[data-stage="won"]        { z-index: 1; }
+.kanban-column:not(:last-child) .kanban-column-header::after {
+  content: "";
+  position: absolute;
+  right: -14px;
+  top: 0;
+  width: 0;
+  height: 0;
+  border-top: 24px solid transparent;
+  border-bottom: 24px solid transparent;
+  border-left: 14px solid transparent;
+  z-index: 10;
+}
+.kanban-column.chain-end .kanban-column-header::after { display: none; }
+.kanban-column.stage-identified .kanban-column-header { background-color: var(--accent); }
+.kanban-column.stage-identified .kanban-column-header::after { border-left-color: var(--accent); }
+.kanban-column.stage-preparing .kanban-column-header { background-color: #5b9bf0; }
+.kanban-column.stage-preparing .kanban-column-header::after { border-left-color: #5b9bf0; }
+.kanban-column.stage-submitted .kanban-column-header { background-color: #8b5cf6; }
+.kanban-column.stage-submitted .kanban-column-header::after { border-left-color: #8b5cf6; }
+.kanban-column.stage-evaluation .kanban-column-header { background-color: var(--warn); }
+.kanban-column.stage-evaluation .kanban-column-header::after { border-left-color: var(--warn); }
+.kanban-column.stage-won .kanban-column-header { background-color: var(--ok); }
+.kanban-column-count { background: rgba(255, 255, 255, 0.25); border-radius: 999px; padding: 0.05rem 0.5rem; font-size: 0.78rem; flex-shrink: 0; }
+.kanban-column-body { padding: 1rem; display: flex; flex-direction: column; gap: 0.4rem; flex-grow: 1; }
+
+/* A plain bulleted list, not boxed cards - matches the reference's lightweight look (a small
+   stage-colored dot + text, no border/background per row). */
+.pipeline-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pipeline-list li { display: flex; color: var(--muted); margin-bottom: 0.75rem; }
+.pipeline-list li::before {
+  content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor; margin-right: 0.5rem; flex-shrink: 0; margin-top: 0.5rem;
+}
+.kanban-column.stage-identified .pipeline-list li { color: var(--accent); }
+.kanban-column.stage-preparing .pipeline-list li { color: #4e8eea; }
+.kanban-column.stage-submitted .pipeline-list li { color: #7c3aed; }
+.kanban-column.stage-evaluation .pipeline-list li { color: var(--warn); }
+.kanban-column.stage-won .pipeline-list li { color: var(--ok); }
+.pipeline-list a, .pipeline-list a:visited { display: flex; flex-direction: column; gap: 0.1rem; text-decoration: none; color: var(--text); font-size: 0.85rem; min-width: 0; flex: 1; }
+.pipeline-list a:hover .pipeline-card-title { text-decoration: underline; }
+.pipeline-list .muted { font-size: 0.75rem; }
+/* Clamps to 2 lines with an ellipsis - saves vertical pipeline real estate vs. unbounded
+   wrapping, while still showing more than a single-line truncation would; the full title is
+   still available via the link's title="" hover tooltip. */
+.pipeline-card-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+  margin-bottom: 2px;
+}
+
+.kanban-empty { text-align: center; padding: 1.5rem 0.5rem; color: var(--muted); }
+.kanban-empty-icon {
+  display: inline-flex; align-items: center; justify-content: center; width: 2.6rem; height: 2.6rem;
+  border-radius: 50%; margin-bottom: 0.5rem;
+}
+.kanban-column.stage-preparing .kanban-empty-icon { background: color-mix(in srgb, #4e8eea 18%, var(--bg)); color: #4e8eea; }
+.kanban-column.stage-submitted .kanban-empty-icon { background: color-mix(in srgb, #7c3aed 18%, var(--bg)); color: #7c3aed; }
+.kanban-column.stage-evaluation .kanban-empty-icon { background: var(--warn-bg); color: var(--warn); }
+.kanban-column.stage-won .kanban-empty-icon { background: var(--ok-bg); color: var(--ok); }
+.kanban-empty p { margin: 0.2rem 0; font-size: 0.82rem; color: var(--text); }
+.kanban-empty p.muted { color: var(--muted); }
+
+/* Pipeline distribution donut - plain inline SVG (stroke-dasharray arcs), no charting library. */
+.pipeline-donut-wrap { display: flex; flex-direction: column; align-items: center; }
+.donut-chart { width: 100%; max-width: 11rem; }
+.donut-chart circle { transition: stroke-dasharray 0.2s ease-in-out; }
+.donut-total { font-size: 1.6rem; font-weight: 700; fill: var(--text); }
+.donut-total-label { font-size: 0.6rem; fill: var(--muted); }
+.donut-legend { width: 100%; display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.75rem; font-size: 0.82rem; }
+.donut-legend-row { display: flex; align-items: center; gap: 0.5rem; }
+.donut-legend-row strong { margin-left: auto; }
+.donut-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+/* Recent activity timeline - real bid_status_history + activity_log rows, see
+   DashboardService.recentActivity(). */
+.activity-timeline { display: flex; flex-direction: column; }
+.activity-timeline-item { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.55rem 0; border-bottom: 1px dashed var(--border); }
+.activity-timeline-item:last-child { border-bottom: none; }
+.activity-timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 0.45rem; flex-shrink: 0; }
+.activity-timeline-body { flex: 1; min-width: 0; }
+.activity-timeline-time { white-space: nowrap; font-size: 0.78rem; }
+
+/* Decorative promo card - no data, just a CTA back into the Pipeline & Performance tab. */
+.promo-card { background: var(--accent-bg); border-radius: 14px; padding: 1.1rem; display: flex; flex-direction: column; }
+.promo-illustration { width: 100%; max-width: 11rem; margin: 0 auto 0.5rem; }
+.promo-card h3 { margin: 0.2rem 0; font-size: 1rem; }
+.promo-card p { margin: 0 0 0.75rem; }
+
 /* Phone-width layout - account officers check deadlines on their phones. */
 @media (max-width: 640px) {
   main { margin: 1rem auto; }
@@ -604,4 +825,19 @@ a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 
   .bar-row { grid-template-columns: 1fr; gap: 0.2rem; }
   .bid-card { flex-wrap: wrap; }
   .bid-card-side { margin-left: 0; width: 100%; flex-direction: row; align-items: center; flex-wrap: wrap; }
+  .schedule-toolbar { flex-direction: column; align-items: stretch; }
+  .schedule-toolbar select, .schedule-toolbar input[type="search"] { width: 100%; }
+  .schedule-row { flex-direction: column; align-items: stretch; }
+  .schedule-row-bond { text-align: left; }
+  .kanban-board { flex-direction: column; overflow-x: visible; }
+  .kanban-column { min-width: 0; }
+  .kanban-column:not(:last-child) { border-right: none; border-bottom: 1px solid var(--border); }
+  /* The horizontal interlocking arrow only makes sense side-by-side - once columns stack
+     vertically there's no "next column to the right" to overlap into, so every header reverts
+     to a plain flat-edged full-width bar here (still colored per stage, just no triangle/left
+     padding for one), and the triangle itself is hidden outright rather than relying on
+     :not(:last-child) (which, same as desktop, can't tell a [hidden] filtered-out column from
+     a genuinely absent one). */
+  .kanban-column-header { padding: 0 1rem !important; }
+  .kanban-column-header::after { display: none !important; }
 }

@@ -1,0 +1,106 @@
+<script>
+  // Drives every .anchor-nav/.tab-panel group on the page (bid detail, dashboard's top-level
+  // tabs, and nested sub-tabs like Closing & Readiness's Closing Schedule/Readiness Gaps/
+  // Clarifications): exactly one .tab-panel visible at a time per group, CSS does the actual
+  // hiding, gated behind the .tab-js class set near the top of the page so a no-JS visitor
+  // still gets every section on one scrollable page. Tracks location.hash rather than its own
+  // state so direct links, browser back/forward, and links from elsewhere on the page all land
+  // on the right tab(s).
+  //
+  // Groups are scoped by DOM position, not one page-wide list: a .tab-panel's "siblings" are
+  // the other .tab-panel elements sharing its parent, and its controlling nav is the
+  // .anchor-nav sharing that same parent - so a nested group (sub-tabs inside one outer
+  // tab-panel) operates completely independently of the outer group it lives inside, and
+  // activating one never disturbs the other.
+  //
+  // A link's #id doesn't have to be a tab-panel's own id - it can point at any element INSIDE
+  // a panel (e.g. a KPI card linking to an <h2 id="closing-soon"> that lives inside a nested
+  // sub-tab, itself inside an outer tab). goTo() walks every ancestor .tab-panel of the target
+  // (innermost to outermost) and activates each level outermost-first, so both the outer tab
+  // and the inner sub-tab switch correctly before scrolling to the original target.
+  (function () {
+    var DEFAULT_TOP_ID = 'overview';
+    var allNavs = document.querySelectorAll('.anchor-nav');
+    if (!allNavs.length) return;
+
+    function siblingPanels(panel) {
+      return Array.prototype.filter.call(panel.parentElement.children, function (c) {
+        return c.classList.contains('tab-panel');
+      });
+    }
+    function siblingNav(panel) {
+      return Array.prototype.filter.call(panel.parentElement.children, function (c) {
+        return c.classList.contains('anchor-nav');
+      })[0] || null;
+    }
+
+    function activatePanel(panel) {
+      siblingPanels(panel).forEach(function (p) { p.classList.toggle('tab-active', p === panel); });
+      var nav = siblingNav(panel);
+      if (!nav) return;
+      Array.prototype.forEach.call(nav.querySelectorAll('a'), function (link) {
+        var isActive = link.getAttribute('href') === '#' + panel.id;
+        link.classList.toggle('active', isActive);
+        link.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+    }
+
+    function ancestorChain(el) {
+      var chain = [];
+      var panel = el.classList.contains('tab-panel') ? el : el.closest('.tab-panel');
+      while (panel) {
+        chain.push(panel);
+        var parent = panel.parentElement;
+        panel = parent ? parent.closest('.tab-panel') : null;
+      }
+      return chain; // innermost first
+    }
+
+    function goTo(targetId, pushHistory) {
+      var target = document.getElementById(targetId);
+      if (!target) { targetId = DEFAULT_TOP_ID; target = document.getElementById(targetId); }
+      if (!target) return;
+
+      ancestorChain(target).reverse().forEach(activatePanel);
+
+      if (pushHistory) {
+        var newHash = '#' + targetId;
+        if (history.pushState) history.pushState(null, '', newHash);
+        else location.hash = newHash;
+      }
+
+      if (target.classList.contains('tab-panel')) {
+        var nav = siblingNav(target);
+        if (nav) nav.scrollIntoView({ block: 'nearest' });
+      } else {
+        target.scrollIntoView({ block: 'start' });
+      }
+      target.focus({ preventScroll: true });
+    }
+
+    // Give every tab group a sane default (its own first panel, document order) before any
+    // hash is applied - this is what lets a nested group default correctly even while its
+    // outer tab isn't the active one yet.
+    allNavs.forEach(function (nav) {
+      var firstPanel = Array.prototype.filter.call(nav.parentElement.children, function (c) {
+        return c.classList.contains('tab-panel');
+      })[0];
+      if (firstPanel) activatePanel(firstPanel);
+    });
+
+    document.body.addEventListener('click', function (event) {
+      var link = event.target.closest('a[href^="#"]');
+      if (!link) return;
+      var id = link.getAttribute('href').slice(1);
+      if (!id || !document.getElementById(id)) return;
+      event.preventDefault();
+      goTo(id, true);
+    });
+
+    window.addEventListener('hashchange', function () {
+      goTo(location.hash.slice(1), false);
+    });
+
+    goTo(location.hash.slice(1) || DEFAULT_TOP_ID, false);
+  })();
+</script>
