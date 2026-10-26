@@ -29,5 +29,7 @@ public record DashboardDto(
         /** Null fields throughout when no snapshot is old enough yet - see KpiTrendsDto. */
         KpiTrendsDto trends,
         /** Most recent real status changes/notes across bids in the current division scope, newest first, capped at 10. */
-        List<RecentActivityRowDto> recentActivity) {
+        List<RecentActivityRowDto> recentActivity,
+        /** Total matching rows before the cap above - drives the "View all N" link's count. */
+        int recentActivityTotalCount) {
 }

@@ -194,11 +194,22 @@ function groupByClosingDate(rows) {
         const days = Math.round((new Date(key + 'T00:00:00Z').getTime() - new Date(todayIso + 'T00:00:00Z').getTime()) / DAY_MS);
         relative = days >= 0 ? `in ${days} days` : null;
       }
-      currentGroup = { key, label: `${weekday} ${dayMonth}`, relative, rows: [] };
+      currentGroup = { key, label: `${weekday} ${dayMonth}`, weekday, dayMonth, relative, rows: [] };
       groups.push(currentGroup);
       currentKey = key;
     }
     currentGroup.rows.push(row);
+  }
+  // Per-date ready/gap/critical counts for the Closing Schedule's date-row summary (the
+  // collapsed row shows these without needing to expand into the individual bid list below).
+  // "critical" is a subset of "gap", not a third exclusive bucket - a redFlag bid (closing
+  // soon AND still missing its MAF/vendor quote) always has at least one readiness gap by
+  // definition, it's just a more urgent one, so the three counts intentionally don't sum to
+  // the group's total bid count.
+  for (const group of groups) {
+    group.readyCount = group.rows.filter((r) => r.readinessGaps.length === 0).length;
+    group.gapCount = group.rows.filter((r) => r.readinessGaps.length > 0).length;
+    group.criticalCount = group.rows.filter((r) => r.redFlag).length;
   }
   return groups;
 }
@@ -227,6 +238,11 @@ function buildDashboardRouter() {
       const dateRanges = {
         closingThisWeek: { closingFrom: isoDate(now), closingTo: isoDate(new Date(now.getTime() + 7 * DAY_MS)) },
         closingNextWeek: { closingFrom: isoDate(new Date(now.getTime() + 7 * DAY_MS)), closingTo: isoDate(new Date(now.getTime() + 14 * DAY_MS)) },
+        // Today/Next-3-Days equivalents of the Closing Schedule's own quick-range pills, so
+        // the "Open in bid list" link below it can follow whichever range is active instead
+        // of always pointing at the full 14-day window regardless of the current filter.
+        closingToday: { closingFrom: isoDate(now), closingTo: isoDate(new Date(now.getTime() + 1 * DAY_MS)) },
+        closingNext3Days: { closingFrom: isoDate(now), closingTo: isoDate(new Date(now.getTime() + 3 * DAY_MS)) },
       };
 
       const byDivisionNames = (row) => row.divisionNames;
@@ -256,6 +272,18 @@ function buildDashboardRouter() {
         bondsDisplayItems, bondRowLimit: BOND_ROW_LIMIT,
         currentDivision: divisionParam || null,
         updatedAtLabel, priorityActions,
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/activity', async (req, res, next) => {
+    try {
+      const divisionParam = req.query.division ? String(req.query.division) : undefined;
+      const activity = await req.api.get(`/api/dashboard/activity${divisionParam ? `?division=${encodeURIComponent(divisionParam)}` : ''}`);
+      res.render('dashboard-activity', {
+        title: 'Recent activity', user: req.session.user, activity, currentDivision: divisionParam || null,
       });
     } catch (err) {
       next(err);

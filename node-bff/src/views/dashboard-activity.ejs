@@ -1,0 +1,33 @@
+<%- include('partials/header', { title: title, user: user }) %>
+
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/dashboard">Lifecycle</a> <span aria-hidden="true">&rsaquo;</span> <span>Recent activity</span></nav>
+
+<div class="dash-header">
+  <div>
+    <h1 class="mt-0">Recent activity</h1>
+    <p class="muted mt-0">Every status change and note across your bids and pipeline<%= currentDivision ? ', filtered to the current division' : '' %>.</p>
+  </div>
+  <a class="btn secondary" href="/dashboard<%= currentDivision ? '?division=' + encodeURIComponent(currentDivision) : '' %>">&larr; Back to dashboard</a>
+</div>
+
+<div class="card">
+  <% if (activity.length === 0) { %>
+    <p class="muted">No activity recorded yet.</p>
+  <% } else { %>
+    <div class="activity-timeline">
+      <% activity.forEach(entry => { %>
+        <% const entryTitle = (entry.organizationName ? entry.organizationName + ' - ' : '') + entry.bidTitle; %>
+        <div class="activity-timeline-item">
+          <span class="activity-timeline-dot"></span>
+          <div class="activity-timeline-body">
+            <a class="activity-timeline-title" href="/bids/<%= entry.bidId %>" title="<%= entryTitle %>"><%= entryTitle %></a>
+            <div class="muted activity-timeline-meta"><%= entry.message %> &middot; <%= formatDate(entry.occurredAt) %></div>
+          </div>
+          <span class="muted activity-timeline-time"><%= timeAgo(entry.occurredAt) %></span>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<%- include('partials/footer') %>

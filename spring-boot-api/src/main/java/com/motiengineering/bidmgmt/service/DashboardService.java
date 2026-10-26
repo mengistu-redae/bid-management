@@ -127,6 +127,9 @@ public class DashboardService {
         BigDecimal openPipelineEtb = pipelineByDivisionRows.stream().map(PipelineValueRowDto::totalEtb).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal openPipelineUsd = pipelineByDivisionRows.stream().map(PipelineValueRowDto::totalUsd).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal bidBondsOutstandingEtb = sumBondsByCurrency(scoped, Currency.ETB);
+        List<RecentActivityRowDto> recentActivityAll = recentActivity(scoped);
+        List<RecentActivityRowDto> recentActivityRows = recentActivityAll.size() > RECENT_ACTIVITY_LIMIT
+                ? recentActivityAll.subList(0, RECENT_ACTIVITY_LIMIT) : recentActivityAll;
 
         return new DashboardDto(
                 closingSoon,
@@ -151,7 +154,14 @@ public class DashboardService {
                 bondsExpiringWithinDaysCount(scoped, today, BOND_EXPIRING_WITHIN_DAYS),
                 trends(divisionFilter, today, closingSoon.size(), missingReadinessRows.size(), behindStageTargetCount,
                         openPipelineEtb, openPipelineUsd, bidBondsOutstandingEtb, expiringRegs.size()),
-                recentActivity(scoped));
+                recentActivityRows,
+                recentActivityAll.size());
+    }
+
+    /** Full activity feed (uncapped) for a given division scope, for the "View all" page off the dashboard's Recent activity card. */
+    public List<RecentActivityRowDto> activityFeed(String divisionFilter) {
+        List<Bid> scoped = applyDivisionFilter(bidRepository.findAll(), divisionFilter);
+        return recentActivity(scoped);
     }
 
     /**
@@ -177,8 +187,9 @@ public class DashboardService {
     /**
      * Merges bid_status_history ("status changed to X") and activity_log notes (BID entity
      * type only - see the Overview tab redesign's scope note) across the current division
-     * scope, newest first, capped at RECENT_ACTIVITY_LIMIT. Both sources are already capped
-     * at 50 by the repository query before this filters/merges in memory.
+     * scope, newest first. Uncapped (bounded to at most 100 rows regardless, since both
+     * sources are already capped at 50 by the repository query before this filters/merges
+     * in memory) - callers cap further as needed (see RECENT_ACTIVITY_LIMIT in build()).
      */
     private List<RecentActivityRowDto> recentActivity(List<Bid> scoped) {
         Set<UUID> scopedBidIds = new HashSet<>();
@@ -207,7 +218,7 @@ public class DashboardService {
         }
 
         rows.sort(Comparator.comparing(RecentActivityRowDto::occurredAt).reversed());
-        return rows.size() > RECENT_ACTIVITY_LIMIT ? rows.subList(0, RECENT_ACTIVITY_LIMIT) : rows;
+        return rows;
     }
 
     private static String organizationName(Bid bid) {
