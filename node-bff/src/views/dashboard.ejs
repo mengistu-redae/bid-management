@@ -18,10 +18,28 @@
   </div>
 </div>
 
+<%
+  // Division names are free text (admin-configured), so this matches by keyword with a
+  // generic fallback for anything not recognized below - "All" deliberately stays icon-less
+  // per the reference design.
+  function pillIcon(label) {
+    const key = label.toLowerCase();
+    if (key === 'all') return null;
+    if (key === 'no division') return 'grid';
+    if (key.includes('server') || key.includes('storage')) return 'box';
+    if (key.includes('network')) return 'network';
+    if (key.includes('security')) return 'shield';
+    if (key.includes('datacenter') || key.includes('facility')) return 'table';
+    return 'square';
+  }
+%>
 <div class="division-pills">
-  <% data.divisionFilters.forEach(pill => { %>
+  <% data.divisionFilters.forEach(pill => {
+       const icon = pillIcon(pill.label);
+  %>
     <a class="pill<%= (pill.filterParam || null) === currentDivision ? ' active' : '' %>"
        href="/dashboard<%= pill.filterParam ? '?division=' + encodeURIComponent(pill.filterParam) : '' %>">
+      <% if (icon) { %><%- include('partials/icon', { name: icon, size: 15 }) %><% } %>
       <%= pill.label %> <span class="pill-count"><%= pill.closingSoonCount %></span>
     </a>
   <% }) %>
@@ -54,55 +72,76 @@
   }
 %>
 <!-- KPI strip + division pills above stay visible on every tab - the tab panels below only
-     split up the long content that used to follow them. -->
-<div class="stat-grid" hx-boost="false">
-  <a class="stat-card<%= behindTarget > 0 ? ' warn' : '' %>" href="#closing-soon">
-    <span class="stat-icon chip-blue"><%- include('partials/icon', { name: 'calendar' }) %></span>
-    <span class="stat-value"><%= data.closingThisWeek.length %></span>
+     split up the long content that used to follow them. Each card carries a fixed category
+     color (blue/amber/red/green/purple) always, matching the reference design, rather than
+     the old conditional warn/danger state - see docs/UI-UX designs/Executive Overview
+     Analytics Dashboard cards.png. -->
+<div class="stat-grid kpi-grid" hx-boost="false">
+  <a class="stat-card kpi-blue" href="#closing-soon">
+    <span class="stat-card-top">
+      <span class="stat-icon"><%- include('partials/icon', { name: 'calendar', size: 16 }) %></span>
+      <span class="stat-card-menu" aria-hidden="true"><%- include('partials/icon', { name: 'more', size: 14 }) %></span>
+    </span>
     <span class="stat-label">Closing in 7 days</span>
-    <span class="muted" style="font-size:0.78rem;"><%= notStartedCount %> not started &middot; <%= unassignedCount %> unassigned</span>
+    <span class="stat-value"><%= data.closingThisWeek.length %></span>
+    <span class="muted stat-sub"><%= notStartedCount %> not started &middot; <%= unassignedCount %> unassigned</span>
     <% const t1 = trendCount(data.closingThisWeek.length, data.trends.closingSoonCountPrevious); %>
-    <% if (t1) { %><span class="trend-line"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t1 %></span><% } %>
+    <% if (t1) { %><span class="stat-footer-chip"><%- include('partials/icon', { name: 'calendar', size: 13 }) %> <%= t1 %></span><% } %>
   </a>
-  <a class="stat-card<%= data.missingReadiness.length > 0 ? ' warn' : '' %>" href="#closing-soon">
-    <span class="stat-icon chip-amber"><%- include('partials/icon', { name: 'alert' }) %></span>
-    <span class="stat-value"><%= data.missingReadiness.length %></span>
+  <a class="stat-card kpi-amber" href="#closing-soon">
+    <span class="stat-card-top">
+      <span class="stat-icon"><%- include('partials/icon', { name: 'alert', size: 16 }) %></span>
+      <span class="stat-card-menu" aria-hidden="true"><%- include('partials/icon', { name: 'more', size: 14 }) %></span>
+    </span>
     <span class="stat-label">Missing MAF or quote</span>
-    <span class="muted" style="font-size:0.78rem;"><%= missingWithin48h %> close within 48h</span>
+    <span class="stat-value"><%= data.missingReadiness.length %></span>
+    <span class="muted stat-sub"><%= missingWithin48h %> close within 48h</span>
     <% const t2 = trendPercent(data.missingReadiness.length, data.trends.missingReadinessCountPrevious); %>
-    <% if (t2) { %><span class="trend-line <%= t2.startsWith('+') ? 'bad' : (t2.startsWith('-') ? 'good' : '') %>"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t2 %></span><% } %>
+    <% if (t2) { %><span class="stat-footer-chip <%= t2.startsWith('+') ? 'trend-bad' : (t2.startsWith('-') ? 'trend-good' : '') %>"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t2 %></span><% } %>
   </a>
-  <a class="stat-card<%= (data.delaySummary.criticalCount + data.delaySummary.redCount) > 0 ? ' danger' : (data.delaySummary.amberCount > 0 ? ' warn' : '') %>" href="#stuck">
-    <span class="stat-icon chip-red"><%- include('partials/icon', { name: 'alert' }) %></span>
-    <span class="stat-value"><%= behindTarget %></span>
+  <a class="stat-card kpi-red" href="#stuck">
+    <span class="stat-card-top">
+      <span class="stat-icon"><%- include('partials/icon', { name: 'alert', size: 16 }) %></span>
+      <span class="stat-card-menu" aria-hidden="true"><%- include('partials/icon', { name: 'more', size: 14 }) %></span>
+    </span>
     <span class="stat-label">Behind stage target</span>
-    <span class="muted" style="font-size:0.78rem;"><%= data.delaySummary.criticalCount %> critical &middot; <%= data.delaySummary.redCount %> red &middot; <%= data.delaySummary.amberCount %> amber</span>
+    <span class="stat-value"><%= behindTarget %></span>
+    <span class="muted stat-sub"><%= data.delaySummary.criticalCount %> critical &middot; <%= data.delaySummary.redCount %> red &middot; <%= data.delaySummary.amberCount %> amber</span>
     <% const t3 = trendPercent(behindTarget, data.trends.behindStageTargetCountPrevious); %>
-    <% if (t3) { %><span class="trend-line <%= t3.startsWith('+') ? 'bad' : (t3.startsWith('-') ? 'good' : '') %>"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t3 %></span><% } %>
+    <% if (t3) { %><span class="stat-footer-chip <%= t3.startsWith('+') ? 'trend-bad' : (t3.startsWith('-') ? 'trend-good' : '') %>"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t3 %></span><% } %>
   </a>
-  <a class="stat-card" href="#pipeline-performance">
-    <span class="stat-icon chip-green"><%- include('partials/icon', { name: 'trending' }) %></span>
-    <span class="stat-value">USD <%= new Intl.NumberFormat('en-US').format(pipelineUsdTotal) %></span>
+  <a class="stat-card kpi-green" href="#pipeline-performance">
+    <span class="stat-card-top">
+      <span class="stat-icon"><%- include('partials/icon', { name: 'trending', size: 16 }) %></span>
+      <span class="stat-card-menu" aria-hidden="true"><%- include('partials/icon', { name: 'more', size: 14 }) %></span>
+    </span>
     <span class="stat-label">Open pipeline</span>
-    <span class="muted" style="font-size:0.78rem;"><%= formatMoney(pipelineEtbTotal) %> &middot; <%= data.unpricedBidCount %> bids unpriced</span>
+    <span class="stat-value">USD <%= new Intl.NumberFormat('en-US').format(pipelineUsdTotal) %></span>
+    <span class="muted stat-sub"><%= formatMoney(pipelineEtbTotal) %> &middot; <%= data.unpricedBidCount %> bids unpriced</span>
     <% const t4 = trendPercent(pipelineUsdTotal, data.trends.openPipelineUsdPrevious); %>
-    <% if (t4) { %><span class="trend-line"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t4 %></span><% } %>
+    <% if (t4) { %><span class="stat-footer-chip"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t4 %></span><% } %>
   </a>
-  <a class="stat-card<%= data.bondsExpiringWithin90DaysCount > 0 ? ' warn' : '' %>" href="#bonds-outstanding">
-    <span class="stat-icon chip-purple"><%- include('partials/icon', { name: 'shield' }) %></span>
-    <span class="stat-value"><%= formatMoney(data.outstandingBondTotalEtb) %></span>
+  <a class="stat-card kpi-purple" href="#bonds-outstanding">
+    <span class="stat-card-top">
+      <span class="stat-icon"><%- include('partials/icon', { name: 'shield', size: 16 }) %></span>
+      <span class="stat-card-menu" aria-hidden="true"><%- include('partials/icon', { name: 'more', size: 14 }) %></span>
+    </span>
     <span class="stat-label">Bid bonds outstanding</span>
-    <span class="muted" style="font-size:0.78rem;"><%= data.bondsExpiringWithin90DaysCount %> expires within 90 days</span>
+    <span class="stat-value"><%= formatMoney(data.outstandingBondTotalEtb) %></span>
+    <span class="muted stat-sub"><%= data.bondsExpiringWithin90DaysCount %> expires within 90 days</span>
     <% const t5 = trendPercent(data.outstandingBondTotalEtb, data.trends.bidBondsOutstandingEtbPrevious); %>
-    <% if (t5) { %><span class="trend-line <%= t5.startsWith('+') ? 'bad' : (t5.startsWith('-') ? 'good' : '') %>"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t5 %></span><% } %>
+    <% if (t5) { %><span class="stat-footer-chip <%= t5.startsWith('+') ? 'trend-bad' : (t5.startsWith('-') ? 'trend-good' : '') %>"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t5 %></span><% } %>
   </a>
-  <a class="stat-card<%= data.expiringDealRegistrations.length > 0 ? ' warn' : '' %>" href="#deal-regs">
-    <span class="stat-icon chip-blue"><%- include('partials/icon', { name: 'repeat' }) %></span>
-    <span class="stat-value"><%= data.expiringDealRegistrations.length %></span>
+  <a class="stat-card kpi-blue" href="#deal-regs">
+    <span class="stat-card-top">
+      <span class="stat-icon"><%- include('partials/icon', { name: 'repeat', size: 16 }) %></span>
+      <span class="stat-card-menu" aria-hidden="true"><%- include('partials/icon', { name: 'more', size: 14 }) %></span>
+    </span>
     <span class="stat-label">Deal regs expiring</span>
-    <span class="muted" style="font-size:0.78rem;">next 30 days</span>
+    <span class="stat-value"><%= data.expiringDealRegistrations.length %></span>
+    <span class="muted stat-sub">next 30 days</span>
     <% const t6 = trendCount(data.expiringDealRegistrations.length, data.trends.dealRegsExpiringCountPrevious); %>
-    <% if (t6) { %><span class="trend-line"><%- include('partials/icon', { name: 'trending', size: 13 }) %> <%= t6 %></span><% } %>
+    <% if (t6) { %><span class="stat-footer-chip"><%- include('partials/icon', { name: 'calendar', size: 13 }) %> <%= t6 %></span><% } %>
   </a>
 </div>
 
