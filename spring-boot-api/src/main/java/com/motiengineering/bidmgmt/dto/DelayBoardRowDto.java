@@ -1,5 +1,6 @@
 package com.motiengineering.bidmgmt.dto;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -34,5 +35,7 @@ public record DelayBoardRowDto(
         String waitingOnParty,
         List<String> officerNames,
         LocalDate nextFollowUpDate,
-        String followUpOwnerName) {
+        String followUpOwnerName,
+        /** The owning bid's closing date - null for Contract/Logistics/Opportunity/DealRegistration rows, which have no bid-closing concept. */
+        Instant closingAt) {
 }

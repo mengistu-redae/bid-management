@@ -1,77 +1,202 @@
 <%- include('partials/header', { title: title, user: user }) %>
-<h1>My Follow-ups</h1>
-<p class="muted">Follow-ups you own (bid lots, contracts, logistics shipments, opportunities, and deal registrations), plus bid lots you're the assigned officer on that need attention.</p>
 
-<%
-function renderRow(row, borderColor) {
-%>
-  <div class="card" style="padding:0.75rem 1rem;<%= borderColor ? ' border-color:' + borderColor + ';' : '' %>">
-    <div class="row" style="justify-content:space-between; align-items:flex-start; flex-wrap:wrap;">
-      <div>
-        <a href="<%= row.detailHref %>" style="font-weight:600;"><%= row.bidTitle %></a>
-        <% if (row.lotLabel) { %><span class="muted"> &middot; <%= row.lotLabel %></span><% } %>
-        <% if (row.entityType !== 'LOT') { %><span class="badge" style="margin-left:0.4rem;"><%= row.entityType %></span><% } %>
-        <div class="muted" style="font-size:0.85rem;"><%= row.organizationName || '-' %><% if (row.divisionName) { %> &middot; <%= row.divisionName %><% } %></div>
-      </div>
-      <div class="row" style="gap:0.4rem;">
-        <span class="badge <%= statusBadgeClass(row.status) %>"><%= row.status %></span>
-        <a class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>"
-           href="<%= stageHistoryHref(row.entityType, row.entityId, { title: row.bidTitle, subtitle: row.lotLabel, backHref: '/my-follow-ups', backLabel: 'Back to My Follow-ups' }) %>"><%= row.indicatorLevel %></a>
-        <% if (row.stale) { %><span class="badge stale">stale</span><% } %>
-      </div>
-    </div>
-    <div class="row mt-1" style="font-size:0.85rem;">
-      <span>Next follow-up: <%= row.nextFollowUpDate || 'not set' %></span>
-    </div>
-    <details class="mt-1">
-      <summary class="muted" style="font-size:0.8rem;">Log follow-up / snooze</summary>
-      <form method="post" action="/my-follow-ups/follow-up" class="row tight mt-1">
-        <input type="hidden" name="entityType" value="<%= row.entityType %>">
-        <input type="hidden" name="entityId" value="<%= row.entityId %>">
-        <input name="note" placeholder="Follow-up note" class="col">
-        <input type="date" name="nextFollowUpDate" class="w-auto">
-        <select name="ownerId" class="w-auto">
-          <option value="">Follow-up owner...</option>
-          <% users.forEach(u => { %><option value="<%= u.id %>"><%= u.fullName %></option><% }) %>
-        </select>
-        <button type="submit" class="secondary btn-xs">Save follow-up</button>
-      </form>
-      <form method="post" action="/my-follow-ups/snooze" class="row tight mt-1">
-        <input type="hidden" name="entityType" value="<%= row.entityType %>">
-        <input type="hidden" name="entityId" value="<%= row.entityId %>">
-        <input name="reason" placeholder="Snooze reason (required)" class="col">
-        <input type="date" name="snoozedUntil" class="w-auto">
-        <button type="submit" class="secondary btn-xs">Snooze</button>
-      </form>
-    </details>
+<div class="section-header-row">
+  <div class="section-header-icon"><%- include('partials/icon', { name: 'calendar', size: 22 }) %></div>
+  <div class="section-header-text">
+    <h1 class="mt-0" style="font-size:1.4rem;">My Follow-ups</h1>
+    <p class="muted mt-0">Follow-ups you own (bid lots, contracts, logistics shipments, opportunities, and deal registrations), plus bid lots you're the assigned officer on that need attention.</p>
   </div>
+  <div class="section-header-meta">
+    <a href="/settings" class="row tight" style="text-decoration:none; color:var(--accent); font-weight:600; font-size:0.85rem;"><%- include('partials/icon', { name: 'info', size: 15 }) %> View follow-up rules</a>
+    <a class="btn w-auto" href="/delays">+ Create follow-up</a>
+  </div>
+</div>
+
 <%
-}
+  const followUpKpis = [
+    { key: 'overdue', label: 'Overdue', icon: 'alert', color: 'red', count: data.overdue.length, zeroText: 'Nothing overdue.' },
+    { key: 'due-today', label: 'Due today', icon: 'calendar', color: 'orange', count: data.dueToday.length, zeroText: 'Nothing due today.' },
+    { key: 'turning-amber-soon', label: 'Turning amber soon', icon: 'clock', color: 'blue', count: data.turningAmberSoon.length, zeroText: 'Nothing turning amber soon.' },
+    { key: 'stale', label: 'Stale (no recent activity)', icon: 'hourglass', color: 'gray', count: data.stale.length, zeroText: 'Nothing stale.' },
+  ];
+  const entityTypeIcon = { LOT: 'clipboard', CONTRACT: 'send', LOGISTICS: 'box', OPPORTUNITY: 'trending', DEAL_REGISTRATION: 'repeat' };
+  const typeLabels = { LOT: 'Bid Lot', CONTRACT: 'Contract', LOGISTICS: 'Logistics Shipment', OPPORTUNITY: 'Opportunity', DEAL_REGISTRATION: 'Deal Registration' };
+  const allFollowUpRows = [...data.overdue, ...data.dueToday, ...data.turningAmberSoon, ...data.stale];
+  const typeOptions = [...new Set(allFollowUpRows.map(r => r.entityType))].sort();
+  const ownerOptions = [...new Set(allFollowUpRows.flatMap(r => r.followUpOwnerName ? [r.followUpOwnerName] : (r.officerNames || [])))].sort((a, b) => a.localeCompare(b));
+
+  function renderRow(row) {
+    const ownerName = row.followUpOwnerName || (row.officerNames && row.officerNames.length ? row.officerNames[0] : '');
+    const searchText = (row.bidTitle + ' ' + (row.organizationName || '') + ' ' + (row.lotLabel || '')).toLowerCase();
+%>
+    <div class="card delay-item" data-type="<%= row.entityType %>" data-owner="<%= ownerName %>" data-search="<%= searchText %>">
+      <div class="delay-row">
+        <span class="delay-row-icon"><%- include('partials/icon', { name: entityTypeIcon[row.entityType] || 'clipboard', size: 18 }) %></span>
+        <div class="delay-row-main">
+          <div class="delay-row-title">
+            <a href="<%= row.detailHref %>"><%= row.bidTitle %></a>
+            <% if (row.entityType !== 'LOT') { %><span class="badge" style="margin-left:0.4rem;"><%= row.entityType %></span><% } %>
+          </div>
+          <div class="muted delay-row-sub"><%= row.lotLabel || row.organizationName || '' %></div>
+          <div class="mt-1">
+            <span class="badge <%= statusBadgeClass(row.status) %>"><%= row.status %></span>
+            <a class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>"
+               href="<%= stageHistoryHref(row.entityType, row.entityId, { title: row.bidTitle, subtitle: row.lotLabel, backHref: '/my-follow-ups', backLabel: 'Back to My Follow-ups' }) %>"><%= row.indicatorLevel %></a>
+            <% if (row.stale) { %><span class="badge stale">stale</span><% } %>
+          </div>
+          <div class="muted mt-1" style="font-size:0.78rem;">Next follow-up: <%= row.nextFollowUpDate || 'not set' %><% if (row.waitingOnParty) { %> &middot; Waiting on <strong><%= row.waitingOnParty %></strong><% } %></div>
+        </div>
+        <div class="delay-row-meta">
+          <div class="delay-row-meta-col">
+            <span class="delay-row-meta-label">Division</span>
+            <span class="delay-row-meta-value"><%- include('partials/icon', { name: 'building', size: 13 }) %> <%= row.divisionName || '—' %></span>
+          </div>
+          <div class="delay-row-meta-col">
+            <span class="delay-row-meta-label">Owner</span>
+            <span class="delay-row-meta-value"><%- include('partials/icon', { name: 'user', size: 13 }) %> <%= ownerName || 'Unassigned' %></span>
+          </div>
+        </div>
+        <div class="delay-row-actions">
+          <a class="btn btn-xs" href="<%= row.detailHref %>">View</a>
+          <span class="delay-row-menu" aria-hidden="true"><%- include('partials/icon', { name: 'more', size: 16 }) %></span>
+        </div>
+      </div>
+      <details class="mt-1">
+        <summary class="muted" style="font-size:0.8rem; cursor:pointer;">Log follow-up / snooze</summary>
+        <form method="post" action="/my-follow-ups/follow-up" class="row tight mt-1">
+          <input type="hidden" name="entityType" value="<%= row.entityType %>">
+          <input type="hidden" name="entityId" value="<%= row.entityId %>">
+          <input name="note" placeholder="Follow-up note" class="col">
+          <input type="date" name="nextFollowUpDate" class="w-auto">
+          <select name="ownerId" class="w-auto">
+            <option value="">Follow-up owner...</option>
+            <% users.forEach(u => { %><option value="<%= u.id %>"><%= u.fullName %></option><% }) %>
+          </select>
+          <button type="submit" class="secondary btn-xs">Save follow-up</button>
+        </form>
+        <form method="post" action="/my-follow-ups/snooze" class="row tight mt-1">
+          <input type="hidden" name="entityType" value="<%= row.entityType %>">
+          <input type="hidden" name="entityId" value="<%= row.entityId %>">
+          <input name="reason" placeholder="Snooze reason (required)" class="col">
+          <input type="date" name="snoozedUntil" class="w-auto">
+          <button type="submit" class="secondary btn-xs">Snooze</button>
+        </form>
+      </details>
+    </div>
+<%
+  }
+
+  function renderPanel(key, icon, color, title, subtitle, rows, emptyIcon, emptyTitle, emptyText) {
+%>
+    <div class="col" style="flex:1; min-width:22rem;" id="<%= key %>">
+      <div class="card">
+        <div class="follow-up-panel-head">
+          <span class="follow-up-panel-icon <%= color %>"><%- include('partials/icon', { name: icon, size: 18 }) %></span>
+          <h2 class="mt-0" style="display:flex; align-items:center; gap:0.5rem; font-size:1.05rem;"><%= title %> <span class="badge"><%= rows.length %></span></h2>
+        </div>
+        <p class="muted mt-0"><%= subtitle %></p>
+        <% if (key === 'turning-amber-soon') { %>
+          <div class="info-callout mt-1">
+            <%- include('partials/icon', { name: 'info', size: 15 }) %>
+            <span>Includes bid lots, contracts, logistics shipments, opportunities, and deal registrations (and your assigned-officer bid lots).</span>
+          </div>
+        <% } %>
+        <% if (rows.length === 0) { %>
+          <div class="empty-state">
+            <span class="empty-state-icon"><%- include('partials/icon', { name: emptyIcon, size: 28 }) %></span>
+            <p class="empty-state-title"><%= emptyTitle %></p>
+            <p class="empty-state-text"><%= emptyText %></p>
+          </div>
+        <% } else { %>
+          <div class="stack mt-2" data-follow-up-list>
+            <% rows.forEach(row => { renderRow(row); }) %>
+          </div>
+          <p class="muted mt-1" data-follow-up-no-match hidden>No follow-ups match the current filters.</p>
+        <% } %>
+      </div>
+    </div>
+<%
+  }
 %>
 
-<h2>Overdue</h2>
-<% if (data.overdue.length === 0) { %><p class="muted">Nothing overdue.</p><% } %>
-<div class="col" style="gap:0.6rem;">
-<% data.overdue.forEach(row => { renderRow(row, 'var(--danger)'); }) %>
+<div class="stat-grid chevron-stat-grid wrap-labels mt-2" hx-boost="false">
+  <% followUpKpis.forEach(kpi => { %>
+    <a class="stat-card stat-<%= kpi.color %>" href="#<%= kpi.key %>">
+      <span class="stat-card-top">
+        <span class="stat-icon icon-circle"><%- include('partials/icon', { name: kpi.icon }) %></span>
+        <span class="stat-label"><%= kpi.label %></span>
+        <span class="stat-card-chevron"><%- include('partials/icon', { name: 'chevron-right', size: 14 }) %></span>
+      </span>
+      <span class="stat-value"><%= kpi.count %></span>
+      <span class="muted" style="font-size:0.78rem;"><%= kpi.count === 0 ? kpi.zeroText : kpi.count + ' need' + (kpi.count === 1 ? 's' : '') + ' attention.' %></span>
+    </a>
+  <% }) %>
 </div>
 
-<h2 class="mt-3">Due today</h2>
-<% if (data.dueToday.length === 0) { %><p class="muted">Nothing due today.</p><% } %>
-<div class="col" style="gap:0.6rem;">
-<% data.dueToday.forEach(row => { renderRow(row); }) %>
+<div class="schedule-toolbar mt-2">
+  <div class="row tight schedule-toolbar-group" style="flex:1;">
+    <input type="search" id="follow-up-search" placeholder="Search follow-ups..." class="col">
+  </div>
+  <div class="row tight schedule-toolbar-group">
+    <select id="follow-up-type-filter" class="w-auto">
+      <option value="">All follow-up types</option>
+      <% typeOptions.forEach(t => { %><option value="<%= t %>"><%= typeLabels[t] || t %></option><% }) %>
+    </select>
+    <select id="follow-up-owner-filter" class="w-auto">
+      <option value="">Owner</option>
+      <% ownerOptions.forEach(o => { %><option value="<%= o %>"><%= o %></option><% }) %>
+    </select>
+    <button type="button" class="secondary btn-xs" onclick="location.reload();"><%- include('partials/icon', { name: 'repeat', size: 13 }) %> Refresh</button>
+  </div>
 </div>
 
-<h2 class="mt-3">Turning amber soon</h2>
-<p class="muted" style="font-size:0.85rem;">Bid lots you're the officer on, or contracts/logistics/opportunities/deal registrations you own the follow-up for, that are still green but approaching the amber threshold.</p>
-<% if (data.turningAmberSoon.length === 0) { %><p class="muted">Nothing approaching its target yet.</p><% } %>
-<div class="col" style="gap:0.6rem;">
-<% data.turningAmberSoon.forEach(row => { renderRow(row); }) %>
+<div class="row top mt-2">
+  <% renderPanel('overdue', 'alert', 'red', 'Overdue', 'Follow-ups that are past their due date.',
+       data.overdue, 'check', 'No overdue follow-ups', "You're all caught up! Nothing is overdue at the moment."); %>
+  <% renderPanel('due-today', 'calendar', 'amber', 'Due today', 'Follow-ups that are due today.',
+       data.dueToday, 'calendar', 'Nothing due today', 'Great! You have no follow-ups due today.'); %>
 </div>
 
-<h2 class="mt-3">Stale (no recent activity)</h2>
-<% if (data.stale.length === 0) { %><p class="muted">Nothing stale.</p><% } %>
-<div class="col" style="gap:0.6rem;">
-<% data.stale.forEach(row => { renderRow(row); }) %>
+<div class="row top mt-2">
+  <% renderPanel('turning-amber-soon', 'clock', 'blue', 'Turning amber soon', 'Follow-ups that will turn amber soon based on the timeline.',
+       data.turningAmberSoon, 'clock', 'No items turning amber soon', 'Everything is on track for now.'); %>
+  <% renderPanel('stale', 'hourglass', 'gray', 'Stale (no recent activity)', 'Follow-ups with no recent activity.',
+       data.stale, 'hourglass', 'Nothing stale', 'All your follow-ups have recent activity.'); %>
 </div>
+
+<script>
+  (function () {
+    var searchInput = document.getElementById('follow-up-search');
+    var typeFilter = document.getElementById('follow-up-type-filter');
+    var ownerFilter = document.getElementById('follow-up-owner-filter');
+    var lists = Array.prototype.slice.call(document.querySelectorAll('[data-follow-up-list]'));
+    if (lists.length === 0) return;
+
+    function applyFilters() {
+      var search = searchInput.value.trim().toLowerCase();
+      var type = typeFilter.value;
+      var owner = ownerFilter.value;
+
+      lists.forEach(function (list) {
+        var items = Array.prototype.slice.call(list.querySelectorAll('.delay-item'));
+        var visibleCount = 0;
+        items.forEach(function (item) {
+          var matches = (!search || item.getAttribute('data-search').indexOf(search) !== -1)
+            && (!type || item.getAttribute('data-type') === type)
+            && (!owner || item.getAttribute('data-owner') === owner);
+          item.hidden = !matches;
+          if (matches) visibleCount++;
+        });
+        var noMatch = list.parentElement.querySelector('[data-follow-up-no-match]');
+        if (noMatch) noMatch.hidden = visibleCount !== 0;
+      });
+    }
+
+    [searchInput, typeFilter, ownerFilter].forEach(function (el) {
+      el.addEventListener('input', applyFilters);
+      el.addEventListener('change', applyFilters);
+    });
+  })();
+</script>
 
 <%- include('partials/footer') %>

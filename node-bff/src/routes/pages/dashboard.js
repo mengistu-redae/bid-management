@@ -5,7 +5,7 @@ const { groupByDivision } = require('../../divisionGrouping');
 
 const TIMEZONE = 'Africa/Addis_Ababa';
 const DAY_MS = 24 * 60 * 60 * 1000;
-const BOND_ROW_LIMIT = 8;
+const RECENT_DEAL_REGISTRATIONS_LIMIT = 6;
 
 /** YYYY-MM-DD in Africa/Addis_Ababa - the same bare-date format /bids's closingFrom/closingTo query params expect. */
 function isoDate(date) {
@@ -146,26 +146,6 @@ function buildPriorityActions(data) {
 }
 
 /**
- * Flattens division groups of bond rows into one ordered list of divider and
- * row items, stamping "hidden" on everything from the limit-th data row
- * onward - a divider is hidden exactly when the first row under it already
- * is, so a group never shows an empty heading with nothing visible below it.
- */
-function buildBondsDisplayItems(groups, limit) {
-  const items = [];
-  let dataCount = 0;
-  for (const group of groups) {
-    if (group.rows.length === 0) continue;
-    items.push({ kind: 'divider', label: group.label, hidden: dataCount >= limit });
-    for (const row of group.rows) {
-      items.push({ kind: 'row', row, hidden: dataCount >= limit });
-      dataCount++;
-    }
-  }
-  return items;
-}
-
-/**
  * Groups closing-soon rows by calendar date (Addis timezone), each group
  * labeled with its weekday/date, a Today/Tomorrow/"in N days" relative tag,
  * and how many bids fall on it - the "Thu 15 Oct · Tomorrow · 3 bids" date
@@ -224,13 +204,26 @@ function buildDashboardRouter() {
   router.get('/', async (req, res, next) => {
     try {
       const divisionParam = req.query.division ? String(req.query.division) : undefined;
-      const [data, divisions, allBids] = await Promise.all([
+      const [data, divisions, allBids, dealRegistrations] = await Promise.all([
         req.api.get(`/api/dashboard${divisionParam ? `?division=${encodeURIComponent(divisionParam)}` : ''}`),
         req.api.get('/api/divisions'),
         req.api.get('/api/bids'),
+        req.api.get('/api/deal-registrations'),
       ]);
       const divisionNames = divisions.map((d) => d.name);
       const pipelineKanban = buildPipelineKanban(allBids, divisionParam);
+      // The Bonds & Deal Regs tab's "Recent Deal Registrations" list needs a short, real
+      // project label per row - the registration itself only carries a bidId/opportunityId
+      // (see DealRegistrationDto), so resolve against the bid list already fetched above
+      // for the Kanban board, rather than a second round-trip per registration.
+      const bidTitleById = new Map(allBids.map((b) => [b.id, b.title]));
+      const recentDealRegistrations = [...dealRegistrations]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, RECENT_DEAL_REGISTRATIONS_LIMIT)
+        .map((reg) => ({
+          ...reg,
+          title: (reg.bidId && bidTitleById.get(reg.bidId)) || reg.registrationId || `${reg.oem ? reg.oem.name : 'OEM'} registration`,
+        }));
       const now = new Date();
       // Exact date-range equivalents of the dashboard's own "this week"/"next
       // week" windows, so each section's "View all" link reopens the same
@@ -256,10 +249,6 @@ function buildDashboardRouter() {
       const closingScheduleDivisions = distinctSorted(closingScheduleRows.flatMap((r) => r.divisionNames));
       const closingScheduleOwners = distinctSorted(closingScheduleRows.filter((r) => r.ownerLabel).map((r) => r.ownerLabel));
       const clarificationGroups = groupByDivision(data.upcomingClarifications, divisionNames, byDivisionNames);
-      const bondsDisplayItems = buildBondsDisplayItems(
-        groupByDivision(data.outstandingBonds, divisionNames, byDivisionNames),
-        BOND_ROW_LIMIT
-      );
 
       const updatedAtLabel = `${new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric', timeZone: TIMEZONE }).format(now)} · updated ${new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: TIMEZONE }).format(now)}`;
       const priorityActions = buildPriorityActions(data);
@@ -269,7 +258,7 @@ function buildDashboardRouter() {
         closingThisWeekByDate, clarificationGroups,
         closingScheduleByDate, closingScheduleRows, closingScheduleDivisions, closingScheduleOwners,
         pipelineKanban,
-        bondsDisplayItems, bondRowLimit: BOND_ROW_LIMIT,
+        dealRegistrationsTotal: dealRegistrations.length, recentDealRegistrations,
         currentDivision: divisionParam || null,
         updatedAtLabel, priorityActions,
       });

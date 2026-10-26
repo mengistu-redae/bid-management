@@ -182,7 +182,8 @@ public class DelaysBoardService {
                 waitingOn == null || waitingOn.getPartyType() == null ? null : waitingOn.getPartyType().name(),
                 officerNames,
                 followUp == null ? null : followUp.getNextFollowUpDate(),
-                followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName());
+                followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName(),
+                bid.getClosingAt());
     }
 
     /**
@@ -216,7 +217,8 @@ public class DelaysBoardService {
                 waitingOn == null || waitingOn.getPartyType() == null ? null : waitingOn.getPartyType().name(),
                 List.of(),
                 followUp == null ? null : followUp.getNextFollowUpDate(),
-                followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName());
+                followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName(),
+                null);
     }
 
     /**
@@ -247,7 +249,8 @@ public class DelaysBoardService {
                 waitingOn == null || waitingOn.getPartyType() == null ? null : waitingOn.getPartyType().name(),
                 List.of(),
                 followUp == null ? null : followUp.getNextFollowUpDate(),
-                followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName());
+                followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName(),
+                null);
     }
 
     /** Mirrors OpportunityMapper.indicatorFor exactly, so the board and the opportunity's own badge can never disagree. */
@@ -279,7 +282,8 @@ public class DelaysBoardService {
                 waitingOn == null || waitingOn.getPartyType() == null ? null : waitingOn.getPartyType().name(),
                 List.of(),
                 followUp == null ? null : followUp.getNextFollowUpDate(),
-                followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName());
+                followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName(),
+                null);
     }
 
     /**
@@ -310,7 +314,8 @@ public class DelaysBoardService {
                 waitingOn == null || waitingOn.getPartyType() == null ? null : waitingOn.getPartyType().name(),
                 List.of(),
                 followUp == null ? null : followUp.getNextFollowUpDate(),
-                followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName());
+                followUp == null || followUp.getFollowUpOwner() == null ? null : followUp.getFollowUpOwner().getFullName(),
+                null);
     }
 
     private boolean matches(DelayBoardRowDto row, Filter filter) {

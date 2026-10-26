@@ -365,7 +365,7 @@
     const unassignedReadinessCount = data.missingReadiness.filter(r => !r.ownerLabel).length;
     const criticalRedDelayCount = data.delaySummary.criticalCount + data.delaySummary.redCount;
   %>
-  <div class="stat-grid" hx-boost="false">
+  <div class="stat-grid chevron-stat-grid" hx-boost="false">
     <a class="stat-card stat-blue" href="#closing-soon">
       <span class="stat-card-top">
         <span class="stat-icon"><%- include('partials/icon', { name: 'calendar' }) %></span>
@@ -694,197 +694,723 @@
 </section>
 
 <section id="delays" class="tab-panel" role="tabpanel" aria-labelledby="tab-delays" tabindex="-1">
-  <h2 id="stuck" class="mt-1"><%- include('partials/icon', { name: 'alert' }) %> Where deals are stuck</h2>
-  <a class="view-all" href="/delays">Delays board &rarr;</a>
   <%
     const segTotal = data.delaySummary.criticalCount + data.delaySummary.redCount + data.delaySummary.amberCount + data.delaySummary.greenCount;
     const segPct = (n) => segTotal > 0 ? (n / segTotal * 100) : 0;
+    // Which of Critical/Red/Amber has the most bids right now - drives both the delay-list
+    // header below ("<Level> delays (N)") and the donut's center reading, same as the
+    // reference design highlighting whichever bucket is actually the problem rather than
+    // always defaulting to "Critical" - see docs/UI-UX designs/Bid Management Delays Dashboard.png.
+    const delayLevels = [
+      { key: 'CRITICAL', label: 'Critical', count: data.delaySummary.criticalCount },
+      { key: 'RED', label: 'Red', count: data.delaySummary.redCount },
+      { key: 'AMBER', label: 'Amber', count: data.delaySummary.amberCount },
+    ];
+    const dominantDelay = delayLevels.reduce((max, l) => l.count > max.count ? l : max, delayLevels[0]);
+    const delayRows = data.delaySummary.topDelayed.filter(r => r.indicatorLevel === dominantDelay.key);
+    const entityTypeIcon = { LOT: 'clipboard', CONTRACT: 'send', LOGISTICS: 'box', OPPORTUNITY: 'trending', DEAL_REGISTRATION: 'repeat' };
   %>
-  <div class="segmented-bar mt-1">
-    <% if (data.delaySummary.criticalCount > 0) { %><div class="segment critical" style="width:<%= segPct(data.delaySummary.criticalCount) %>%;"></div><% } %>
-    <% if (data.delaySummary.redCount > 0) { %><div class="segment red" style="width:<%= segPct(data.delaySummary.redCount) %>%;"></div><% } %>
-    <% if (data.delaySummary.amberCount > 0) { %><div class="segment amber" style="width:<%= segPct(data.delaySummary.amberCount) %>%;"></div><% } %>
-    <% if (data.delaySummary.greenCount > 0) { %><div class="segment green" style="width:<%= segPct(data.delaySummary.greenCount) %>%;"></div><% } %>
-  </div>
-  <div class="row tight mt-1" style="font-size:0.82rem;">
-    <span><span class="status-dot" style="background:var(--danger);"></span> Critical <%= data.delaySummary.criticalCount %></span>
-    <span><span class="status-dot" style="background:var(--danger);opacity:0.6;"></span> Red <%= data.delaySummary.redCount %></span>
-    <span><span class="status-dot" style="background:var(--warn);"></span> Amber <%= data.delaySummary.amberCount %></span>
-    <span><span class="status-dot" style="background:var(--ok);"></span> On track <%= data.delaySummary.greenCount %></span>
-  </div>
-  <p class="muted" style="font-size:0.82rem;">Stale <%= data.delaySummary.staleCount %></p>
-
-  <% if (data.delaySummary.topDelayed.length === 0) { %>
-    <p class="muted">Nothing behind target right now.</p>
-  <% } else { %>
-    <div class="stack mt-2" style="max-width:40rem;">
-      <% data.delaySummary.topDelayed.slice(0, 5).forEach(row => { %>
-        <div class="card delay-item" onclick="window.location='<%= row.detailHref %>'">
-          <div class="row" style="justify-content:space-between; align-items:flex-start;">
-            <div>
-              <div class="bid-card-title"><%= row.bidTitle %><% if (row.entityType !== 'LOT') { %> <span class="badge" style="margin-left:0.4rem;"><%= row.entityType %></span><% } %></div>
-              <div class="muted" style="font-size:0.8rem;"><%= row.lotLabel %><% if (row.divisionName) { %> &middot; <%= row.divisionName %><% } %></div>
-            </div>
-            <a class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>" onclick="event.stopPropagation()"
-               <% if (row.daysUsed !== null && row.targetDays !== null) { %>title="<%= row.daysUsed.toFixed(1) %>d / <%= row.targetDays.toFixed(1) %>d target"<% } %>
-               href="<%= stageHistoryHref(row.entityType, row.entityId, { title: row.bidTitle, subtitle: row.lotLabel, backHref: row.detailHref, backLabel: 'Back' }) %>"><%= row.indicatorLevel %><% if (row.percentUsed !== null) { %> &middot; <%= Math.round(row.percentUsed) %>%<% } %></a>
-          </div>
-          <div class="progress-bar mt-1"><div style="width:<%= Math.min(100, row.percentUsed || 0) %>%; background:<%= row.indicatorLevel === 'CRITICAL' || row.indicatorLevel === 'RED' ? 'var(--danger)' : 'var(--warn)' %>;"></div></div>
-          <div class="row tight mt-1" style="font-size:0.78rem;">
-            <span class="muted"><% if (row.daysUsed !== null && row.targetDays !== null) { %><%= Math.round(row.daysUsed) %>d in stage &middot; target <%= Math.round(row.targetDays) %>d<% } %></span>
-            <% if (row.waitingOnParty) { %><span class="muted">Waiting on <strong><%= row.waitingOnParty %></strong></span><% } %>
-          </div>
+  <div class="row top">
+    <div class="col" style="flex:2; min-width:32rem;">
+      <div class="section-header-row">
+        <div class="section-header-icon section-header-icon-danger"><%- include('partials/icon', { name: 'alert', size: 22 }) %></div>
+        <div class="section-header-text">
+          <h2 id="stuck" class="mt-0">Where deals are stuck</h2>
+          <p class="muted mt-0">Identify bids exceeding their target stage duration and unblock the next action.</p>
         </div>
-      <% }) %>
+      </div>
+
+      <div class="stat-grid delay-stat-grid" hx-boost="false">
+        <div class="stat-card delay-stat critical">
+          <span class="stat-icon"><%- include('partials/icon', { name: 'alert', size: 18 }) %></span>
+          <span class="stat-value"><%= data.delaySummary.criticalCount %></span>
+          <span class="stat-label">Critical</span>
+          <span class="muted stat-sub">Deals beyond target stage</span>
+        </div>
+        <div class="stat-card delay-stat red">
+          <span class="stat-icon"><%- include('partials/icon', { name: 'alert-circle', size: 18 }) %></span>
+          <span class="stat-value"><%= data.delaySummary.redCount %></span>
+          <span class="stat-label">Red</span>
+          <span class="muted stat-sub">Overdue or high risk</span>
+        </div>
+        <div class="stat-card delay-stat amber">
+          <span class="stat-icon"><%- include('partials/icon', { name: 'alert', size: 18 }) %></span>
+          <span class="stat-value"><%= data.delaySummary.amberCount %></span>
+          <span class="stat-label">Amber</span>
+          <span class="muted stat-sub">At risk of delay</span>
+        </div>
+        <div class="stat-card delay-stat green">
+          <span class="stat-icon"><%- include('partials/icon', { name: 'check', size: 18 }) %></span>
+          <span class="stat-value"><%= data.delaySummary.greenCount %></span>
+          <span class="stat-label">On track</span>
+          <span class="muted stat-sub">Within target duration</span>
+        </div>
+        <div class="stat-card delay-stat stale">
+          <span class="stat-icon"><%- include('partials/icon', { name: 'clock', size: 18 }) %></span>
+          <span class="stat-value"><%= data.delaySummary.staleCount %></span>
+          <span class="stat-label">Stale</span>
+          <span class="muted stat-sub">No recent activity</span>
+        </div>
+      </div>
+
+      <div class="segmented-bar mt-2">
+        <% if (data.delaySummary.criticalCount > 0) { %><div class="segment critical" style="width:<%= segPct(data.delaySummary.criticalCount) %>%;"></div><% } %>
+        <% if (data.delaySummary.redCount > 0) { %><div class="segment red" style="width:<%= segPct(data.delaySummary.redCount) %>%;"></div><% } %>
+        <% if (data.delaySummary.amberCount > 0) { %><div class="segment amber" style="width:<%= segPct(data.delaySummary.amberCount) %>%;"></div><% } %>
+        <% if (data.delaySummary.greenCount > 0) { %><div class="segment green" style="width:<%= segPct(data.delaySummary.greenCount) %>%;"></div><% } %>
+      </div>
+      <div class="row" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+        <div class="row tight mt-1" style="font-size:0.82rem;">
+          <span><span class="status-dot" style="background:var(--danger);"></span> Critical <%= data.delaySummary.criticalCount %></span>
+          <span><span class="status-dot" style="background:var(--danger);opacity:0.6;"></span> Red <%= data.delaySummary.redCount %></span>
+          <span><span class="status-dot" style="background:var(--warn);"></span> Amber <%= data.delaySummary.amberCount %></span>
+          <span><span class="status-dot" style="background:var(--ok);"></span> On track <%= data.delaySummary.greenCount %></span>
+        </div>
+        <a class="view-all" href="/delays">Delays board &rarr;</a>
+      </div>
+      <p class="muted mt-1" style="font-size:0.82rem;">Stale <%= data.delaySummary.staleCount %></p>
+
+      <div class="row mt-3" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+        <h3 class="mt-0"><%= dominantDelay.label %> delays (<%= dominantDelay.count %>)</h3>
+        <% if (delayRows.length > 0) { %>
+          <div class="row tight">
+            <label class="muted" for="delay-sort" style="font-size:0.82rem;">Sort by</label>
+            <select id="delay-sort" class="w-auto">
+              <option value="days">Longest delay</option>
+              <option value="closing">Closing soonest</option>
+            </select>
+          </div>
+        <% } %>
+      </div>
+
+      <% if (delayRows.length === 0) { %>
+        <p class="muted">Nothing behind target right now.</p>
+      <% } else { %>
+        <div class="stack delay-list" id="delay-list">
+          <% delayRows.forEach(row => { %>
+            <div class="card delay-item"
+                 data-days="<%= row.daysUsed !== null ? row.daysUsed : 0 %>"
+                 data-closing="<%= row.closingAt ? new Date(row.closingAt).getTime() : Number.MAX_SAFE_INTEGER %>">
+              <div class="delay-row">
+                <span class="delay-row-icon"><%- include('partials/icon', { name: entityTypeIcon[row.entityType] || 'clipboard', size: 18 }) %></span>
+                <div class="delay-row-main">
+                  <div class="delay-row-title"><a href="<%= row.detailHref %>"><%= row.bidTitle %></a><% if (row.entityType !== 'LOT') { %> <span class="badge" style="margin-left:0.4rem;"><%= row.entityType %></span><% } %></div>
+                  <div class="muted delay-row-sub"><%= row.lotLabel %></div>
+                  <div class="mt-1">
+                    <a class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>"
+                       <% if (row.daysUsed !== null && row.targetDays !== null) { %>title="<%= row.daysUsed.toFixed(1) %>d / <%= row.targetDays.toFixed(1) %>d target"<% } %>
+                       href="<%= stageHistoryHref(row.entityType, row.entityId, { title: row.bidTitle, subtitle: row.lotLabel, backHref: row.detailHref, backLabel: 'Back' }) %>"><%= row.indicatorLevel %><% if (row.percentUsed !== null) { %> &middot; <%= Math.round(row.percentUsed) %>%<% } %></a>
+                  </div>
+                  <div class="progress-bar mt-1"><div style="width:<%= Math.min(100, row.percentUsed || 0) %>%; background:<%= row.indicatorLevel === 'CRITICAL' || row.indicatorLevel === 'RED' ? 'var(--danger)' : 'var(--warn)' %>;"></div></div>
+                  <div class="muted" style="font-size:0.78rem;"><% if (row.daysUsed !== null && row.targetDays !== null) { %><%= Math.round(row.daysUsed) %>d in stage &middot; target <%= Math.round(row.targetDays) %>d<% } %><% if (row.waitingOnParty) { %> &middot; Waiting on <strong><%= row.waitingOnParty %></strong><% } %></div>
+                </div>
+                <div class="delay-row-meta">
+                  <div class="delay-row-meta-col">
+                    <span class="delay-row-meta-label">Division</span>
+                    <span class="delay-row-meta-value"><%- include('partials/icon', { name: 'building', size: 13 }) %> <%= row.divisionName || '—' %></span>
+                  </div>
+                  <div class="delay-row-meta-col">
+                    <span class="delay-row-meta-label">Owner</span>
+                    <span class="delay-row-meta-value"><%- include('partials/icon', { name: 'user', size: 13 }) %> <%= row.officerNames && row.officerNames.length ? row.officerNames[0] : 'Unassigned' %></span>
+                  </div>
+                  <div class="delay-row-meta-col">
+                    <span class="delay-row-meta-label">Closing Date</span>
+                    <span class="delay-row-meta-value"><%- include('partials/icon', { name: 'calendar', size: 13 }) %> <%= row.closingAt ? formatDate(row.closingAt) : '—' %></span>
+                  </div>
+                </div>
+                <div class="delay-row-actions">
+                  <a class="btn btn-xs" href="<%= row.detailHref %>">View bid</a>
+                  <span class="delay-row-menu" aria-hidden="true"><%- include('partials/icon', { name: 'more', size: 16 }) %></span>
+                </div>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+        <script>
+          (function () {
+            var sortSelect = document.getElementById('delay-sort');
+            var list = document.getElementById('delay-list');
+            if (!sortSelect || !list) return;
+            sortSelect.addEventListener('change', function () {
+              var key = sortSelect.value === 'closing' ? 'closing' : 'days';
+              var items = Array.prototype.slice.call(list.children);
+              items.sort(function (a, b) {
+                return key === 'closing'
+                  ? Number(a.getAttribute('data-closing')) - Number(b.getAttribute('data-closing'))
+                  : Number(b.getAttribute('data-days')) - Number(a.getAttribute('data-days'));
+              });
+              items.forEach(function (item) { list.appendChild(item); });
+            });
+          })();
+        </script>
+      <% } %>
     </div>
-  <% } %>
+
+    <div class="col" style="flex:1; min-width:19rem;">
+      <h2 class="mt-1"><%- include('partials/icon', { name: 'bulb' }) %> Delay insights</h2>
+      <div class="priority-list">
+        <a class="priority-item" href="/delays">
+          <span class="priority-item-icon"><%- include('partials/icon', { name: 'clock', size: 18 }) %></span>
+          <span class="priority-item-body">
+            <span class="priority-item-title">Longest delays</span>
+            <span class="priority-item-detail">Top bids by days over target</span>
+          </span>
+          <span class="priority-item-chevron"><%- include('partials/icon', { name: 'chevron-right', size: 16 }) %></span>
+        </a>
+        <a class="priority-item" href="/reports/delay-analytics#breakdowns">
+          <span class="priority-item-icon"><%- include('partials/icon', { name: 'grid', size: 18 }) %></span>
+          <span class="priority-item-body">
+            <span class="priority-item-title">Delays by division</span>
+            <span class="priority-item-detail">Which divisions are most affected</span>
+          </span>
+          <span class="priority-item-chevron"><%- include('partials/icon', { name: 'chevron-right', size: 16 }) %></span>
+        </a>
+        <a class="priority-item" href="/reports/delay-analytics#delay-reason-pareto">
+          <span class="priority-item-icon"><%- include('partials/icon', { name: 'alert', size: 18 }) %></span>
+          <span class="priority-item-body">
+            <span class="priority-item-title">Common blockers</span>
+            <span class="priority-item-detail">Top reasons for delays</span>
+          </span>
+          <span class="priority-item-chevron"><%- include('partials/icon', { name: 'chevron-right', size: 16 }) %></span>
+        </a>
+        <a class="priority-item" href="/reports/delay-analytics#monthly-trend">
+          <span class="priority-item-icon"><%- include('partials/icon', { name: 'trending', size: 18 }) %></span>
+          <span class="priority-item-body">
+            <span class="priority-item-title">Trends &amp; patterns</span>
+            <span class="priority-item-detail">Recent changes and insights</span>
+          </span>
+          <span class="priority-item-chevron"><%- include('partials/icon', { name: 'chevron-right', size: 16 }) %></span>
+        </a>
+      </div>
+
+      <h2 class="mt-3">Delay breakdown</h2>
+      <div class="card">
+        <%
+          const breakdownColors = { Critical: 'var(--danger)', Red: 'color-mix(in srgb, var(--danger) 55%, transparent)', Amber: 'var(--warn)', 'On track': 'var(--ok)' };
+          const breakdownCounts = { Critical: data.delaySummary.criticalCount, Red: data.delaySummary.redCount, Amber: data.delaySummary.amberCount, 'On track': data.delaySummary.greenCount };
+          const breakdownTotal = Math.max(1, Object.values(breakdownCounts).reduce((a, b) => a + b, 0));
+          const breakdownR = 60, breakdownCirc = 2 * Math.PI * breakdownR;
+          let breakdownOffset = 0;
+        %>
+        <svg viewBox="0 0 160 160" class="donut-chart" role="img" aria-label="Delay breakdown">
+          <circle cx="80" cy="80" r="<%= breakdownR %>" fill="none" stroke="var(--border)" stroke-width="18"/>
+          <% Object.keys(breakdownCounts).forEach(label => {
+            const count = breakdownCounts[label];
+            const segLen = (count / breakdownTotal) * breakdownCirc;
+            if (count > 0) { %>
+            <circle cx="80" cy="80" r="<%= breakdownR %>" fill="none" stroke="<%= breakdownColors[label] %>" stroke-width="18"
+                    stroke-dasharray="<%= segLen %> <%= breakdownCirc - segLen %>" stroke-dashoffset="<%= -breakdownOffset %>" transform="rotate(-90 80 80)"/>
+            <% }
+            breakdownOffset += segLen;
+          %>
+          <% }) %>
+          <text x="80" y="76" text-anchor="middle" class="donut-total"><%= dominantDelay.count %></text>
+          <text x="80" y="94" text-anchor="middle" class="donut-total-label"><%= dominantDelay.label %></text>
+        </svg>
+        <div class="donut-legend">
+          <% Object.keys(breakdownCounts).forEach(label => { %>
+            <div class="donut-legend-row">
+              <span class="donut-dot" style="background:<%= breakdownColors[label] %>;"></span>
+              <span><%= label %></span>
+              <strong><%= breakdownCounts[label] %></strong>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+
+      <div class="next-steps-card mt-3">
+        <h3 class="mt-0"><%- include('partials/icon', { name: 'target', size: 18 }) %> Recommended next steps</h3>
+        <ol class="next-steps-list">
+          <li><span class="next-step-num">1</span> Review and update stage timelines</li>
+          <li><span class="next-step-num">2</span> Assign owners to unassigned bids</li>
+          <li><span class="next-step-num">3</span> Resolve key blockers (MAF, quotes, bonds)</li>
+          <li><span class="next-step-num">4</span> Track progress in the Delays board</li>
+        </ol>
+      </div>
+    </div>
+  </div>
 </section>
 
 <section id="pipeline-performance" class="tab-panel" role="tabpanel" aria-labelledby="tab-pipeline-performance" tabindex="-1">
-  <h2 id="pipeline" class="mt-1"><%- include('partials/icon', { name: 'trending' }) %> Pipeline by division</h2>
-  <p class="muted mt-0">ETB and USD are tracked separately, never summed</p>
-  <div class="table-scroll">
-  <table>
-    <thead><tr><th>Division</th><th>ETB</th><th>USD</th><th>Lots</th></tr></thead>
-    <tbody>
-      <% data.pipelineByDivision.forEach(row => { %>
-        <tr><td><%= row.groupLabel %></td><td><%= formatMoney(row.totalEtb) %></td><td><%= formatMoney(row.totalUsd) %></td><td><%= row.lotCount %></td></tr>
-      <% }) %>
-      <% if (data.pipelineByDivision.length === 0) { %><tr><td colspan="4" class="muted">No priced lots yet.</td></tr><% } %>
-    </tbody>
-  </table>
-  </div>
-
-  <h2 class="mt-3">Win rate</h2>
-  <div class="card">
-    <% const anyDecided = data.winRateByDivision.some(r => r.wonCount + r.lostCount > 0); %>
-    <% if (!anyDecided) { %>
-      <p class="muted mt-0">No outcomes recorded yet. Win rate by division, officer and OEM appears once bids are marked won or lost.</p>
-    <% } else { %>
-      <div class="bar-chart">
-        <% data.winRateByDivision.filter(r => r.wonCount + r.lostCount > 0).forEach(row => { %>
-          <% const total = row.wonCount + row.lostCount; %>
-          <div class="bar-row">
-            <span class="bar-label" title="<%= row.groupLabel %>"><%= row.groupLabel %></span>
-            <div class="bar-track stacked">
-              <div class="bar-fill won" style="width: <%= Math.round((row.wonCount / total) * 100) %>%;"></div>
-              <div class="bar-fill lost" style="width: <%= Math.round((row.lostCount / total) * 100) %>%;"></div>
-            </div>
-            <span class="bar-value"><%= row.winRatePercent %>% (<%= row.wonCount %>W / <%= row.lostCount %>L)</span>
-          </div>
-        <% }) %>
-      </div>
-    <% } %>
-    <% if (data.bidsPastOpeningNoResult.length > 0) { %>
-      <div class="warning-box mt-2">
-        <strong><%= data.bidsPastOpeningNoResult.length %> bid<%= data.bidsPastOpeningNoResult.length === 1 ? ' is' : 's are' %> past opening with no result</strong>
-        <div class="mt-1"><%= data.bidsPastOpeningNoResult.map(r => r.title + ' (' + formatDate(r.openingAt) + ')').join(', ') %></div>
-        <a class="view-all" href="/bids?status=UNDER_EVALUATION">Record outcomes &rarr;</a>
-      </div>
-    <% } %>
-  </div>
-
-  <h2 class="mt-3">By division / status (detail)</h2>
-  <div class="card">
-    <div style="display:flex; gap:2rem; flex-wrap:wrap;">
-      <div style="flex:1; min-width:16rem;">
-        <strong>By status</strong>
-        <table>
-          <thead><tr><th>Status</th><th>ETB</th><th>USD</th><th>Lots</th></tr></thead>
-          <tbody>
-            <% data.pipelineByStatus.forEach(row => { %>
-              <tr><td><%= row.groupLabel %></td><td><%= formatMoney(row.totalEtb) %></td><td><%= formatMoney(row.totalUsd) %></td><td><%= row.lotCount %></td></tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
-      <div style="flex:1; min-width:16rem;">
-        <strong>By officer</strong>
-        <table>
-          <thead><tr><th></th><th>Won</th><th>Lost</th><th>Rate</th></tr></thead>
-          <tbody>
-            <% data.winRateByOfficer.forEach(row => { %>
-              <tr><td><%= row.groupLabel %></td><td><%= row.wonCount %></td><td><%= row.lostCount %></td><td><%= row.winRatePercent %>%</td></tr>
-            <% }) %>
-            <% if (data.winRateByOfficer.length === 0) { %><tr><td colspan="4" class="muted">No decided bids yet.</td></tr><% } %>
-          </tbody>
-        </table>
-      </div>
-      <div style="flex:1; min-width:16rem;">
-        <strong>By OEM</strong>
-        <table>
-          <thead><tr><th></th><th>Won</th><th>Lost</th><th>Rate</th></tr></thead>
-          <tbody>
-            <% data.winRateByOem.forEach(row => { %>
-              <tr><td><%= row.groupLabel %></td><td><%= row.wonCount %></td><td><%= row.lostCount %></td><td><%= row.winRatePercent %>%</td></tr>
-            <% }) %>
-            <% if (data.winRateByOem.length === 0) { %><tr><td colspan="4" class="muted">No decided bids yet.</td></tr><% } %>
-          </tbody>
-        </table>
-      </div>
+  <div class="section-header-row">
+    <div class="section-header-icon"><%- include('partials/icon', { name: 'trending', size: 22 }) %></div>
+    <div class="section-header-text">
+      <h2 class="mt-0">Pipeline &amp; Performance</h2>
+      <p class="muted mt-0">Track pipeline value, monitor bid outcomes, and understand performance by division, officer, and OEM.</p>
     </div>
   </div>
-</section>
 
-<section id="bonds-deal-regs" class="tab-panel" role="tabpanel" aria-labelledby="tab-bonds-deal-regs" tabindex="-1">
-  <div class="row top">
-    <div class="col" style="flex:2; min-width:28rem;">
-      <h2 id="bonds-outstanding" class="mt-1"><%- include('partials/icon', { name: 'shield' }) %> Bid bonds outstanding</h2>
-      <p class="muted mt-0">ETB <%= new Intl.NumberFormat('en-US').format(data.outstandingBondTotalEtb) %> &middot; USD <%= new Intl.NumberFormat('en-US').format(data.outstandingBondTotalUsd) %> &middot; <%= data.outstandingBonds.length %> bonds &middot; soonest expiry first</p>
-      <div class="table-scroll">
-      <table>
-        <thead><tr><th>Customer &middot; bid</th><th>Lot</th><th>Amount</th><th>Bid closes/closed</th><th>Bond expires</th></tr></thead>
-        <tbody id="bonds-tbody">
-          <% bondsDisplayItems.forEach(item => { %>
-            <% if (item.kind === 'divider') { %>
-              <tr<%= item.hidden ? ' hidden' : '' %>><td colspan="5" class="subgroup-heading" style="margin:0;"><%= item.label %></td></tr>
-            <% } else { %>
-              <% const row = item.row; %>
-              <tr<%= item.hidden ? ' hidden' : '' %> onclick="window.location='/bids/<%= row.bidId %>'" style="cursor:pointer;">
-                <td><strong><%= row.organizationName %></strong><div class="muted" style="font-size:0.8rem;"><%= row.bidTitle %></div></td>
-                <td><%= row.lotLabel %></td>
-                <td><%= formatMoney(row.amount, row.currency) %></td>
-                <td><%= row.bidClosingAt && new Date(row.bidClosingAt).getTime() < Date.now() ? 'Closed ' : 'Closes ' %><%= formatDate(row.bidClosingAt) %></td>
-                <td><% if (row.expiringSoon) { %><span class="badge review"><%= formatDate(row.estimatedExpiry) %></span><% } else { %><%= formatDate(row.estimatedExpiry) %><% } %></td>
-              </tr>
-            <% } %>
+  <%
+    const totalLotsTracked = data.pipelineByDivision.reduce((s, r) => s + r.lotCount, 0);
+    const decidedWon = data.winRateByDivision.reduce((s, r) => s + r.wonCount, 0);
+    const decidedLost = data.winRateByDivision.reduce((s, r) => s + r.lostCount, 0);
+    const overallWinRate = (decidedWon + decidedLost) > 0 ? Math.round((decidedWon / (decidedWon + decidedLost)) * 100) : null;
+  %>
+  <div class="stat-grid chevron-stat-grid" hx-boost="false">
+    <a class="stat-card stat-blue" href="#pipeline">
+      <span class="stat-card-top">
+        <span class="stat-icon"><%- include('partials/icon', { name: 'coins' }) %></span>
+        <span class="stat-label">Priced Pipeline</span>
+        <span class="stat-card-chevron"><%- include('partials/icon', { name: 'chevron-right', size: 14 }) %></span>
+      </span>
+      <span class="stat-value"><%= formatMoney(pipelineEtbTotal, 'ETB') %></span>
+      <span class="muted" style="font-size:0.78rem;"><%= formatMoney(pipelineUsdTotal, 'USD') %></span>
+    </a>
+    <a class="stat-card stat-green" href="#pipeline">
+      <span class="stat-card-top">
+        <span class="stat-icon"><%- include('partials/icon', { name: 'clipboard' }) %></span>
+        <span class="stat-label">Lots Tracked</span>
+        <span class="stat-card-chevron"><%- include('partials/icon', { name: 'chevron-right', size: 14 }) %></span>
+      </span>
+      <span class="stat-value"><%= totalLotsTracked %></span>
+      <span class="muted" style="font-size:0.78rem;">Active lots in pipeline</span>
+    </a>
+    <a class="stat-card stat-purple" href="#performance-breakdown">
+      <span class="stat-card-top">
+        <span class="stat-icon"><%- include('partials/icon', { name: 'trophy' }) %></span>
+        <span class="stat-label">Win Rate</span>
+        <span class="stat-card-chevron"><%- include('partials/icon', { name: 'chevron-right', size: 14 }) %></span>
+      </span>
+      <span class="stat-value"><%= overallWinRate !== null ? overallWinRate + '%' : '—' %></span>
+      <span class="muted" style="font-size:0.78rem;"><%= overallWinRate !== null ? decidedWon + 'W / ' + decidedLost + 'L' : 'No outcomes yet' %></span>
+    </a>
+    <a class="stat-card stat-orange" href="/bids?status=UNDER_EVALUATION">
+      <span class="stat-card-top">
+        <span class="stat-icon"><%- include('partials/icon', { name: 'clock' }) %></span>
+        <span class="stat-label">Pending Outcomes</span>
+        <span class="stat-card-chevron"><%- include('partials/icon', { name: 'chevron-right', size: 14 }) %></span>
+      </span>
+      <span class="stat-value"><%= data.bidsPastOpeningNoResult.length %></span>
+      <span class="muted" style="font-size:0.78rem;">Bids awaiting result</span>
+    </a>
+  </div>
+
+  <div class="card mt-2" id="pipeline">
+    <div class="row" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+      <h3 class="mt-0">Pipeline by Division</h3>
+      <div class="row tight">
+        <select id="pipeline-division-filter" class="w-auto" onchange="if (this.value) location.href = this.value;">
+          <% data.divisionFilters.forEach(pill => { %>
+            <option value="/dashboard<%= pill.filterParam ? '?division=' + encodeURIComponent(pill.filterParam) : '' %>#pipeline-performance" <%= (pill.filterParam || null) === currentDivision ? 'selected' : '' %>><%= pill.label %></option>
           <% }) %>
-          <% if (data.outstandingBonds.length === 0) { %><tr><td colspan="5" class="muted">No outstanding bid bonds.</td></tr><% } %>
+        </select>
+        <select id="pipeline-currency-filter" class="w-auto">
+          <option value="">Currency: All</option>
+          <option value="etb">ETB only</option>
+          <option value="usd">USD only</option>
+        </select>
+      </div>
+    </div>
+
+    <% if (data.pipelineByDivision.length === 0) { %>
+      <div class="empty-state">
+        <span class="empty-state-icon"><%- include('partials/icon', { name: 'bar-chart', size: 26 }) %></span>
+        <p class="empty-state-title">No priced lots yet</p>
+        <p class="empty-state-text">Pipeline values appear when bid lot prices are recorded.</p>
+      </div>
+    <% } else { %>
+      <div class="table-scroll mt-1">
+      <table id="pipeline-division-table">
+        <thead><tr><th>Division</th><th>ETB Value</th><th>USD Value</th><th>Lots</th></tr></thead>
+        <tbody>
+          <% data.pipelineByDivision.forEach(row => { %>
+            <tr data-etb="<%= row.totalEtb %>" data-usd="<%= row.totalUsd %>">
+              <td><%= row.groupLabel %></td><td><%= formatMoney(row.totalEtb) %></td><td><%= formatMoney(row.totalUsd) %></td><td><%= row.lotCount %></td>
+            </tr>
+          <% }) %>
         </tbody>
       </table>
       </div>
-      <% if (data.outstandingBonds.length > bondRowLimit) { %>
-        <button type="button" class="secondary w-auto mt-1" id="bonds-show-all">Show all <%= data.outstandingBonds.length %></button>
-        <script>
-          document.getElementById('bonds-show-all').addEventListener('click', function () {
-            document.querySelectorAll('#bonds-tbody [hidden]').forEach(function (el) { el.hidden = false; });
-            this.remove();
-          });
-        </script>
+      <p class="muted mt-1" style="font-size:0.78rem;">ETB and USD are tracked separately, never summed.</p>
+    <% } %>
+  </div>
+
+  <% if (data.pipelineByStatus.length > 0) { %>
+    <div class="card mt-2">
+      <h3 class="mt-0">Pipeline value by status</h3>
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Status</th><th>ETB</th><th>USD</th><th>Lots</th></tr></thead>
+        <tbody>
+          <% data.pipelineByStatus.forEach(row => { %>
+            <tr><td><%= row.groupLabel %></td><td><%= formatMoney(row.totalEtb) %></td><td><%= formatMoney(row.totalUsd) %></td><td><%= row.lotCount %></td></tr>
+          <% }) %>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  <% } %>
+
+  <% if (data.bidsPastOpeningNoResult.length > 0) { %>
+    <div class="card outcome-banner mt-2">
+      <span class="outcome-banner-icon"><%- include('partials/icon', { name: 'alert', size: 18 }) %></span>
+      <div class="outcome-banner-body">
+        <strong><%= data.bidsPastOpeningNoResult.length %> bid<%= data.bidsPastOpeningNoResult.length === 1 ? ' is' : 's are' %> past opening with no result</strong>
+        <div class="muted mt-1"><%- include('partials/icon', { name: 'calendar', size: 13 }) %> <%= data.bidsPastOpeningNoResult.map(r => r.title + ' (' + formatDate(r.openingAt) + ')').join(', ') %></div>
+      </div>
+      <a class="btn" href="/bids?status=UNDER_EVALUATION">Record Outcome <%- include('partials/icon', { name: 'chevron-right', size: 14 }) %></a>
+    </div>
+  <% } %>
+
+  <h2 id="performance-breakdown" class="mt-3">Performance Breakdown</h2>
+  <div class="row tight perf-tabs" role="tablist" aria-label="Performance breakdown dimension">
+    <button type="button" class="pill active" data-perf-tab="division">By Division</button>
+    <button type="button" class="pill" data-perf-tab="officer">By Officer</button>
+    <button type="button" class="pill" data-perf-tab="oem">By OEM</button>
+  </div>
+
+  <%
+    const perfPanels = [
+      { key: 'division', icon: 'bar-chart', rows: data.winRateByDivision },
+      { key: 'officer', icon: 'user', rows: data.winRateByOfficer },
+      { key: 'oem', icon: 'building', rows: data.winRateByOem },
+    ];
+  %>
+  <% perfPanels.forEach((panel, panelIndex) => {
+    const decidedRows = panel.rows.filter(r => r.wonCount + r.lostCount > 0);
+  %>
+    <div class="card perf-panel" data-perf-panel="<%= panel.key %>"<%= panelIndex === 0 ? '' : ' hidden' %>>
+      <% if (decidedRows.length === 0) { %>
+        <div class="empty-state">
+          <span class="empty-state-icon"><%- include('partials/icon', { name: panel.icon, size: 26 }) %></span>
+          <p class="empty-state-title">No decided bids yet</p>
+          <p class="empty-state-text">Won, lost and rate statistics will appear once bid outcomes are recorded.</p>
+        </div>
+      <% } else { %>
+        <div class="bar-chart">
+          <% decidedRows.forEach(row => {
+            const total = row.wonCount + row.lostCount;
+          %>
+            <div class="bar-row">
+              <span class="bar-label" title="<%= row.groupLabel %>"><%= row.groupLabel %></span>
+              <div class="bar-track stacked">
+                <div class="bar-fill won" style="width: <%= Math.round((row.wonCount / total) * 100) %>%;"></div>
+                <div class="bar-fill lost" style="width: <%= Math.round((row.lostCount / total) * 100) %>%;"></div>
+              </div>
+              <span class="bar-value"><%= row.winRatePercent %>% (<%= row.wonCount %>W / <%= row.lostCount %>L)</span>
+            </div>
+          <% }) %>
+        </div>
       <% } %>
-      <p class="muted">Expiry is estimated from the bond's issue date, or from the bid opening date when no issue date is recorded.</p>
+    </div>
+  <% }) %>
+
+  <script>
+    (function () {
+      var tabs = document.querySelectorAll('.perf-tabs [data-perf-tab]');
+      var panels = document.querySelectorAll('[data-perf-panel]');
+      tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          tabs.forEach(function (t) { t.classList.toggle('active', t === tab); });
+          panels.forEach(function (p) { p.hidden = p.getAttribute('data-perf-panel') !== tab.getAttribute('data-perf-tab'); });
+        });
+      });
+
+      var currencyFilter = document.getElementById('pipeline-currency-filter');
+      var divisionTable = document.getElementById('pipeline-division-table');
+      if (currencyFilter && divisionTable) {
+        currencyFilter.addEventListener('change', function () {
+          var field = currencyFilter.value === 'etb' ? 'etb' : (currencyFilter.value === 'usd' ? 'usd' : null);
+          divisionTable.querySelectorAll('tbody tr').forEach(function (row) {
+            row.hidden = field !== null && Number(row.getAttribute('data-' + field)) === 0;
+          });
+        });
+      }
+    })();
+  </script>
+</section>
+
+<section id="bonds-deal-regs" class="tab-panel" role="tabpanel" aria-labelledby="tab-bonds-deal-regs" tabindex="-1">
+  <div class="section-header-row">
+    <div class="section-header-icon"><%- include('partials/icon', { name: 'shield', size: 22 }) %></div>
+    <div class="section-header-text">
+      <h2 class="mt-0">Bonds &amp; Deal Registrations</h2>
+      <p class="muted mt-0">Track bid bonds, monitor expiries and manage deal registrations in one place.</p>
+    </div>
+  </div>
+
+  <%
+    const activeBondsCount = data.outstandingBonds.length;
+    const bondsExpiringSoonCount = data.outstandingBonds.filter(b => b.expiringSoon).length;
+    const bondDivisionOptions = [...new Set(data.outstandingBonds.flatMap(b => b.divisionNames))].sort((a, b) => a.localeCompare(b));
+    function dealRegStatusInfo(reg) {
+      if (reg.expiringSoon) return { label: 'Expiring Soon', cls: 'lost' };
+      if (reg.status === 'APPROVED') return { label: 'Approved', cls: 'won' };
+      if (reg.status === 'SUBMITTED') return { label: 'Pending OEM', cls: 'review' };
+      if (reg.status === 'REJECTED') return { label: 'Rejected', cls: 'lost' };
+      if (reg.status === 'EXPIRED') return { label: 'Expired', cls: '' };
+      return { label: 'Draft', cls: '' };
+    }
+  %>
+
+  <div class="row top">
+    <div class="col" style="flex:2; min-width:30rem;">
+      <div class="stat-grid accent-stat-grid" hx-boost="false" id="bonds-outstanding">
+        <div class="stat-card stat-blue">
+          <span class="stat-card-top">
+            <span class="stat-icon"><%- include('partials/icon', { name: 'clipboard' }) %></span>
+            <span class="stat-label">Total Bonds Outstanding</span>
+          </span>
+          <span class="stat-value"><%= formatMoney(data.outstandingBondTotalEtb, 'ETB') %></span>
+          <span class="muted" style="font-size:0.78rem;">Across <%= activeBondsCount %> bonds</span>
+        </div>
+        <div class="stat-card stat-green">
+          <span class="stat-card-top">
+            <span class="stat-icon"><%- include('partials/icon', { name: 'shield' }) %></span>
+            <span class="stat-label">Active Bonds</span>
+          </span>
+          <span class="stat-value"><%= activeBondsCount %></span>
+          <span class="muted" style="font-size:0.78rem;">Valid and in effect</span>
+        </div>
+        <div class="stat-card stat-orange">
+          <span class="stat-card-top">
+            <span class="stat-icon"><%- include('partials/icon', { name: 'clock' }) %></span>
+            <span class="stat-label">Expiring Soon</span>
+          </span>
+          <span class="stat-value"><%= bondsExpiringSoonCount %></span>
+          <span class="muted" style="font-size:0.78rem;">Within next 30 days</span>
+        </div>
+      </div>
     </div>
 
     <div class="col" style="flex:1; min-width:18rem;">
-      <h2 id="deal-regs" class="mt-1"><%- include('partials/icon', { name: 'repeat' }) %> Deal registrations</h2>
-      <div class="stat-grid" style="grid-template-columns:repeat(3, 1fr);" hx-boost="false">
-        <div class="stat-card">
-          <span class="stat-value"><%= data.dealRegistrationSummary.expiringSoonCount %></span>
-          <span class="stat-label">Expiring 30d</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-value"><%= data.dealRegistrationSummary.pendingOemCount %></span>
-          <span class="stat-label">Pending OEM</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-value"><%= data.dealRegistrationSummary.approvedCount %></span>
-          <span class="stat-label">Approved</span>
+      <div class="card">
+        <h3 class="mt-0"><%- include('partials/icon', { name: 'clipboard', size: 18 }) %> Deal Registrations</h3>
+        <div class="mini-stat-row">
+          <div class="mini-stat mini-stat-red">
+            <span class="mini-stat-value"><%= data.dealRegistrationSummary.expiringSoonCount %></span>
+            <span class="mini-stat-label">Expiring in 30 days</span>
+            <span class="muted" style="font-size:0.72rem;">All time</span>
+          </div>
+          <div class="mini-stat mini-stat-amber">
+            <span class="mini-stat-value"><%= data.dealRegistrationSummary.pendingOemCount %></span>
+            <span class="mini-stat-label">Pending OEM</span>
+            <span class="muted" style="font-size:0.72rem;">Awaiting approval</span>
+          </div>
+          <div class="mini-stat mini-stat-green">
+            <span class="mini-stat-value"><%= data.dealRegistrationSummary.approvedCount %></span>
+            <span class="mini-stat-label">Approved</span>
+            <span class="muted" style="font-size:0.72rem;">Active registrations</span>
+          </div>
         </div>
       </div>
-      <% if (data.dealRegistrationSummary.bidsPreparingWithoutRegistration.length > 0) { %>
-        <p class="mt-1">Bids preparing without a registration: <%= data.dealRegistrationSummary.bidsPreparingWithoutRegistration.join(', ') %>.</p>
-      <% } %>
-      <a class="view-all" href="/deal-registrations/new">Register a deal &rarr;</a>
+    </div>
+  </div>
+
+  <div class="row top mt-2">
+    <div class="col" style="flex:2; min-width:30rem;">
+      <div class="card">
+        <h3 class="mt-0">Bid Bonds Outstanding</h3>
+        <p class="muted mt-0" style="font-size:0.82rem;"><%= activeBondsCount %> bonds &middot; Soonest expiry first</p>
+
+        <% if (activeBondsCount === 0) { %>
+          <div class="empty-state">
+            <span class="empty-state-icon"><%- include('partials/icon', { name: 'shield', size: 26 }) %></span>
+            <p class="empty-state-title">No outstanding bid bonds</p>
+            <p class="empty-state-text">Bonds appear here once a bid lot records a bond amount.</p>
+          </div>
+        <% } else { %>
+          <div class="schedule-toolbar">
+            <div class="row tight schedule-toolbar-group" style="flex:1;">
+              <input type="search" id="bonds-search" placeholder="Search by customer, bid or reference..." class="col">
+            </div>
+            <div class="row tight schedule-toolbar-group">
+              <select id="bonds-division-filter" class="w-auto">
+                <option value="">All Divisions</option>
+                <% bondDivisionOptions.forEach(name => { %><option value="<%= name %>"><%= name %></option><% }) %>
+              </select>
+              <select id="bonds-expiry-filter" class="w-auto">
+                <option value="">Expiry: All</option>
+                <option value="soon">Expiring soon</option>
+              </select>
+              <select id="bonds-currency-filter" class="w-auto">
+                <option value="">Currency: All</option>
+                <option value="ETB">ETB</option>
+                <option value="USD">USD</option>
+              </select>
+              <button type="button" class="secondary btn-xs" id="bonds-clear-filters"><%- include('partials/icon', { name: 'repeat', size: 13 }) %> Clear filters</button>
+            </div>
+          </div>
+
+          <div class="table-scroll mt-1">
+          <table>
+            <thead><tr><th>Customer / Bid</th><th>Division</th><th>Lot</th><th>Bond Amount</th><th>Bid Status</th><th>Bond Expiry</th><th>Actions</th></tr></thead>
+            <tbody id="bonds-tbody">
+              <% data.outstandingBonds.forEach(row => {
+                const divisionName = row.divisionNames[0] || '';
+                const isClosed = row.bidClosingAt && new Date(row.bidClosingAt).getTime() < Date.now();
+                const expiryDays = row.estimatedExpiry ? Math.round((new Date(row.estimatedExpiry) - Date.now()) / 86400000) : null;
+              %>
+                <tr data-search="<%= (row.organizationName + ' ' + row.bidTitle).toLowerCase() %>" data-division="<%= divisionName %>" data-currency="<%= row.currency %>" data-expiring="<%= row.expiringSoon %>">
+                  <td>
+                    <a href="/bids/<%= row.bidId %>" style="font-weight:600;"><%= row.organizationName %></a>
+                    <div class="muted" style="font-size:0.8rem;"><%= row.bidTitle %></div>
+                  </td>
+                  <td>
+                    <% if (divisionName) { %>
+                      <span class="row tight" style="font-size:0.85rem; flex-wrap:nowrap;"><%- include('partials/icon', { name: pillIcon(divisionName) || 'square', size: 14 }) %> <%= divisionName %></span>
+                    <% } else { %><span class="muted">&mdash;</span><% } %>
+                  </td>
+                  <td><%= row.lotLabel %></td>
+                  <td><%= formatMoney(row.amount, row.currency) %></td>
+                  <td><span class="badge <%= isClosed ? '' : 'active' %>"><%= isClosed ? 'Closed' : 'Open' %></span></td>
+                  <td>
+                    <span class="badge <%= row.expiringSoon ? 'review' : '' %>"><%= formatDate(row.estimatedExpiry) %></span>
+                    <% if (expiryDays !== null) { %><div class="muted" style="font-size:0.75rem;">In <%= expiryDays %> days</div><% } %>
+                  </td>
+                  <td>
+                    <div class="row tight" style="flex-wrap:nowrap;">
+                      <a class="btn btn-xs" href="/bids/<%= row.bidId %>">View</a>
+                      <span class="delay-row-menu" aria-hidden="true"><%- include('partials/icon', { name: 'more', size: 16 }) %></span>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+          </div>
+          <p class="muted mt-1" id="bonds-empty" hidden>No bonds match the current filters.</p>
+          <div class="row mt-1" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+            <span class="muted" id="bonds-showing" style="font-size:0.82rem;"></span>
+            <div class="pagination" id="bonds-pagination"></div>
+          </div>
+
+          <script>
+            (function () {
+              var searchInput = document.getElementById('bonds-search');
+              var divisionFilter = document.getElementById('bonds-division-filter');
+              var expiryFilter = document.getElementById('bonds-expiry-filter');
+              var currencyFilter = document.getElementById('bonds-currency-filter');
+              var clearBtn = document.getElementById('bonds-clear-filters');
+              var tbody = document.getElementById('bonds-tbody');
+              var emptyMsg = document.getElementById('bonds-empty');
+              var showingLabel = document.getElementById('bonds-showing');
+              var paginationEl = document.getElementById('bonds-pagination');
+              var PAGE_SIZE = 7;
+              var currentPage = 1;
+              var allRows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+
+              function applyFilters() {
+                var search = searchInput.value.trim().toLowerCase();
+                var division = divisionFilter.value;
+                var expiry = expiryFilter.value;
+                var currency = currencyFilter.value;
+
+                var matches = allRows.filter(function (row) {
+                  return (!search || row.getAttribute('data-search').indexOf(search) !== -1)
+                    && (!division || row.getAttribute('data-division') === division)
+                    && (!expiry || row.getAttribute('data-expiring') === 'true')
+                    && (!currency || row.getAttribute('data-currency') === currency);
+                });
+
+                var totalPages = Math.max(1, Math.ceil(matches.length / PAGE_SIZE));
+                if (currentPage > totalPages) currentPage = totalPages;
+                var start = (currentPage - 1) * PAGE_SIZE;
+                var pageRows = matches.slice(start, start + PAGE_SIZE);
+
+                allRows.forEach(function (row) { row.hidden = true; });
+                pageRows.forEach(function (row) { row.hidden = false; });
+
+                emptyMsg.hidden = matches.length !== 0;
+                showingLabel.textContent = matches.length === 0 ? '' :
+                  'Showing ' + (start + 1) + '-' + (start + pageRows.length) + ' of ' + matches.length + ' bonds';
+
+                renderPagination(totalPages);
+              }
+
+              function renderPagination(totalPages) {
+                paginationEl.innerHTML = '';
+                if (totalPages <= 1) return;
+                var prev = document.createElement('button');
+                prev.type = 'button'; prev.textContent = '‹'; prev.disabled = currentPage === 1;
+                prev.addEventListener('click', function () { currentPage--; applyFilters(); });
+                paginationEl.appendChild(prev);
+                for (var i = 1; i <= totalPages; i++) {
+                  (function (page) {
+                    var btn = document.createElement('button');
+                    btn.type = 'button'; btn.textContent = String(page);
+                    if (page === currentPage) btn.classList.add('active');
+                    btn.addEventListener('click', function () { currentPage = page; applyFilters(); });
+                    paginationEl.appendChild(btn);
+                  })(i);
+                }
+                var next = document.createElement('button');
+                next.type = 'button'; next.textContent = '›'; next.disabled = currentPage === totalPages;
+                next.addEventListener('click', function () { currentPage++; applyFilters(); });
+                paginationEl.appendChild(next);
+              }
+
+              [searchInput, divisionFilter, expiryFilter, currencyFilter].forEach(function (el) {
+                el.addEventListener('input', function () { currentPage = 1; applyFilters(); });
+                el.addEventListener('change', function () { currentPage = 1; applyFilters(); });
+              });
+              clearBtn.addEventListener('click', function () {
+                searchInput.value = ''; divisionFilter.value = ''; expiryFilter.value = ''; currencyFilter.value = '';
+                currentPage = 1; applyFilters();
+              });
+
+              applyFilters();
+            })();
+          </script>
+        <% } %>
+        <p class="muted mt-2" style="font-size:0.78rem;">Expiry is estimated from the bond's issue date, or from the bid opening date when no issue date is recorded.</p>
+      </div>
+    </div>
+
+    <div class="col" style="flex:1; min-width:18rem;">
+      <div class="card" id="deal-regs">
+        <div class="row" style="justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+          <h3 class="mt-0">Deal Registrations</h3>
+          <a class="btn w-auto" href="/deal-registrations/new">+ Register a Deal</a>
+        </div>
+        <div class="mini-stat-row">
+          <div class="mini-stat">
+            <span class="mini-stat-value"><%= dealRegistrationsTotal %></span>
+            <span class="mini-stat-label">Total Registrations</span>
+            <span class="muted" style="font-size:0.72rem;">All time</span>
+          </div>
+          <div class="mini-stat mini-stat-amber">
+            <span class="mini-stat-value"><%= data.dealRegistrationSummary.pendingOemCount %></span>
+            <span class="mini-stat-label">Pending OEM</span>
+            <span class="muted" style="font-size:0.72rem;">Awaiting approval</span>
+          </div>
+          <div class="mini-stat mini-stat-green">
+            <span class="mini-stat-value"><%= data.dealRegistrationSummary.approvedCount %></span>
+            <span class="mini-stat-label">Approved</span>
+            <span class="muted" style="font-size:0.72rem;">Active registrations</span>
+          </div>
+        </div>
+        <% if (data.dealRegistrationSummary.bidsPreparingWithoutRegistration.length > 0) { %>
+          <p class="muted mt-1" style="font-size:0.8rem;">Bids preparing without a registration: <%= data.dealRegistrationSummary.bidsPreparingWithoutRegistration.join(', ') %>.</p>
+        <% } %>
+
+        <div class="row mt-2" style="justify-content:space-between; align-items:center;">
+          <h3 class="mt-0">Recent Deal Registrations</h3>
+          <a class="view-all" href="/deal-registrations">View all &rarr;</a>
+        </div>
+        <% if (recentDealRegistrations.length === 0) { %>
+          <p class="muted">No deal registrations yet.</p>
+        <% } else { %>
+          <div class="deal-reg-list mt-1">
+            <% recentDealRegistrations.forEach(reg => {
+              const statusInfo = dealRegStatusInfo(reg);
+              const days = reg.expiryDate ? Math.round((new Date(reg.expiryDate) - Date.now()) / 86400000) : null;
+            %>
+              <a class="deal-reg-row" href="/deal-registrations/<%= reg.id %>">
+                <div class="deal-reg-row-main">
+                  <strong><%= reg.title %></strong>
+                  <div class="muted" style="font-size:0.8rem;"><%= reg.organization ? reg.organization.name : '-' %></div>
+                </div>
+                <div class="deal-reg-row-meta">
+                  <span class="muted" style="font-size:0.8rem;"><%= reg.oem ? reg.oem.name : '-' %></span>
+                  <span class="badge <%= statusInfo.cls %>"><%= statusInfo.label %></span>
+                  <span class="muted" style="font-size:0.78rem;"><%= formatDate(reg.expiryDate) %><% if (days !== null) { %> &middot; In <%= days %>d<% } %></span>
+                </div>
+              </a>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
     </div>
   </div>
 </section>

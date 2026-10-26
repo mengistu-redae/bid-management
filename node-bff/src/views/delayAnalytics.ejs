@@ -30,7 +30,7 @@
 </table>
 </div>
 
-<h2 class="mt-3">Monthly trend</h2>
+<h2 id="monthly-trend" class="mt-3">Monthly trend</h2>
 <div class="table-scroll">
 <table>
   <thead><tr><th>Stage</th><th>Month</th><th>Completed</th><th>Avg (bd)</th></tr></thead>
@@ -43,7 +43,7 @@
 </table>
 </div>
 
-<h2 class="mt-3">Breakdowns</h2>
+<h2 id="breakdowns" class="mt-3">Breakdowns</h2>
 <div class="row top">
   <div class="card col">
     <strong>By division - total delay days</strong>
@@ -65,7 +65,7 @@
   </div>
 </div>
 
-<h2 class="mt-3">Delay reason Pareto</h2>
+<h2 id="delay-reason-pareto" class="mt-3">Delay reason Pareto</h2>
 <div class="card">
   <%- include('partials/barChart', { rows: report.delayReasonPareto.map(r => ({ label: r.label, value: r.totalDelayDays, displayValue: r.totalDelayDays + 'd (' + r.occurrences + 'x)' })) }) %>
 </div>

@@ -238,7 +238,7 @@ class MyFollowUpsServiceTest {
             return new com.motiengineering.bidmgmt.dto.DelayBoardRowDto(
                     entityType, entityId, "/x/" + entityId, null, "Title", null, "Subtitle",
                     null, null, null, null, "STATUS", null,
-                    indicatorLevel, percentUsed, 1.0, 5.0, stale, null, List.of(), null, null);
+                    indicatorLevel, percentUsed, 1.0, 5.0, stale, null, List.of(), null, null, null);
         }
     }
 }

@@ -613,7 +613,48 @@ a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 
 .segmented-bar .segment.amber { background: var(--warn); }
 .segmented-bar .segment.green { background: var(--ok); }
 
-.delay-item { cursor: pointer; padding: 0.85rem 1rem; }
+.section-header-icon-danger { background: linear-gradient(135deg, var(--danger), color-mix(in srgb, var(--danger) 100%, black 18%)); }
+
+/* Delays tab (dashboard#delays) - see docs/UI-UX designs/Bid Management Delays Dashboard.png.
+   The 5-up severity strip reuses .stat-grid/.stat-card but with a circular icon and no
+   menu/trend row (plain at-a-glance counts, not the KPI strip's drill-down cards). */
+.delay-stat-grid .stat-card { gap: 0.35rem; padding: 0.9rem; }
+.delay-stat-grid .stat-icon { width: 2.2rem; height: 2.2rem; border-radius: 50%; }
+.delay-stat-grid .stat-value { font-size: 1.5rem; }
+.delay-stat-grid .stat-sub { font-size: 0.74rem; }
+.delay-stat.critical .stat-icon { background: var(--danger); color: #fff; }
+.delay-stat.red .stat-icon { background: var(--danger-bg); color: var(--danger); }
+.delay-stat.amber .stat-icon { background: var(--warn-bg); color: var(--warn); }
+.delay-stat.green .stat-icon { background: var(--ok-bg); color: var(--ok); }
+.delay-stat.stale .stat-icon { background: var(--bg-alt); color: var(--muted); }
+
+.delay-item { padding: 0.9rem 1rem; }
+.delay-row { display: flex; align-items: flex-start; gap: 0.75rem; }
+.delay-row-icon {
+  flex-shrink: 0; width: 2.1rem; height: 2.1rem; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  background: var(--bg-alt); color: var(--muted); margin-top: 0.1rem;
+}
+.delay-row-main { flex: 1; min-width: 0; }
+.delay-row-title { font-weight: 600; }
+.delay-row-sub { font-size: 0.8rem; margin-top: 0.1rem; }
+.delay-row-meta { flex-shrink: 0; display: flex; flex-direction: column; gap: 0.5rem; min-width: 9rem; }
+.delay-row-meta-col { display: flex; flex-direction: column; gap: 0.15rem; }
+.delay-row-meta-label { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.delay-row-meta-value { display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem; }
+.delay-row-meta-value .icon { color: var(--muted); }
+.delay-row-actions { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; }
+.delay-row-menu { color: var(--muted); display: flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; }
+
+.priority-item-chevron { flex-shrink: 0; align-self: center; color: var(--muted); }
+
+.next-steps-card { background: var(--accent-bg); border-radius: 12px; padding: 1rem 1.1rem; }
+.next-steps-card h3 { display: flex; align-items: center; gap: 0.5rem; color: var(--accent); }
+.next-steps-list { list-style: none; margin: 0.75rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.next-steps-list li { display: flex; align-items: center; gap: 0.6rem; font-size: 0.88rem; }
+.next-step-num {
+  flex-shrink: 0; width: 1.4rem; height: 1.4rem; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: #fff; font-size: 0.72rem; font-weight: 700;
+}
 
 /* Below this width the sidebar becomes an off-canvas drawer (closed by
    default, toggled via the hamburger button) instead of a permanent
@@ -651,49 +692,163 @@ a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 
 .anchor-nav.sub-nav { margin-top: 0.25rem; }
 .anchor-nav.sub-nav a { display: flex; align-items: center; gap: 0.4rem; }
 
-/* The 4-card mini KPI row's own color identity/hover/spacing - scoped to this tab (not a
-   blanket .stat-card change) so the Executive Overview's own top-level KPI cards, which stay
-   neutral-until-there's-a-problem (.warn/.danger only past a threshold) and already have their
-   own a.stat-card:hover elsewhere, are untouched. These 4 instead carry a fixed category color
-   (blue/orange/green/red) always, matching the reference design, since each card represents a
-   distinct topic rather than a single shared warning state. */
-#closing-readiness .stat-grid .stat-value { margin-bottom: 0.375rem; }
-#closing-readiness .stat-grid .stat-card {
-  position: relative; overflow: hidden; padding-bottom: 1.35rem;
-  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-}
-#closing-readiness .stat-grid .stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.1), 0 2px 5px rgba(0, 0, 0, 0.06);
-}
-#closing-readiness .stat-grid .stat-card::after {
-  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
-}
-#closing-readiness .stat-card-top { display: flex; align-items: center; gap: 0.6rem; }
-#closing-readiness .stat-card-top .stat-label {
+/* Icon+label header row shared by every "fixed category color" mini KPI card style below
+   (chevron and accent-border alike) - purely structural/typographic, so it isn't duplicated
+   per variant. */
+.stat-card-top { display: flex; align-items: center; gap: 0.6rem; }
+.stat-card-top .stat-label {
   flex: 1; min-width: 0; color: var(--text); font-weight: 600; font-size: 0.88rem;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-#closing-readiness .stat-card-chevron {
+
+/* Chevron-style mini KPI row - a fixed category color per card (blue/orange/green/red/purple)
+   always, matching the reference designs, since each card represents a distinct topic rather
+   than a single shared warning state (unlike the Executive Overview's own top-level .kpi-grid
+   cards, which stay neutral-until-there's-a-problem and are untouched by this). Shared by the
+   Closing & Readiness and Pipeline & Performance tabs' 4-card rows - not a blanket .stat-card
+   change, so other plain .stat-grid usages (the bid list/detail pages) are untouched. */
+.chevron-stat-grid .stat-value { margin-bottom: 0.375rem; }
+.chevron-stat-grid .stat-card {
+  position: relative; overflow: hidden; padding-bottom: 1.35rem;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+.chevron-stat-grid .stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.1), 0 2px 5px rgba(0, 0, 0, 0.06);
+}
+.chevron-stat-grid .stat-card::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
+}
+.chevron-stat-grid .stat-card-chevron {
   flex-shrink: 0; width: 1.6rem; height: 1.6rem; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
 }
-#closing-readiness .stat-card.stat-blue { background: linear-gradient(165deg, color-mix(in srgb, var(--accent) 12%, var(--bg)), var(--bg) 65%); }
-#closing-readiness .stat-card.stat-blue .stat-icon { background: var(--accent); color: #fff; }
-#closing-readiness .stat-card.stat-blue .stat-card-chevron { background: var(--accent-bg); color: var(--accent); }
-#closing-readiness .stat-card.stat-blue::after { background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 35%, transparent)); }
-#closing-readiness .stat-card.stat-orange { background: linear-gradient(165deg, color-mix(in srgb, var(--warn) 12%, var(--bg)), var(--bg) 65%); }
-#closing-readiness .stat-card.stat-orange .stat-icon { background: var(--warn); color: #fff; }
-#closing-readiness .stat-card.stat-orange .stat-card-chevron { background: var(--warn-bg); color: var(--warn); }
-#closing-readiness .stat-card.stat-orange::after { background: linear-gradient(90deg, var(--warn), color-mix(in srgb, var(--warn) 35%, transparent)); }
-#closing-readiness .stat-card.stat-green { background: linear-gradient(165deg, color-mix(in srgb, var(--ok) 12%, var(--bg)), var(--bg) 65%); }
-#closing-readiness .stat-card.stat-green .stat-icon { background: var(--ok); color: #fff; }
-#closing-readiness .stat-card.stat-green .stat-card-chevron { background: var(--ok-bg); color: var(--ok); }
-#closing-readiness .stat-card.stat-green::after { background: linear-gradient(90deg, var(--ok), color-mix(in srgb, var(--ok) 35%, transparent)); }
-#closing-readiness .stat-card.stat-red { background: linear-gradient(165deg, color-mix(in srgb, var(--danger) 12%, var(--bg)), var(--bg) 65%); }
-#closing-readiness .stat-card.stat-red .stat-icon { background: var(--danger); color: #fff; }
-#closing-readiness .stat-card.stat-red .stat-card-chevron { background: var(--danger-bg); color: var(--danger); }
-#closing-readiness .stat-card.stat-red::after { background: linear-gradient(90deg, var(--danger), color-mix(in srgb, var(--danger) 35%, transparent)); }
+.chevron-stat-grid .stat-card.stat-blue { background: linear-gradient(165deg, color-mix(in srgb, var(--accent) 12%, var(--bg)), var(--bg) 65%); }
+.chevron-stat-grid .stat-card.stat-blue .stat-icon { background: var(--accent); color: #fff; }
+.chevron-stat-grid .stat-card.stat-blue .stat-card-chevron { background: var(--accent-bg); color: var(--accent); }
+.chevron-stat-grid .stat-card.stat-blue::after { background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 35%, transparent)); }
+.chevron-stat-grid .stat-card.stat-orange { background: linear-gradient(165deg, color-mix(in srgb, var(--warn) 12%, var(--bg)), var(--bg) 65%); }
+.chevron-stat-grid .stat-card.stat-orange .stat-icon { background: var(--warn); color: #fff; }
+.chevron-stat-grid .stat-card.stat-orange .stat-card-chevron { background: var(--warn-bg); color: var(--warn); }
+.chevron-stat-grid .stat-card.stat-orange::after { background: linear-gradient(90deg, var(--warn), color-mix(in srgb, var(--warn) 35%, transparent)); }
+.chevron-stat-grid .stat-card.stat-green { background: linear-gradient(165deg, color-mix(in srgb, var(--ok) 12%, var(--bg)), var(--bg) 65%); }
+.chevron-stat-grid .stat-card.stat-green .stat-icon { background: var(--ok); color: #fff; }
+.chevron-stat-grid .stat-card.stat-green .stat-card-chevron { background: var(--ok-bg); color: var(--ok); }
+.chevron-stat-grid .stat-card.stat-green::after { background: linear-gradient(90deg, var(--ok), color-mix(in srgb, var(--ok) 35%, transparent)); }
+.chevron-stat-grid .stat-card.stat-red { background: linear-gradient(165deg, color-mix(in srgb, var(--danger) 12%, var(--bg)), var(--bg) 65%); }
+.chevron-stat-grid .stat-card.stat-red .stat-icon { background: var(--danger); color: #fff; }
+.chevron-stat-grid .stat-card.stat-red .stat-card-chevron { background: var(--danger-bg); color: var(--danger); }
+.chevron-stat-grid .stat-card.stat-red::after { background: linear-gradient(90deg, var(--danger), color-mix(in srgb, var(--danger) 35%, transparent)); }
+.chevron-stat-grid .stat-card.stat-purple { background: linear-gradient(165deg, color-mix(in srgb, var(--new) 12%, var(--bg)), var(--bg) 65%); }
+.chevron-stat-grid .stat-card.stat-purple .stat-icon { background: var(--new); color: #fff; }
+.chevron-stat-grid .stat-card.stat-purple .stat-card-chevron { background: var(--new-bg); color: var(--new); }
+.chevron-stat-grid .stat-card.stat-purple::after { background: linear-gradient(90deg, var(--new), color-mix(in srgb, var(--new) 35%, transparent)); }
+.chevron-stat-grid .stat-card.stat-gray { background: linear-gradient(165deg, color-mix(in srgb, var(--muted) 12%, var(--bg)), var(--bg) 65%); }
+.chevron-stat-grid .stat-card.stat-gray .stat-icon { background: var(--bg-alt); color: var(--muted); }
+.chevron-stat-grid .stat-card.stat-gray .stat-card-chevron { background: var(--bg-alt); color: var(--muted); }
+.chevron-stat-grid .stat-card.stat-gray::after { background: linear-gradient(90deg, var(--muted), transparent); }
+/* My Follow-ups' KPI labels run longer ("Stale (no recent activity)") than the other chevron
+   grids' - let this one wrap instead of ellipsis-truncating. */
+.chevron-stat-grid.wrap-labels .stat-card-top .stat-label { white-space: normal; overflow: visible; text-overflow: clip; }
+
+/* Circular icon badge - a drop-in modifier for .stat-icon wherever a design calls for a round
+   chip instead of the default rounded square (e.g. My Follow-ups' KPI row). */
+.stat-icon.icon-circle { border-radius: 50%; }
+
+/* Accent-border mini KPI row (Bonds & Deal Regs tab) - a plain white card with a colored icon
+   chip and a matching left-edge accent bar, simpler than the chevron variant above (no
+   gradient tint, no drill-down chevron - see docs/UI-UX designs/Bonds & Deal Registrations
+   Dashboard.png). */
+.accent-stat-grid .stat-card { border-left-width: 4px; }
+.accent-stat-grid .stat-card-top .stat-label { white-space: normal; overflow: visible; text-overflow: clip; }
+.accent-stat-grid .stat-card.stat-blue { border-left-color: var(--accent); }
+.accent-stat-grid .stat-card.stat-blue .stat-icon { background: var(--accent-bg); color: var(--accent); }
+.accent-stat-grid .stat-card.stat-green { border-left-color: var(--ok); }
+.accent-stat-grid .stat-card.stat-green .stat-icon { background: var(--ok-bg); color: var(--ok); }
+.accent-stat-grid .stat-card.stat-orange { border-left-color: var(--warn); }
+.accent-stat-grid .stat-card.stat-orange .stat-icon { background: var(--warn-bg); color: var(--warn); }
+.accent-stat-grid .stat-card.stat-red { border-left-color: var(--danger); }
+.accent-stat-grid .stat-card.stat-red .stat-icon { background: var(--danger-bg); color: var(--danger); }
+
+/* Generic "nothing here yet" placeholder - icon badge + title + helper text, reused wherever a
+   card/table has no data (Pipeline by Division, Performance Breakdown's 3 tabs, ...). */
+.empty-state { text-align: center; padding: 2.5rem 1rem; }
+.empty-state-icon {
+  display: inline-flex; align-items: center; justify-content: center; width: 3.2rem; height: 3.2rem;
+  border-radius: 14px; background: var(--bg-alt); color: var(--muted); margin-bottom: 0.75rem;
+}
+.empty-state-title { margin: 0 0 0.3rem; font-weight: 700; color: var(--text); }
+.empty-state-text { margin: 0; font-size: 0.85rem; color: var(--muted); }
+
+/* Outcome banner - "N bids are past opening with no result", restyled as a single row
+   (icon + text + action button) instead of the plain stacked .warning-box it builds on. */
+.outcome-banner { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.outcome-banner-icon {
+  flex-shrink: 0; width: 2.3rem; height: 2.3rem; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  background: var(--warn-bg); color: var(--warn);
+}
+.outcome-banner-body { flex: 1; min-width: 14rem; }
+.outcome-banner-body > div { display: flex; align-items: center; gap: 0.3rem; }
+.outcome-banner .btn { flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.35rem; }
+
+/* Performance Breakdown's By Division/Officer/OEM switcher - reuses the .pill shape (normally
+   a division-filter <a>) on plain <button>s, same pattern as the pipeline Kanban's All/Open/
+   Won/Lost filter row. */
+.perf-tabs { margin-bottom: 1rem; }
+
+/* Bonds & Deal Regs tab: the two compact "N / label / sublabel" stat rows (the small Deal
+   Registrations summary card and the fuller one below it) - a top accent bar per item instead
+   of a full card border, since these sit inside an existing .card rather than standing alone. */
+.mini-stat-row { display: flex; gap: 1.25rem; flex-wrap: wrap; margin-top: 0.75rem; }
+.mini-stat { flex: 1; min-width: 7rem; border-top: 3px solid var(--border); padding-top: 0.6rem; }
+.mini-stat-value { display: block; font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
+.mini-stat-label { display: block; font-weight: 600; font-size: 0.85rem; margin-top: 0.3rem; }
+.mini-stat-red { border-top-color: var(--danger); }
+.mini-stat-amber { border-top-color: var(--warn); }
+.mini-stat-green { border-top-color: var(--ok); }
+
+/* Recent Deal Registrations - a compact row list (not the reference design's full table) since
+   this card shares its row with the wider Bid Bonds Outstanding table at a 1:2 ratio and a
+   5-column table would be cramped there; same information (project, customer, vendor, status,
+   expiry), just stacked instead of columnar. */
+.deal-reg-list { display: flex; flex-direction: column; }
+.deal-reg-row {
+  display: flex; flex-direction: column; gap: 0.3rem; text-decoration: none; color: inherit;
+  padding: 0.65rem 0; border-bottom: 1px dashed var(--border);
+}
+.deal-reg-row:last-child { border-bottom: none; }
+.deal-reg-row:hover .deal-reg-row-main strong { text-decoration: underline; }
+.deal-reg-row-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+/* Bid Bonds Outstanding's page-number row - plain, since this is the only paginated table in
+   the app so far. */
+.pagination { display: flex; align-items: center; justify-content: center; gap: 0.3rem; margin-top: 1rem; }
+.pagination button {
+  min-width: 2rem; height: 2rem; padding: 0 0.4rem; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text); font-size: 0.85rem; cursor: pointer;
+}
+.pagination button:hover:not(:disabled) { background: var(--hover-bg); }
+.pagination button.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* My Follow-ups page - the small "what counts as a follow-up" note on the Turning Amber Soon
+   panel, and the row-list/empty-state panels reuse the Delays tab's .delay-row/.empty-state
+   components directly (both already generic, not scoped to #delays). */
+.info-callout {
+  display: flex; align-items: flex-start; gap: 0.5rem; background: var(--accent-bg); color: var(--text);
+  border-radius: 10px; padding: 0.6rem 0.75rem; font-size: 0.8rem; line-height: 1.4;
+}
+.info-callout .icon { color: var(--accent); flex-shrink: 0; margin-top: 0.1rem; }
+.info-callout-chevron { margin-left: auto; flex-shrink: 0; color: var(--accent); }
+.follow-up-panel-head { display: flex; align-items: center; gap: 0.6rem; }
+.follow-up-panel-icon {
+  flex-shrink: 0; width: 2.2rem; height: 2.2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+}
+.follow-up-panel-icon.red { background: var(--danger-bg); color: var(--danger); }
+.follow-up-panel-icon.amber { background: var(--warn-bg); color: var(--warn); }
+.follow-up-panel-icon.blue { background: var(--accent-bg); color: var(--accent); }
+.follow-up-panel-icon.gray { background: var(--bg-alt); color: var(--muted); }
+
 /* Darkened specifically within this tab (not the shared .muted color everywhere) for AA
    contrast margin on the small 0.78rem/0.82rem subtext here ("Within next 7 days", "Across N
    bids", schedule-row org/bond lines) - #64748b keeps ~7:1 against this tab's --bg/--bg-alt. */
@@ -1036,4 +1191,7 @@ a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 
     clip-path: none !important;
     padding: 0 1rem !important;
   }
+  .delay-row { flex-direction: column; align-items: stretch; }
+  .delay-row-meta { flex-direction: row; flex-wrap: wrap; min-width: 0; }
+  .delay-row-actions { flex-direction: row; align-items: center; justify-content: space-between; }
 }
