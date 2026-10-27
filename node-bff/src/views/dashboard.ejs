@@ -787,7 +787,13 @@
         <p class="muted">Nothing behind target right now.</p>
       <% } else { %>
         <div class="stack delay-list" id="delay-list">
-          <% delayRows.forEach(row => { %>
+          <% delayRows.forEach(row => {
+            const ringPct = row.percentUsed !== null ? Math.min(100, Math.max(0, row.percentUsed)) : 0;
+            const ringR = 26, ringCirc = 2 * Math.PI * ringR;
+            const ringLen = (ringPct / 100) * ringCirc;
+            const ringColor = (row.indicatorLevel === 'CRITICAL' || row.indicatorLevel === 'RED') ? 'var(--danger)'
+              : row.indicatorLevel === 'AMBER' ? 'var(--warn)' : 'var(--ok)';
+          %>
             <div class="card delay-item"
                  data-days="<%= row.daysUsed !== null ? row.daysUsed : 0 %>"
                  data-closing="<%= row.closingAt ? new Date(row.closingAt).getTime() : Number.MAX_SAFE_INTEGER %>">
@@ -799,10 +805,20 @@
                   <div class="mt-1">
                     <a class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>"
                        <% if (row.daysUsed !== null && row.targetDays !== null) { %>title="<%= row.daysUsed.toFixed(1) %>d / <%= row.targetDays.toFixed(1) %>d target"<% } %>
-                       href="<%= stageHistoryHref(row.entityType, row.entityId, { title: row.bidTitle, subtitle: row.lotLabel, backHref: row.detailHref, backLabel: 'Back' }) %>"><%= row.indicatorLevel %><% if (row.percentUsed !== null) { %> &middot; <%= Math.round(row.percentUsed) %>%<% } %></a>
+                       href="<%= stageHistoryHref(row.entityType, row.entityId, { title: row.bidTitle, subtitle: row.lotLabel, backHref: row.detailHref, backLabel: 'Back' }) %>"><%= row.indicatorLevel %></a>
                   </div>
-                  <div class="progress-bar mt-1"><div style="width:<%= Math.min(100, row.percentUsed || 0) %>%; background:<%= row.indicatorLevel === 'CRITICAL' || row.indicatorLevel === 'RED' ? 'var(--danger)' : 'var(--warn)' %>;"></div></div>
                   <div class="muted" style="font-size:0.78rem;"><% if (row.daysUsed !== null && row.targetDays !== null) { %><%= Math.round(row.daysUsed) %>d in stage &middot; target <%= Math.round(row.targetDays) %>d<% } %><% if (row.waitingOnParty) { %> &middot; Waiting on <strong><%= row.waitingOnParty %></strong><% } %></div>
+                </div>
+                <div class="delay-ring-wrap">
+                  <svg viewBox="0 0 64 64" class="donut-chart mini" role="img" aria-label="<%= row.percentUsed !== null ? Math.round(row.percentUsed) + '% of target' : 'No target set' %>">
+                    <circle cx="32" cy="32" r="<%= ringR %>" fill="none" stroke="var(--border)" stroke-width="7"/>
+                    <% if (row.percentUsed !== null) { %>
+                    <circle cx="32" cy="32" r="<%= ringR %>" fill="none" stroke="<%= ringColor %>" stroke-width="7"
+                            stroke-dasharray="<%= ringLen %> <%= ringCirc - ringLen %>" stroke-linecap="round" transform="rotate(-90 32 32)"/>
+                    <% } %>
+                    <text x="32" y="29" text-anchor="middle" class="donut-total"><%= row.percentUsed !== null ? Math.round(row.percentUsed) + '%' : '-' %></text>
+                    <text x="32" y="41" text-anchor="middle" class="donut-total-label">of target</text>
+                  </svg>
                 </div>
                 <div class="delay-row-meta">
                   <div class="delay-row-meta-col">
@@ -1323,12 +1339,14 @@
                 if (totalPages <= 1) return;
                 var prev = document.createElement('button');
                 prev.type = 'button'; prev.textContent = '‹'; prev.disabled = currentPage === 1;
+                prev.setAttribute('aria-label', 'Previous page');
                 prev.addEventListener('click', function () { currentPage--; applyFilters(); });
                 paginationEl.appendChild(prev);
                 for (var i = 1; i <= totalPages; i++) {
                   (function (page) {
                     var btn = document.createElement('button');
                     btn.type = 'button'; btn.textContent = String(page);
+                    btn.setAttribute('aria-label', 'Page ' + page);
                     if (page === currentPage) btn.classList.add('active');
                     btn.addEventListener('click', function () { currentPage = page; applyFilters(); });
                     paginationEl.appendChild(btn);
@@ -1336,6 +1354,7 @@
                 }
                 var next = document.createElement('button');
                 next.type = 'button'; next.textContent = '›'; next.disabled = currentPage === totalPages;
+                next.setAttribute('aria-label', 'Next page');
                 next.addEventListener('click', function () { currentPage++; applyFilters(); });
                 paginationEl.appendChild(next);
               }

@@ -29,6 +29,7 @@ function buildDelaysRouter() {
       res.render('delays', {
         title: 'Delays', user: req.session.user, rows, divisions, users, organizations,
         waitingOnOptions: WAITING_ON_OPTIONS, levelOptions: LEVEL_OPTIONS, query: req.query,
+        lastUpdated: new Date(),
       });
     } catch (err) {
       next(err);

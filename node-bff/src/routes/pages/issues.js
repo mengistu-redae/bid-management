@@ -13,7 +13,11 @@ function buildIssuesRouter() {
   router.get('/', async (req, res, next) => {
     try {
       const issues = await req.api.get('/api/issues');
-      res.render('issues/list', { title: 'Issues', user: req.session.user, issues, statusOptions: STATUS_OPTIONS });
+      res.render('issues/list', {
+        title: 'Issues', user: req.session.user, issues,
+        categoryOptions: CATEGORY_OPTIONS, statusOptions: STATUS_OPTIONS, severityOptions: SEVERITY_OPTIONS,
+        lastUpdated: new Date(),
+      });
     } catch (err) {
       next(err);
     }

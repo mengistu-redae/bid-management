@@ -1,12 +1,16 @@
 <%- include('partials/header', { title: title, user: user }) %>
 
-<div class="section-header-row">
-  <div class="section-header-icon"><%- include('partials/icon', { name: 'calendar', size: 22 }) %></div>
-  <div class="section-header-text">
-    <h1 class="mt-0" style="font-size:1.4rem;">My Follow-ups</h1>
-    <p class="muted mt-0">Follow-ups you own (bid lots, contracts, logistics shipments, opportunities, and deal registrations), plus bid lots you're the assigned officer on that need attention.</p>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/dashboard">Bid Management</a> <span aria-hidden="true">&rsaquo;</span> <span>My Follow-ups</span></nav>
+
+<div class="dash-header">
+  <div>
+    <div class="row tight" style="align-items:center;">
+      <span class="section-header-icon"><%- include('partials/icon', { name: 'calendar', size: 20 }) %></span>
+      <h1 class="mt-0" style="margin-bottom:0;">My Follow-ups</h1>
+    </div>
+    <p class="muted mt-0" style="margin-top:0.4rem; margin-bottom:0;">Follow-ups you own (bid lots, contracts, logistics shipments, opportunities, and deal registrations), plus bid lots you're the assigned officer on that need attention.</p>
   </div>
-  <div class="section-header-meta">
+  <div class="row tight page-header-actions" style="align-items:center;">
     <a href="/settings" class="row tight" style="text-decoration:none; color:var(--accent); font-weight:600; font-size:0.85rem;"><%- include('partials/icon', { name: 'info', size: 15 }) %> View follow-up rules</a>
     <a class="btn w-auto" href="/delays">+ Create follow-up</a>
   </div>

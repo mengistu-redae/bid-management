@@ -1,31 +1,296 @@
 <%- include('../partials/header', { title: title, user: user }) %>
-<div class="row" style="justify-content:space-between;">
-  <h1 class="mt-0">Issues</h1>
-  <a class="btn" href="/issues/new">+ New issue</a>
+
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/dashboard">Bid Management</a> <span aria-hidden="true">&rsaquo;</span> <span>Issues</span></nav>
+
+<div class="dash-header">
+  <div>
+    <h1 class="mt-0">Issues</h1>
+    <p class="muted mt-0">Track and manage bid-related issues across organizations, items, categories, and divisions.</p>
+  </div>
+  <div class="row page-header-actions" style="align-items:center;">
+    <div class="row tight muted" style="font-size:0.82rem; gap:0.4rem;">
+      <%- include('../partials/icon', { name: 'clock', size: 16 }) %>
+      <span>Last updated<br><strong style="color:var(--text);"><%= formatDateTime(lastUpdated) %></strong></span>
+    </div>
+    <a class="btn w-auto" href="/issues/new"><%- include('../partials/icon', { name: 'calendar', size: 15 }) %> + New issue</a>
+  </div>
 </div>
 
-<% if (issues.length === 0) { %>
-  <p class="muted">No issues yet.</p>
-<% } else { %>
+<%
+  const orgOptions = [...new Map(issues.map(i => [i.organization.id, i.organization.name])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  const itemOptions = [...new Set(issues.map(i => i.itemOrSystem).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const divisionOptions = [...new Map(issues.filter(i => i.division).map(i => [i.division.id, i.division.name])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  const RESOLVED_STATUSES = ['RESOLVED', 'CLOSED'];
+  const totalCount = issues.length;
+  const resolvedCount = issues.filter(i => RESOLVED_STATUSES.includes(i.status)).length;
+  const openCount = totalCount - resolvedCount;
+  const categoryBadgeClass = (category) => category === 'CONTRACT_CLOSURE' ? 'active' : 'new';
+  function orgAccent(org) {
+    if (!org || !org.id) return 'blue';
+    let sum = 0;
+    for (let i = 0; i < org.id.length; i++) sum += org.id.charCodeAt(i);
+    return sum % 2 === 0 ? 'blue' : 'purple';
+  }
+%>
+
+<form onsubmit="return false;" class="card filter-bar">
+  <div class="filter-field">
+    <label for="filter-organization"><%- include('../partials/icon', { name: 'building', size: 14 }) %> Organization</label>
+    <select id="filter-organization" class="w-auto">
+      <option value="">All organizations</option>
+      <% orgOptions.forEach(([id, name]) => { %><option value="<%= id %>"><%= name %></option><% }) %>
+    </select>
+  </div>
+  <div class="filter-field">
+    <label for="filter-item"><%- include('../partials/icon', { name: 'box', size: 14 }) %> Item</label>
+    <select id="filter-item" class="w-auto">
+      <option value="">All items</option>
+      <% itemOptions.forEach(item => { %><option value="<%= item %>"><%= item %></option><% }) %>
+    </select>
+  </div>
+  <div class="filter-field">
+    <label for="filter-category"><%- include('../partials/icon', { name: 'tag', size: 14 }) %> Category</label>
+    <select id="filter-category" class="w-auto">
+      <option value="">All categories</option>
+      <% categoryOptions.forEach(c => { %><option value="<%= c %>"><%= c %></option><% }) %>
+    </select>
+  </div>
+  <div class="filter-field">
+    <label for="filter-division"><%- include('../partials/icon', { name: 'users', size: 14 }) %> Division</label>
+    <select id="filter-division" class="w-auto">
+      <option value="">All divisions</option>
+      <% divisionOptions.forEach(([id, name]) => { %><option value="<%= id %>"><%= name %></option><% }) %>
+    </select>
+  </div>
+  <div class="filter-field">
+    <label for="filter-status"><%- include('../partials/icon', { name: 'clock', size: 14 }) %> Status</label>
+    <select id="filter-status" class="w-auto">
+      <option value="">All statuses</option>
+      <% statusOptions.forEach(s => { %><option value="<%= s %>"><%= s %></option><% }) %>
+    </select>
+  </div>
+  <div class="filter-field">
+    <label for="filter-severity"><%- include('../partials/icon', { name: 'alert', size: 14 }) %> Severity</label>
+    <select id="filter-severity" class="w-auto">
+      <option value="">All severities</option>
+      <% severityOptions.forEach(s => { %><option value="<%= s %>"><%= s %></option><% }) %>
+    </select>
+  </div>
+  <div class="filter-actions">
+    <a class="btn secondary w-auto" id="issues-clear-filters" href="#"><%- include('../partials/icon', { name: 'repeat', size: 14 }) %> Clear</a>
+    <button type="button" class="w-auto" id="issues-apply-filters"><%- include('../partials/icon', { name: 'filter', size: 14 }) %> Filter</button>
+  </div>
+</form>
+
+<div class="issues-kpi-grid">
+  <div class="issues-kpi-card">
+    <span class="issues-kpi-icon blue"><%- include('../partials/icon', { name: 'target', size: 20 }) %></span>
+    <div class="issues-kpi-text">
+      <span class="issues-kpi-label">Total Issues</span>
+      <span class="issues-kpi-value"><%= totalCount %></span>
+    </div>
+  </div>
+  <div class="issues-kpi-card">
+    <span class="issues-kpi-icon green"><%- include('../partials/icon', { name: 'clipboard', size: 20 }) %></span>
+    <div class="issues-kpi-text">
+      <span class="issues-kpi-label">Open</span>
+      <span class="issues-kpi-value"><%= openCount %></span>
+    </div>
+  </div>
+  <div class="issues-kpi-card">
+    <span class="issues-kpi-icon purple"><%- include('../partials/icon', { name: 'check', size: 20 }) %></span>
+    <div class="issues-kpi-text">
+      <span class="issues-kpi-label">Resolved</span>
+      <span class="issues-kpi-value"><%= resolvedCount %></span>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="list-toolbar">
+    <input type="search" id="issues-search" placeholder="Search by organization, item, or category..." class="col" style="max-width:26rem;">
+    <div class="row tight">
+      <label class="muted" for="issues-sort" style="margin:0; font-size:0.82rem;">Sort by</label>
+      <select id="issues-sort" class="w-auto">
+        <option value="days-desc">Days open (desc)</option>
+        <option value="days-asc">Days open (asc)</option>
+        <option value="org-asc">Organization (A-Z)</option>
+        <option value="severity-desc">Severity (highest first)</option>
+      </select>
+    </div>
+  </div>
+
+  <% if (issues.length === 0) { %>
+    <div class="empty-state">
+      <span class="empty-state-icon"><%- include('../partials/icon', { name: 'check', size: 28 }) %></span>
+      <p class="empty-state-title">No issues yet</p>
+      <p class="empty-state-text">Issues raised against organizations, items, or divisions will show up here.</p>
+    </div>
+  <% } else { %>
   <div class="table-scroll">
   <table>
-    <thead><tr><th>Organization</th><th>Item</th><th>Category</th><th>Division</th><th>Status</th><th>Severity</th><th>Days open</th><th>Assigned to</th></tr></thead>
-    <tbody>
-      <% issues.forEach(i => { %>
-        <tr onclick="window.location='/issues/<%= i.id %>'" style="cursor:pointer;">
-          <td><a href="/issues/<%= i.id %>"><%= i.organization.name %></a></td>
-          <td><%= i.itemOrSystem || '-' %></td>
-          <td><span class="badge <%= i.category === 'CONTRACT_CLOSURE' ? 'lost' : 'active' %>"><%= i.category %></span></td>
+    <thead>
+      <tr>
+        <th>Organization</th><th>Item</th><th>Category</th><th>Division</th><th>Status</th><th>Severity</th>
+        <th>Days open <span id="days-open-sort-indicator">&darr;</span></th><th>Assigned to</th><th></th>
+      </tr>
+    </thead>
+    <tbody id="issues-tbody">
+      <% issues.forEach(i => {
+        const accent = orgAccent(i.organization);
+        const orgIcon = accent === 'purple' ? 'box' : 'building';
+        const searchText = (i.organization.name + ' ' + (i.itemOrSystem || '') + ' ' + i.category + ' ' + (i.division ? i.division.name : '')).toLowerCase();
+        const severityRank = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[i.severity] || 0;
+      %>
+        <tr data-organization="<%= i.organization.id %>" data-item="<%= i.itemOrSystem || '' %>" data-category="<%= i.category %>"
+            data-division="<%= i.division ? i.division.id : '' %>" data-status="<%= i.status %>" data-severity="<%= i.severity %>"
+            data-severity-rank="<%= severityRank %>" data-days="<%= i.daysOpen %>" data-search="<%= searchText %>" style="cursor:pointer;">
+          <td>
+            <a class="issues-row-link issue-org-cell" href="/issues/<%= i.id %>">
+              <span class="issue-org-icon <%= accent %>"><%- include('../partials/icon', { name: orgIcon, size: 16 }) %></span>
+              <%= i.organization.name %>
+            </a>
+          </td>
+          <td><a class="issues-row-link" href="/issues/<%= i.id %>"><%= i.itemOrSystem || '-' %></a></td>
+          <td><span class="badge <%= categoryBadgeClass(i.category) %>"><%= i.category %></span></td>
           <td><%= i.division ? i.division.name : '-' %></td>
-          <td><span class="badge <%= statusBadgeClass(i.status) %>"><%= i.status %></span></td>
-          <td><span class="badge <%= severityBadgeClass(i.severity) %>"><%= i.severity %></span></td>
-          <td><%= i.daysOpen %></td>
+          <td><span class="badge <%= statusBadgeClass(i.status) %>"><span class="badge-dot"></span><%= i.status %></span></td>
+          <td><span class="badge <%= severityBadgeClass(i.severity) %>"><%- include('../partials/icon', { name: 'alert', size: 11 }) %> <%= i.severity %></span></td>
+          <td><strong><%= i.daysOpen %></strong></td>
           <td><%= i.assignedTo ? i.assignedTo.fullName : '-' %></td>
+          <td>
+            <div class="issues-table-actions">
+              <span class="delay-row-menu" aria-hidden="true"><%- include('../partials/icon', { name: 'more', size: 16 }) %></span>
+              <a href="/issues/<%= i.id %>" class="delay-row-menu" aria-label="Open issue"><%- include('../partials/icon', { name: 'chevron-right', size: 16 }) %></a>
+            </div>
+          </td>
         </tr>
       <% }) %>
     </tbody>
   </table>
   </div>
+  <p class="muted mt-1" id="issues-no-match" hidden>No issues match the current filters.</p>
+
+  <div class="pagination-bar">
+    <span class="muted" id="issues-showing" style="font-size:0.82rem;"></span>
+    <div class="pagination" id="issues-pagination"></div>
+  </div>
+  <% } %>
+</div>
+
+<% if (issues.length > 0) { %>
+<script>
+  (function () {
+    var tbody = document.getElementById('issues-tbody');
+    var allRows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+    var searchInput = document.getElementById('issues-search');
+    var sortSelect = document.getElementById('issues-sort');
+    var orgFilter = document.getElementById('filter-organization');
+    var itemFilter = document.getElementById('filter-item');
+    var categoryFilter = document.getElementById('filter-category');
+    var divisionFilter = document.getElementById('filter-division');
+    var statusFilter = document.getElementById('filter-status');
+    var severityFilter = document.getElementById('filter-severity');
+    var applyBtn = document.getElementById('issues-apply-filters');
+    var clearBtn = document.getElementById('issues-clear-filters');
+    var paginationEl = document.getElementById('issues-pagination');
+    var showingLabel = document.getElementById('issues-showing');
+    var noMatch = document.getElementById('issues-no-match');
+    var sortIndicator = document.getElementById('days-open-sort-indicator');
+
+    var PAGE_SIZE = 10;
+    var currentPage = 1;
+
+    function sortRows(rows) {
+      var mode = sortSelect.value;
+      return rows.slice().sort(function (a, b) {
+        if (mode === 'days-asc') return parseFloat(a.getAttribute('data-days')) - parseFloat(b.getAttribute('data-days'));
+        if (mode === 'org-asc') return a.querySelector('.issue-org-cell').textContent.trim().localeCompare(b.querySelector('.issue-org-cell').textContent.trim());
+        if (mode === 'severity-desc') return parseFloat(b.getAttribute('data-severity-rank')) - parseFloat(a.getAttribute('data-severity-rank'));
+        return parseFloat(b.getAttribute('data-days')) - parseFloat(a.getAttribute('data-days'));
+      });
+    }
+
+    function applyFilters() {
+      var search = searchInput.value.trim().toLowerCase();
+      var org = orgFilter.value, item = itemFilter.value, category = categoryFilter.value;
+      var division = divisionFilter.value, status = statusFilter.value, severity = severityFilter.value;
+
+      var matches = allRows.filter(function (row) {
+        return (!search || row.getAttribute('data-search').indexOf(search) !== -1)
+          && (!org || row.getAttribute('data-organization') === org)
+          && (!item || row.getAttribute('data-item') === item)
+          && (!category || row.getAttribute('data-category') === category)
+          && (!division || row.getAttribute('data-division') === division)
+          && (!status || row.getAttribute('data-status') === status)
+          && (!severity || row.getAttribute('data-severity') === severity);
+      });
+
+      matches = sortRows(matches);
+
+      var totalPages = Math.max(1, Math.ceil(matches.length / PAGE_SIZE));
+      if (currentPage > totalPages) currentPage = totalPages;
+      var start = (currentPage - 1) * PAGE_SIZE;
+      var pageRows = matches.slice(start, start + PAGE_SIZE);
+
+      allRows.forEach(function (row) { row.hidden = true; });
+      pageRows.forEach(function (row) { row.hidden = false; });
+      noMatch.hidden = matches.length !== 0;
+
+      showingLabel.textContent = matches.length === 0 ? '' :
+        (start + 1) + '–' + (start + pageRows.length) + ' of ' + matches.length;
+
+      sortIndicator.textContent = sortSelect.value === 'days-asc' ? '↑' : (sortSelect.value === 'days-desc' ? '↓' : '');
+
+      renderPagination(totalPages);
+    }
+
+    function renderPagination(totalPages) {
+      paginationEl.innerHTML = '';
+      if (totalPages <= 1) return;
+      var prev = document.createElement('button');
+      prev.type = 'button'; prev.textContent = '‹'; prev.disabled = currentPage === 1;
+      prev.setAttribute('aria-label', 'Previous page');
+      prev.addEventListener('click', function () { currentPage--; applyFilters(); });
+      paginationEl.appendChild(prev);
+      for (var i = 1; i <= totalPages; i++) {
+        (function (page) {
+          var btn = document.createElement('button');
+          btn.type = 'button'; btn.textContent = String(page);
+          btn.setAttribute('aria-label', 'Page ' + page);
+          if (page === currentPage) btn.classList.add('active');
+          btn.addEventListener('click', function () { currentPage = page; applyFilters(); });
+          paginationEl.appendChild(btn);
+        })(i);
+      }
+      var next = document.createElement('button');
+      next.type = 'button'; next.textContent = '›'; next.disabled = currentPage === totalPages;
+      next.setAttribute('aria-label', 'Next page');
+      next.addEventListener('click', function () { currentPage++; applyFilters(); });
+      paginationEl.appendChild(next);
+    }
+
+    [searchInput, sortSelect, orgFilter, itemFilter, categoryFilter, divisionFilter, statusFilter, severityFilter].forEach(function (el) {
+      el.addEventListener('input', function () { currentPage = 1; applyFilters(); });
+      el.addEventListener('change', function () { currentPage = 1; applyFilters(); });
+    });
+    applyBtn.addEventListener('click', function () { currentPage = 1; applyFilters(); });
+    clearBtn.addEventListener('click', function () {
+      searchInput.value = ''; orgFilter.value = ''; itemFilter.value = ''; categoryFilter.value = '';
+      divisionFilter.value = ''; statusFilter.value = ''; severityFilter.value = ''; sortSelect.value = 'days-desc';
+      currentPage = 1; applyFilters();
+    });
+
+    allRows.forEach(function (row) {
+      row.addEventListener('click', function (e) {
+        if (e.target.closest('a')) return;
+        window.location = row.querySelector('.issues-row-link').getAttribute('href');
+      });
+    });
+
+    applyFilters();
+  })();
+</script>
 <% } %>
 
 <%- include('../partials/footer') %>

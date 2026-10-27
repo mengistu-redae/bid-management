@@ -1,70 +1,165 @@
 <%- include('partials/header', { title: title, user: user }) %>
-<h1>Delays board</h1>
-<p class="muted">Every open bid lot currently amber, red, critical, or stale, sorted by % of target used. From any row, log a follow-up or snooze in one step.</p>
 
-<form method="get" action="/delays" class="card toolbar" style="margin-bottom:1rem;">
-  <label class="muted" style="margin:0;" for="filter-division">Division</label>
-  <select id="filter-division" name="divisionId" class="w-auto">
-    <option value="">All divisions</option>
-    <% divisions.forEach(d => { %><option value="<%= d.id %>" <%= query.divisionId === d.id ? 'selected' : '' %>><%= d.name %></option><% }) %>
-  </select>
-  <label class="muted" style="margin:0;" for="filter-officer">Officer</label>
-  <select id="filter-officer" name="officerId" class="w-auto">
-    <option value="">All officers</option>
-    <% users.filter(u => u.role === 'ACCOUNT_OFFICER').forEach(u => { %><option value="<%= u.id %>" <%= query.officerId === u.id ? 'selected' : '' %>><%= u.fullName %></option><% }) %>
-  </select>
-  <label class="muted" style="margin:0;" for="filter-organization">Customer</label>
-  <select id="filter-organization" name="organizationId" class="w-auto">
-    <option value="">All customers</option>
-    <% organizations.forEach(o => { %><option value="<%= o.id %>" <%= query.organizationId === o.id ? 'selected' : '' %>><%= o.name %></option><% }) %>
-  </select>
-  <label class="muted" style="margin:0;" for="filter-oem">OEM</label>
-  <input id="filter-oem" name="oemBrand" value="<%= query.oemBrand || '' %>" placeholder="e.g. Dell" class="w-auto">
-  <label class="muted" style="margin:0;" for="filter-waiting-on">Waiting on</label>
-  <select id="filter-waiting-on" name="waitingOnParty" class="w-auto">
-    <option value="">Any</option>
-    <% waitingOnOptions.forEach(p => { %><option value="<%= p %>" <%= query.waitingOnParty === p ? 'selected' : '' %>><%= p %></option><% }) %>
-  </select>
-  <label class="muted" style="margin:0;" for="filter-level">Level</label>
-  <select id="filter-level" name="level" class="w-auto">
-    <option value="">All</option>
-    <% levelOptions.forEach(l => { %><option value="<%= l %>" <%= query.level === l ? 'selected' : '' %>><%= l %></option><% }) %>
-  </select>
-  <button type="submit" class="secondary">Filter</button>
-  <a class="btn secondary" href="/delays">Clear</a>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/dashboard">Bid Management</a> <span aria-hidden="true">&rsaquo;</span> <span>Delays</span></nav>
+
+<div class="dash-header">
+  <div>
+    <h1 class="mt-0">Delays Board</h1>
+    <p class="muted mt-0" style="margin-bottom:0;">Every open bid lot currently amber, red, critical, or stale, sorted by % of target used.</p>
+    <p class="muted mt-0">From any row, log a follow-up or snooze in one step.</p>
+  </div>
+  <div class="row page-header-actions" style="align-items:center;">
+    <div class="row tight muted" style="font-size:0.82rem; gap:0.4rem;">
+      <%- include('partials/icon', { name: 'clock', size: 16 }) %>
+      <span>Last updated<br><strong style="color:var(--text);"><%= formatDateTime(lastUpdated) %></strong></span>
+    </div>
+    <button type="button" class="btn w-auto" id="delays-quick-follow-up"><%- include('partials/icon', { name: 'calendar', size: 15 }) %> + Log follow-up</button>
+  </div>
+</div>
+
+<form method="get" action="/delays" class="card filter-bar">
+  <div class="filter-field">
+    <label for="filter-division"><%- include('partials/icon', { name: 'building', size: 14 }) %> Division</label>
+    <select id="filter-division" name="divisionId" class="w-auto">
+      <option value="">All divisions</option>
+      <% divisions.forEach(d => { %><option value="<%= d.id %>" <%= query.divisionId === d.id ? 'selected' : '' %>><%= d.name %></option><% }) %>
+    </select>
+  </div>
+  <div class="filter-field">
+    <label for="filter-officer"><%- include('partials/icon', { name: 'user', size: 14 }) %> Officer</label>
+    <select id="filter-officer" name="officerId" class="w-auto">
+      <option value="">All officers</option>
+      <% users.filter(u => u.role === 'ACCOUNT_OFFICER').forEach(u => { %><option value="<%= u.id %>" <%= query.officerId === u.id ? 'selected' : '' %>><%= u.fullName %></option><% }) %>
+    </select>
+  </div>
+  <div class="filter-field">
+    <label for="filter-organization"><%- include('partials/icon', { name: 'users', size: 14 }) %> Customer</label>
+    <select id="filter-organization" name="organizationId" class="w-auto">
+      <option value="">All customers</option>
+      <% organizations.forEach(o => { %><option value="<%= o.id %>" <%= query.organizationId === o.id ? 'selected' : '' %>><%= o.name %></option><% }) %>
+    </select>
+  </div>
+  <div class="filter-field">
+    <label for="filter-oem"><%- include('partials/icon', { name: 'tag', size: 14 }) %> OEM</label>
+    <input id="filter-oem" name="oemBrand" value="<%= query.oemBrand || '' %>" placeholder="e.g. Dell" class="w-auto">
+  </div>
+  <div class="filter-field">
+    <label for="filter-waiting-on"><%- include('partials/icon', { name: 'clock', size: 14 }) %> Waiting on</label>
+    <select id="filter-waiting-on" name="waitingOnParty" class="w-auto">
+      <option value="">Any</option>
+      <% waitingOnOptions.forEach(p => { %><option value="<%= p %>" <%= query.waitingOnParty === p ? 'selected' : '' %>><%= p %></option><% }) %>
+    </select>
+  </div>
+  <div class="filter-field">
+    <label for="filter-level"><%- include('partials/icon', { name: 'layers', size: 14 }) %> Level</label>
+    <select id="filter-level" name="level" class="w-auto">
+      <option value="">All</option>
+      <% levelOptions.forEach(l => { %><option value="<%= l %>" <%= query.level === l ? 'selected' : '' %>><%= l %></option><% }) %>
+    </select>
+  </div>
+  <div class="filter-actions">
+    <button type="submit" class="w-auto"><%- include('partials/icon', { name: 'filter', size: 14 }) %> Filter</button>
+    <a class="btn secondary w-auto" href="/delays"><%- include('partials/icon', { name: 'repeat', size: 14 }) %> Clear</a>
+  </div>
 </form>
 
+<%
+  const entityTypeIcon = { LOT: 'clipboard', CONTRACT: 'send', LOGISTICS: 'box', OPPORTUNITY: 'trending', DEAL_REGISTRATION: 'repeat' };
+  const ACCENTS = ['red', 'orange', 'purple', 'blue', 'gray'];
+  const amberCount = rows.filter(r => r.indicatorLevel === 'AMBER').length;
+  const redCount = rows.filter(r => r.indicatorLevel === 'RED').length;
+  const criticalCount = rows.filter(r => r.indicatorLevel === 'CRITICAL').length;
+  const staleCount = rows.filter(r => r.stale).length;
+  const tabDefs = [
+    { key: '', label: 'All', count: rows.length },
+    { key: 'AMBER', label: 'Amber', count: amberCount },
+    { key: 'RED', label: 'Red', count: redCount },
+    { key: 'CRITICAL', label: 'Critical', count: criticalCount },
+    { key: 'STALE', label: 'Stale', count: staleCount },
+  ];
+%>
+
+<div class="delays-tabs" id="delays-tabs">
+  <% tabDefs.forEach((t, i) => { %>
+    <button type="button" class="pill<%= i === 0 ? ' active' : '' %>" data-tab="<%= t.key %>"><%= t.label %> <span class="pill-count"><%= t.count %></span></button>
+  <% }) %>
+</div>
+
+<div class="list-toolbar">
+  <input type="search" id="delays-search" placeholder="Search by bid title, customer, or lot..." class="col" style="max-width:26rem;">
+  <div class="row tight">
+    <label class="muted" for="delays-sort" style="margin:0; font-size:0.82rem;">Sort by</label>
+    <select id="delays-sort" class="w-auto">
+      <option value="percent-desc">% of target used</option>
+      <option value="title-asc">Bid title (A-Z)</option>
+      <option value="followup-asc">Next follow-up date</option>
+    </select>
+  </div>
+</div>
+
 <% if (rows.length === 0) { %>
-  <p class="muted">Nothing currently amber, red, critical, or stale - matches the filter above.</p>
-<% } %>
-<div class="col" style="gap:0.6rem;">
-<% rows.forEach(row => { %>
-  <div class="card" style="padding:0.75rem 1rem;">
-    <div class="row" style="justify-content:space-between; align-items:flex-start; flex-wrap:wrap;">
-      <div>
-        <a href="<%= row.detailHref %>" style="font-weight:600;"><%= row.bidTitle %></a>
-        <% if (row.lotLabel) { %><span class="muted"> &middot; <%= row.lotLabel %></span><% } %>
-        <% if (row.entityType !== 'LOT') { %><span class="badge" style="margin-left:0.4rem;"><%= row.entityType %></span><% } %>
-        <div class="muted" style="font-size:0.85rem;">
+  <div class="empty-state">
+    <span class="empty-state-icon"><%- include('partials/icon', { name: 'check', size: 28 }) %></span>
+    <p class="empty-state-title">Nothing currently amber, red, critical, or stale</p>
+    <p class="empty-state-text">Everything matching the filter above is on track.</p>
+  </div>
+<% } else { %>
+<div class="stack" id="delays-list">
+<% rows.forEach((row, i) => {
+  const accent = ACCENTS[i % ACCENTS.length];
+  const pct = row.percentUsed !== null ? Math.max(0, row.percentUsed) : null;
+  const ringPct = pct !== null ? Math.min(100, pct) : 0;
+  const ringR = 26, ringCirc = 2 * Math.PI * ringR;
+  const ringLen = (ringPct / 100) * ringCirc;
+  const ringColor = (row.indicatorLevel === 'CRITICAL' || row.indicatorLevel === 'RED') ? 'var(--danger)'
+    : row.indicatorLevel === 'AMBER' ? 'var(--warn)' : 'var(--ok)';
+  const searchText = (row.bidTitle + ' ' + (row.organizationName || '') + ' ' + (row.lotLabel || '')).toLowerCase();
+%>
+  <div class="card delay-item accent-<%= accent %>"
+       data-level="<%= row.indicatorLevel %>" data-stale="<%= row.stale ? 'true' : 'false' %>"
+       data-search="<%= searchText %>" data-percent="<%= pct !== null ? pct : -1 %>"
+       data-title="<%= row.bidTitle.toLowerCase() %>" data-followup="<%= row.nextFollowUpDate || '' %>">
+    <div class="delay-row">
+      <span class="delay-row-icon"><%- include('partials/icon', { name: entityTypeIcon[row.entityType] || 'clipboard', size: 18 }) %></span>
+      <div class="delay-row-main">
+        <div class="delay-row-title">
+          <a href="<%= row.detailHref %>"><%= row.bidTitle %></a>
+          <% if (row.lotLabel) { %><span class="muted"> &middot; <%= row.lotLabel %></span><% } %>
+          <% if (row.entityType !== 'LOT') { %><span class="badge" style="margin-left:0.4rem;"><%= row.entityType %></span><% } %>
+        </div>
+        <div class="muted delay-row-sub">
           <%= row.organizationName || '-' %><% if (row.divisionName) { %> &middot; <%= row.divisionName %><% } %><% if (row.oemBrand) { %> &middot; <%= row.oemBrand %><% } %>
         </div>
+        <div class="mt-1">
+          <span class="badge <%= statusBadgeClass(row.status) %>"><%= row.status %></span>
+          <a class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>"
+             <% if (row.daysUsed !== null && row.targetDays !== null) { %>title="<%= row.daysUsed.toFixed(1) %>d / <%= row.targetDays.toFixed(1) %>d target"<% } %>
+             href="<%= stageHistoryHref(row.entityType, row.entityId, { title: row.bidTitle, subtitle: row.lotLabel, backHref: '/delays', backLabel: 'Back to Delays' }) %>"><%= row.indicatorLevel %></a>
+          <% if (row.stale) { %><span class="badge stale">stale</span><% } %>
+        </div>
+        <div class="muted mt-1" style="font-size:0.78rem;">
+          Officers: <%= row.officerNames.join(', ') || '-' %> &middot; Waiting on: <%= row.waitingOnParty || 'not set' %> &middot;
+          Next follow-up: <%= row.nextFollowUpDate || 'not set' %><% if (row.followUpOwnerName) { %> (<%= row.followUpOwnerName %>)<% } %>
+        </div>
       </div>
-      <div class="row" style="gap:0.4rem;">
-        <span class="badge <%= statusBadgeClass(row.status) %>"><%= row.status %></span>
-        <a class="badge <%= indicatorBadgeClass(row.indicatorLevel) %>"
-           <% if (row.daysUsed !== null && row.targetDays !== null) { %>title="<%= row.daysUsed.toFixed(1) %>d / <%= row.targetDays.toFixed(1) %>d target"<% } %>
-           href="<%= stageHistoryHref(row.entityType, row.entityId, { title: row.bidTitle, subtitle: row.lotLabel, backHref: '/delays', backLabel: 'Back to Delays' }) %>"><%= row.indicatorLevel %></a>
-        <% if (row.stale) { %><span class="badge stale">stale</span><% } %>
+      <div class="delay-ring-wrap">
+        <svg viewBox="0 0 64 64" class="donut-chart mini" role="img" aria-label="<%= pct !== null ? Math.round(pct) + '% of target' : 'No target set' %>">
+          <circle cx="32" cy="32" r="<%= ringR %>" fill="none" stroke="var(--border)" stroke-width="7"/>
+          <% if (pct !== null) { %>
+          <circle cx="32" cy="32" r="<%= ringR %>" fill="none" stroke="<%= ringColor %>" stroke-width="7"
+                  stroke-dasharray="<%= ringLen %> <%= ringCirc - ringLen %>" stroke-linecap="round" transform="rotate(-90 32 32)"/>
+          <% } %>
+          <text x="32" y="29" text-anchor="middle" class="donut-total"><%= pct !== null ? Math.round(pct) + '%' : '-' %></text>
+          <text x="32" y="41" text-anchor="middle" class="donut-total-label">of target</text>
+        </svg>
+      </div>
+      <div class="delay-row-actions">
+        <button type="button" class="btn btn-xs" data-toggle-followup><%- include('partials/icon', { name: 'calendar', size: 13 }) %> Log follow-up</button>
+        <span class="delay-row-menu" aria-hidden="true"><%- include('partials/icon', { name: 'more', size: 16 }) %></span>
       </div>
     </div>
-    <div class="row mt-1" style="font-size:0.85rem; flex-wrap:wrap; gap:1rem;">
-      <span><strong><%= row.percentUsed !== null ? Math.round(row.percentUsed) + '%' : '-' %></strong> of target</span>
-      <span>Officers: <%= row.officerNames.join(', ') || '-' %></span>
-      <span>Waiting on: <%= row.waitingOnParty || 'not set' %></span>
-      <span>Next follow-up: <%= row.nextFollowUpDate || 'not set' %><% if (row.followUpOwnerName) { %> (<%= row.followUpOwnerName %>)<% } %></span>
-    </div>
-    <details class="mt-1">
-      <summary class="muted" style="font-size:0.85rem;">Log follow-up / snooze</summary>
+    <details class="mt-1" data-followup-panel>
+      <summary class="muted" style="font-size:0.8rem; cursor:pointer;">Log follow-up / snooze</summary>
       <form method="post" action="/delays/follow-up" class="row tight mt-1">
         <input type="hidden" name="entityType" value="<%= row.entityType %>">
         <input type="hidden" name="entityId" value="<%= row.entityId %>">
@@ -89,5 +184,147 @@
   </div>
 <% }) %>
 </div>
+<p class="muted mt-1" id="delays-no-match" hidden>No delays match the current filters.</p>
+
+<div class="pagination-bar">
+  <span class="muted" id="delays-showing" style="font-size:0.82rem;"></span>
+  <div class="row tight">
+    <div class="pagination" id="delays-pagination"></div>
+    <label class="muted" for="delays-page-size" style="margin:0; font-size:0.82rem;">Per page:</label>
+    <select id="delays-page-size" class="w-auto">
+      <option value="5" selected>5</option>
+      <option value="10">10</option>
+      <option value="20">20</option>
+      <option value="50">50</option>
+    </select>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var list = document.getElementById('delays-list');
+    if (!list) return;
+    var allCards = Array.prototype.slice.call(list.querySelectorAll('.delay-item'));
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('#delays-tabs .pill'));
+    var searchInput = document.getElementById('delays-search');
+    var sortSelect = document.getElementById('delays-sort');
+    var pageSizeSelect = document.getElementById('delays-page-size');
+    var paginationEl = document.getElementById('delays-pagination');
+    var showingLabel = document.getElementById('delays-showing');
+    var noMatch = document.getElementById('delays-no-match');
+
+    var activeTab = '';
+    var currentPage = 1;
+
+    function sortCards(cards) {
+      var mode = sortSelect.value;
+      return cards.slice().sort(function (a, b) {
+        if (mode === 'title-asc') {
+          return a.getAttribute('data-title').localeCompare(b.getAttribute('data-title'));
+        }
+        if (mode === 'followup-asc') {
+          var fa = a.getAttribute('data-followup') || '9999-99-99';
+          var fb = b.getAttribute('data-followup') || '9999-99-99';
+          return fa.localeCompare(fb);
+        }
+        return parseFloat(b.getAttribute('data-percent')) - parseFloat(a.getAttribute('data-percent'));
+      });
+    }
+
+    function applyFilters() {
+      var search = searchInput.value.trim().toLowerCase();
+      var pageSize = parseInt(pageSizeSelect.value, 10);
+
+      var matches = allCards.filter(function (card) {
+        var level = card.getAttribute('data-level');
+        var stale = card.getAttribute('data-stale') === 'true';
+        var tabMatch = !activeTab || (activeTab === 'STALE' ? stale : level === activeTab);
+        var searchMatch = !search || card.getAttribute('data-search').indexOf(search) !== -1;
+        return tabMatch && searchMatch;
+      });
+
+      matches = sortCards(matches);
+
+      var totalPages = Math.max(1, Math.ceil(matches.length / pageSize));
+      if (currentPage > totalPages) currentPage = totalPages;
+      var start = (currentPage - 1) * pageSize;
+      var pageCards = matches.slice(start, start + pageSize);
+
+      allCards.forEach(function (card) { card.hidden = true; });
+      pageCards.forEach(function (card) { card.hidden = false; });
+      noMatch.hidden = matches.length !== 0;
+
+      showingLabel.textContent = matches.length === 0 ? '' :
+        (start + 1) + '–' + (start + pageCards.length) + ' of ' + matches.length;
+
+      renderPagination(totalPages);
+    }
+
+    function renderPagination(totalPages) {
+      paginationEl.innerHTML = '';
+      if (totalPages <= 1) return;
+      var prev = document.createElement('button');
+      prev.type = 'button'; prev.textContent = '‹'; prev.disabled = currentPage === 1;
+      prev.setAttribute('aria-label', 'Previous page');
+      prev.addEventListener('click', function () { currentPage--; applyFilters(); });
+      paginationEl.appendChild(prev);
+      for (var i = 1; i <= totalPages; i++) {
+        (function (page) {
+          var btn = document.createElement('button');
+          btn.type = 'button'; btn.textContent = String(page);
+          btn.setAttribute('aria-label', 'Page ' + page);
+          if (page === currentPage) btn.classList.add('active');
+          btn.addEventListener('click', function () { currentPage = page; applyFilters(); });
+          paginationEl.appendChild(btn);
+        })(i);
+      }
+      var next = document.createElement('button');
+      next.type = 'button'; next.textContent = '›'; next.disabled = currentPage === totalPages;
+      next.setAttribute('aria-label', 'Next page');
+      next.addEventListener('click', function () { currentPage++; applyFilters(); });
+      paginationEl.appendChild(next);
+    }
+
+    tabs.forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        tabs.forEach(function (t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        activeTab = tab.getAttribute('data-tab');
+        currentPage = 1;
+        applyFilters();
+      });
+    });
+
+    [searchInput, sortSelect].forEach(function (el) {
+      el.addEventListener('input', function () { currentPage = 1; applyFilters(); });
+      el.addEventListener('change', function () { currentPage = 1; applyFilters(); });
+    });
+    pageSizeSelect.addEventListener('change', function () { currentPage = 1; applyFilters(); });
+
+    document.querySelectorAll('[data-toggle-followup]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var details = btn.closest('.delay-item').querySelector('[data-followup-panel]');
+        details.open = !details.open;
+        if (details.open) details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    });
+
+    var quickFollowUp = document.getElementById('delays-quick-follow-up');
+    if (quickFollowUp) {
+      quickFollowUp.addEventListener('click', function () {
+        var firstCard = allCards.filter(function (card) { return !card.hidden; })[0] || allCards[0];
+        if (!firstCard) return;
+        var details = firstCard.querySelector('[data-followup-panel]');
+        details.open = true;
+        details.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        var noteInput = details.querySelector('input[name="note"]');
+        if (noteInput) noteInput.focus();
+      });
+    }
+
+    applyFilters();
+  })();
+</script>
+<% } %>
 
 <%- include('partials/footer') %>

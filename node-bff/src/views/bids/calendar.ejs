@@ -15,47 +15,66 @@
      return parts.length > 1 ? parts[1] : '';
    }
 %>
-<div class="toolbar">
-  <h1 style="margin:0;"><%= monthNames[month - 1] %> <%= year %></h1>
-  <a class="btn secondary" href="/bids/calendar?year=<%= prevYear %>&month=<%= prevMonth %>">&laquo; Prev</a>
-  <a class="btn secondary" href="/bids/calendar?year=<%= nextYear %>&month=<%= nextMonth %>">Next &raquo;</a>
-  <a class="btn secondary" href="/bids">List view</a>
-  <a class="btn secondary" href="/dashboard">Dashboard</a>
-</div>
 
-<div class="row tight muted mt-0" style="margin-bottom:0.75rem;">
-  <span><span class="cal-dot closing"></span> Closing</span>
-  <span><span class="cal-dot opening"></span> Opening</span>
-  <span><span class="cal-dot clarification"></span> Clarification deadline</span>
-</div>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/dashboard">Bid Management</a> <span aria-hidden="true">&rsaquo;</span> <span>Calendar</span></nav>
 
-<div class="table-scroll">
-<div class="calendar-grid">
-  <% ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => { %>
-    <div class="calendar-weekday"><%= d %></div>
-  <% }) %>
-  <% days.forEach(cell => { %>
-    <%
-      const hasEvents = cell.events.length > 0;
-      const modalId = 'day-modal-' + cell.date;
-      const cellClasses = ['calendar-cell'];
-      if (!cell.inMonth) cellClasses.push('out-of-month');
-      if (cell.date === todayKey) cellClasses.push('today');
-      if (hasEvents) cellClasses.push('clickable');
-    %>
-    <div class="<%= cellClasses.join(' ') %>"<% if (hasEvents) { %> onclick="document.getElementById('<%= modalId %>').showModal()"<% } %>>
-      <div class="calendar-cell-day"><%= cell.day %></div>
-      <% cell.events.slice(0, INLINE_LIMIT).forEach(ev => { %>
-        <a href="/bids/<%= ev.bidId %>" class="calendar-event" title="<%= ev.title %>" onclick="event.stopPropagation()">
-          <span class="cal-dot <%= ev.kind %>"></span><%= ev.title %>
-        </a>
-      <% }) %>
-      <% if (cell.events.length > INLINE_LIMIT) { %>
-        <button type="button" class="calendar-more" onclick="event.stopPropagation(); document.getElementById('<%= modalId %>').showModal()">+<%= cell.events.length - INLINE_LIMIT %> more</button>
-      <% } %>
+<div class="dash-header">
+  <div>
+    <div class="row tight" style="align-items:center;">
+      <span class="section-header-icon"><%- include('../partials/icon', { name: 'calendar', size: 20 }) %></span>
+      <h1 class="mt-0" style="margin-bottom:0;">Calendar</h1>
     </div>
-  <% }) %>
+    <p class="muted mt-0" style="margin-top:0.4rem; margin-bottom:0;">Track key dates for bids, including closing, opening and clarification deadlines.</p>
+  </div>
+  <div class="row tight page-header-actions">
+    <a class="btn secondary w-auto" href="/bids"><%- include('../partials/icon', { name: 'list', size: 15 }) %> List view</a>
+    <a class="btn w-auto" href="/dashboard"><%- include('../partials/icon', { name: 'grid', size: 15 }) %> Dashboard</a>
+  </div>
 </div>
+
+<div class="card">
+  <div class="calendar-header-row">
+    <div class="row tight" style="align-items:center;">
+      <h2 class="calendar-title"><%= monthNames[month - 1] %> <%= year %></h2>
+      <a class="calendar-nav-btn" href="/bids/calendar?year=<%= prevYear %>&month=<%= prevMonth %>" aria-label="Previous month"><%- include('../partials/icon', { name: 'chevron-left', size: 16 }) %></a>
+      <a class="calendar-nav-btn" href="/bids/calendar?year=<%= nextYear %>&month=<%= nextMonth %>" aria-label="Next month"><%- include('../partials/icon', { name: 'chevron-right', size: 16 }) %></a>
+    </div>
+    <div class="row calendar-header-right">
+      <span class="row calendar-legend-item"><span class="cal-dot closing"></span> Closing</span>
+      <span class="row calendar-legend-item"><span class="cal-dot opening"></span> Opening</span>
+      <span class="row calendar-legend-item"><span class="cal-dot clarification"></span> Clarification deadline</span>
+      <a class="btn secondary w-auto" href="/bids/calendar"><%- include('../partials/icon', { name: 'calendar', size: 14 }) %> Today</a>
+    </div>
+  </div>
+
+  <div class="table-scroll">
+  <div class="calendar-grid">
+    <% ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => { %>
+      <div class="calendar-weekday"><%= d %></div>
+    <% }) %>
+    <% days.forEach(cell => { %>
+      <%
+        const hasEvents = cell.events.length > 0;
+        const modalId = 'day-modal-' + cell.date;
+        const cellClasses = ['calendar-cell'];
+        if (!cell.inMonth) cellClasses.push('out-of-month');
+        if (cell.date === todayKey) cellClasses.push('today');
+        if (hasEvents) cellClasses.push('clickable');
+      %>
+      <div class="<%= cellClasses.join(' ') %>"<% if (hasEvents) { %> onclick="document.getElementById('<%= modalId %>').showModal()"<% } %>>
+        <div class="calendar-cell-day"><%= cell.day %></div>
+        <% cell.events.slice(0, INLINE_LIMIT).forEach(ev => { %>
+          <a href="/bids/<%= ev.bidId %>" class="calendar-event <%= ev.kind %>" title="<%= ev.title %>" onclick="event.stopPropagation()">
+            <span class="cal-dot <%= ev.kind %>"></span><%= ev.title %>
+          </a>
+        <% }) %>
+        <% if (cell.events.length > INLINE_LIMIT) { %>
+          <button type="button" class="calendar-more" onclick="event.stopPropagation(); document.getElementById('<%= modalId %>').showModal()">+<%= cell.events.length - INLINE_LIMIT %> more <%- include('../partials/icon', { name: 'chevron-down', size: 12 }) %></button>
+        <% } %>
+      </div>
+    <% }) %>
+  </div>
+  </div>
 </div>
 
 <% days.forEach(cell => { %>
