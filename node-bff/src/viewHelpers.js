@@ -62,6 +62,12 @@ function formatMoney(amount, currency) {
   return currency ? `${currency} ${formatted}` : formatted;
 }
 
+/** "CONTRACT_CLOSURE" -> "Contract Closure" - for enum values (category, etc.) that reach a view as raw upper-snake-case and need to read as prose rather than a code constant. */
+function humanizeEnum(value) {
+  if (!value) return '-';
+  return value.toLowerCase().split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
 function statusBadgeClass(status) {
   if (!status) return '';
   const s = status.toLowerCase();
@@ -136,6 +142,6 @@ function stageHistoryHref(entityType, entityId, options) {
 }
 
 module.exports = {
-  formatDate, formatDateTime, formatDateInput, formatTimeInput, formatMoney, timeAgo, statusBadgeClass, severityBadgeClass, barWidth, indicatorBadgeClass, indicatorLabel,
+  formatDate, formatDateTime, formatDateInput, formatTimeInput, formatMoney, timeAgo, humanizeEnum, statusBadgeClass, severityBadgeClass, barWidth, indicatorBadgeClass, indicatorLabel,
   stageHistoryHref,
 };

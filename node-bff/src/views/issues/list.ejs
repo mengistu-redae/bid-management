@@ -52,7 +52,7 @@
     <label for="filter-category"><%- include('../partials/icon', { name: 'tag', size: 14 }) %> Category</label>
     <select id="filter-category" class="w-auto">
       <option value="">All categories</option>
-      <% categoryOptions.forEach(c => { %><option value="<%= c %>"><%= c %></option><% }) %>
+      <% categoryOptions.forEach(c => { %><option value="<%= c %>"><%= humanizeEnum(c) %></option><% }) %>
     </select>
   </div>
   <div class="filter-field">
@@ -77,8 +77,8 @@
     </select>
   </div>
   <div class="filter-actions">
-    <a class="btn secondary w-auto" id="issues-clear-filters" href="#"><%- include('../partials/icon', { name: 'repeat', size: 14 }) %> Clear</a>
     <button type="button" class="w-auto" id="issues-apply-filters"><%- include('../partials/icon', { name: 'filter', size: 14 }) %> Filter</button>
+    <a class="btn secondary w-auto" id="issues-clear-filters" href="#"><%- include('../partials/icon', { name: 'repeat', size: 14 }) %> Clear</a>
   </div>
 </form>
 
@@ -152,7 +152,7 @@
             </a>
           </td>
           <td><a class="issues-row-link" href="/issues/<%= i.id %>"><%= i.itemOrSystem || '-' %></a></td>
-          <td><span class="badge <%= categoryBadgeClass(i.category) %>"><%= i.category %></span></td>
+          <td><span class="badge <%= categoryBadgeClass(i.category) %>"><%= humanizeEnum(i.category) %></span></td>
           <td><%= i.division ? i.division.name : '-' %></td>
           <td><span class="badge <%= statusBadgeClass(i.status) %>"><span class="badge-dot"></span><%= i.status %></span></td>
           <td><span class="badge <%= severityBadgeClass(i.severity) %>"><%- include('../partials/icon', { name: 'alert', size: 11 }) %> <%= i.severity %></span></td>

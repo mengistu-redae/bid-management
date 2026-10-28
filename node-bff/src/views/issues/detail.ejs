@@ -1,9 +1,11 @@
 <%- include('../partials/header', { title: title, user: user }) %>
 
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/dashboard">Bid Management</a> <span aria-hidden="true">&rsaquo;</span> <a href="/issues">Issues</a> <span aria-hidden="true">&rsaquo;</span> <span><%= issue.organization.name %><% if (issue.itemOrSystem) { %> &middot; <%= issue.itemOrSystem %><% } %></span></nav>
+
 <div class="toolbar">
   <div>
     <h1 style="margin:0;"><%= issue.organization.name %><% if (issue.itemOrSystem) { %> &middot; <%= issue.itemOrSystem %><% } %></h1>
-    <div class="muted"><%= issue.category %><% if (issue.division) { %> &middot; <%= issue.division.name %><% } %> &middot; open <%= issue.daysOpen %> day<%= issue.daysOpen === 1 ? '' : 's' %></div>
+    <div class="muted"><%= humanizeEnum(issue.category) %><% if (issue.division) { %> &middot; <%= issue.division.name %><% } %> &middot; open <%= issue.daysOpen %> day<%= issue.daysOpen === 1 ? '' : 's' %></div>
   </div>
   <span class="badge <%= statusBadgeClass(issue.status) %>" style="font-size:1rem;"><%= issue.status %></span>
   <span class="badge <%= severityBadgeClass(issue.severity) %>" style="font-size:1rem;"><%= issue.severity %></span>

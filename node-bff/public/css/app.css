@@ -293,7 +293,7 @@ tr:hover td { background: var(--hover-bg); }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(8rem, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; min-width: 56rem; }
 .calendar-weekday { background: var(--bg-alt); padding: 0.55rem; text-align: center; font-size: 0.82rem; font-weight: 600; color: var(--muted); }
 .calendar-cell { background: var(--bg); min-height: 5.5rem; min-width: 0; padding: 0.5rem; overflow: hidden; transition: background-color 0.12s ease-in-out; }
-.calendar-cell.out-of-month { opacity: 0.4; }
+.calendar-cell.out-of-month .calendar-cell-day { opacity: 0.4; }
 .calendar-cell.clickable { cursor: pointer; }
 .calendar-cell.clickable:hover { background: var(--hover-bg); }
 .calendar-cell.today { box-shadow: inset 0 0 0 2px var(--accent); }
@@ -693,16 +693,6 @@ a.stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 
 /* A rotating accent purely for visual scannability down a tall list - not
    tied to severity, which the status/indicator badges on each card already
    convey. */
-.delay-item.accent-red { border-left: 4px solid var(--danger); }
-.delay-item.accent-red .delay-row-icon { background: var(--danger); color: #fff; }
-.delay-item.accent-orange { border-left: 4px solid var(--warn); }
-.delay-item.accent-orange .delay-row-icon { background: var(--warn); color: #fff; }
-.delay-item.accent-purple { border-left: 4px solid var(--new); }
-.delay-item.accent-purple .delay-row-icon { background: var(--new); color: #fff; }
-.delay-item.accent-blue { border-left: 4px solid var(--accent); }
-.delay-item.accent-blue .delay-row-icon { background: var(--accent); color: #fff; }
-.delay-item.accent-gray { border-left: 4px solid var(--muted); }
-.delay-item.accent-gray .delay-row-icon { background: var(--muted); color: #fff; }
 
 .delay-ring-wrap { flex-shrink: 0; width: 5.5rem; }
 .donut-chart.mini { max-width: 3.6rem; }

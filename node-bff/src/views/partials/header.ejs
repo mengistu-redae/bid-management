@@ -164,6 +164,44 @@
       });
     })();
   </script>
+  <script>
+    // htmx's default behavior for a non-2xx response is to swap nothing and
+    // fire these events silently - with hx-boost="true" on <body>, that means
+    // a failed page navigation (e.g. the bid-detail route 503ing) left the
+    // user on the old page with zero feedback. Falling back to a real
+    // window.location navigation for a boosted request is the guaranteed fix:
+    // it re-requests the same URL as a plain GET, so the browser renders the
+    // server's own full error page (see error.ejs / index.js's error
+    // handler - status code preserved) instead of silently going nowhere.
+    (function () {
+      function showFlash(message) {
+        var main = document.querySelector('main');
+        if (!main) return;
+        var existing = document.getElementById('hx-error-flash');
+        if (existing) existing.remove();
+        var div = document.createElement('div');
+        div.id = 'hx-error-flash';
+        div.className = 'flash error';
+        div.textContent = message;
+        main.insertBefore(div, main.firstChild);
+      }
+
+      function handle(evt, networkOnly) {
+        var detail = evt.detail || {};
+        if (detail.boosted && detail.pathInfo && detail.pathInfo.requestPath) {
+          window.location.assign(detail.pathInfo.requestPath);
+          return;
+        }
+        var status = !networkOnly && detail.xhr ? detail.xhr.status : null;
+        showFlash(networkOnly
+          ? 'Could not reach the server. Check your connection and try again.'
+          : 'Something went wrong' + (status ? ' (error ' + status + ')' : '') + '. Please try again.');
+      }
+
+      document.body.addEventListener('htmx:responseError', function (evt) { handle(evt, false); });
+      document.body.addEventListener('htmx:sendError', function (evt) { handle(evt, true); });
+    })();
+  </script>
   <div class="app-content">
     <main>
     <% if (typeof flash !== 'undefined' && flash) { %>
